@@ -5,6 +5,7 @@ library;
 export 'src/data/mock_repository.dart';
 export 'src/data/repository.dart';
 export 'src/events.dart';
+export 'src/games/feedback.dart';
 export 'src/games/game_module.dart';
 export 'src/games/game_registry.dart';
 export 'src/models/campaign.dart';

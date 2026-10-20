@@ -30,4 +30,9 @@ Juegos: MVP = Ruleta + Raspa y Gana. Roadmap = Concéntrese, Dados.
 - Para flujo diario rápido usar `flutter run -d chrome` en el host; Docker es para reproducibilidad y despliegue.
 
 ## Estado
-T1 (monorepo), Docker local, T2 (`gamification_core`), T4 (tema + i18n) y T5 (flujo común en `gamification_sdk`) completadas: 58 tests. Siguiente: T6 ruleta, T7 raspa; T3 (OpenAPI) en paralelo.
+T1 (monorepo), Docker local, T2 (core), T4 (tema + i18n), T5 (flujo común) y T6 (ruleta) completadas: 85 tests, ruleta validada en Chromium real con Playwright. Siguiente: T7 raspa; T3 (OpenAPI) en paralelo.
+
+## Notas de juegos
+- **Sonido:** `SystemFeedback` usa `HapticFeedback`/`SystemSound`. En web `SystemSound` NO suena (solo vibra en móvil). Sonido real en web = audio con assets (pendiente; Luis pidió sonido activado por defecto).
+- **Validación visual con Playwright (Flutter web):** el árbol de accesibilidad se activa con `focus()` + `Enter` sobre `flt-semantics-placeholder` (el clic de ratón falla: está fuera de pantalla); `getByRole('textbox').fill()` NO llega a Flutter, usar `click()` + `keyboard.type()`. Si no hay navegador de la revisión pedida, pasar `executablePath` al Chromium ya cacheado en `~/Library/Caches/ms-playwright`.
+- Ruleta: segmentos 4–12; `gameResult.segmentIndex` fuera de rango o config inválida → el juego muestra aviso y deja continuar al resultado (el premio ya está acreditado).
