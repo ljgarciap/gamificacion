@@ -1,0 +1,31 @@
+name: gamificacion_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.8.1
+
+workspace:
+  - packages/gamification_core
+  - packages/game_roulette
+  - packages/game_scratch
+  - packages/gamification_sdk
+  - packages/gamification_http
+  - apps/standalone
+
+dev_dependencies:
+  melos: ^7.0.0
+
+melos:
+  scripts:
+    analyze:
+      run: melos exec -- flutter analyze
+      description: Analiza todos los paquetes
+    test:
+      run: melos exec --dir-exists=test -- flutter test
+      description: Corre los tests de cada paquete
+    format:
+      run: dart format --set-exit-if-changed .
+      description: Verifica formato
+
+flutter:
+  uses-material-design: true

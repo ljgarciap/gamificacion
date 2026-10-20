@@ -1,0 +1,52 @@
+# Uso:
+#   docker compose up --build web        -> build de producción en http://localhost:8080
+#   docker compose up dev                -> hot reload en http://localhost:8081 (r = reload, R = restart)
+#   docker compose run --rm tools test   -> analyze + tests de todo el workspace
+services:
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: web
+    ports:
+      - "8080:80"
+    environment:
+      ALLOWED_FRAME_ANCESTORS: "*"
+
+  dev:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    working_dir: /app/apps/standalone
+    command: >
+      sh -c "cd /app && flutter pub get &&
+             cd apps/standalone &&
+             flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8081"
+    ports:
+      - "8081:8081"
+    volumes:
+      - .:/app
+      - pub-cache:/root/.pub-cache
+      - dart-tool:/app/.dart_tool
+      - dart-tool-app:/app/apps/standalone/.dart_tool
+    stdin_open: true
+    tty: true
+
+  tools:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    working_dir: /app
+    entrypoint: ["sh", "/app/docker/tools.sh"]
+    volumes:
+      - .:/app
+      - pub-cache:/root/.pub-cache
+      - dart-tool:/app/.dart_tool
+      - dart-tool-app:/app/apps/standalone/.dart_tool
+
+volumes:
+  pub-cache:
+  dart-tool:
+  dart-tool-app:

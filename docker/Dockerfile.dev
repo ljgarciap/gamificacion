@@ -1,0 +1,7 @@
+# Entorno de desarrollo: Flutter + hot reload sobre web-server. El código se monta como volumen.
+ARG FLUTTER_VERSION=3.32.8
+# amd64 forzado (ver docker/Dockerfile).
+FROM --platform=linux/amd64 ghcr.io/cirruslabs/flutter:${FLUTTER_VERSION}
+WORKDIR /app
+RUN flutter config --no-analytics >/dev/null
+EXPOSE 8081

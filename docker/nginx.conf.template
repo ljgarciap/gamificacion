@@ -1,0 +1,31 @@
+server {
+  listen 80;
+  root /usr/share/nginx/html;
+  index index.html;
+
+  # OJO: un add_header dentro de un location anula TODOS los del server.
+  # Por eso las cabeceras de seguridad se repiten en cada location.
+
+  location / {
+    try_files $uri $uri/ /index.html;
+    add_header Content-Security-Policy "frame-ancestors ${ALLOWED_FRAME_ANCESTORS}" always;
+    add_header X-Content-Type-Options "nosniff" always;
+  }
+
+  # El bootstrap no se cachea; los assets con hash sí.
+  location = /flutter_service_worker.js {
+    add_header Cache-Control "no-cache";
+    add_header Content-Security-Policy "frame-ancestors ${ALLOWED_FRAME_ANCESTORS}" always;
+    add_header X-Content-Type-Options "nosniff" always;
+  }
+  location = /index.html {
+    add_header Cache-Control "no-cache";
+    add_header Content-Security-Policy "frame-ancestors ${ALLOWED_FRAME_ANCESTORS}" always;
+    add_header X-Content-Type-Options "nosniff" always;
+  }
+  location ~* \.(js|wasm|css|png|jpg|svg|woff2?|ttf|otf)$ {
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    add_header Content-Security-Policy "frame-ancestors ${ALLOWED_FRAME_ANCESTORS}" always;
+    add_header X-Content-Type-Options "nosniff" always;
+  }
+}
