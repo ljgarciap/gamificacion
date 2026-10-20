@@ -82,8 +82,9 @@ final class BatchLifecycle
      * códigos (B4). La base rechaza duplicados, índices fuera de rango y cualquier alta fuera del estado borrador.
      *
      * @param  list<string>  $hashes
+     * @param  bool  $audit  false cuando quien llama registra un único resumen (p. ej. la generación por tandas)
      */
-    public function addCodeHashes(string $batchId, array $hashes, string $actor): void
+    public function addCodeHashes(string $batchId, array $hashes, string $actor, bool $audit = true): void
     {
         if ($hashes === []) {
             return;
@@ -95,7 +96,7 @@ final class BatchLifecycle
             }
         }
 
-        DB::transaction(function () use ($batchId, $hashes, $actor): void {
+        DB::transaction(function () use ($batchId, $hashes, $actor, $audit): void {
             $b = $this->lock($batchId);
             $this->requireState($b, 'draft', 'addCodes');
             $from = (int) DB::selectOne('SELECT count(*) AS c FROM codes WHERE batch_id = ?', [$batchId])->c;
@@ -109,9 +110,11 @@ final class BatchLifecycle
                 }
                 DB::insert('INSERT INTO codes (batch_id, idx, code_hash) VALUES '.implode(',', $sql), $bind);
             }
-            $this->audit->append($actor, 'batch.codes_added', 'batch', $batchId, [
-                'from_idx' => $from, 'count' => count($hashes),
-            ]);
+            if ($audit) {
+                $this->audit->append($actor, 'batch.codes_added', 'batch', $batchId, [
+                    'from_idx' => $from, 'count' => count($hashes),
+                ]);
+            }
         });
     }
 

@@ -69,7 +69,7 @@ borrador ──commit──▶ comprometido ──activar──▶ activo ──
 | ID | Requerimiento |
 |---|---|
 | RF-20 | CRUD de campañas y lotes en borrador; el pool define premios, cantidades y "sin premio" (parámetros, no constantes) |
-| RF-21 | Generar `N` códigos únicos de ≥ 50 bits de entropía, alfabeto sin caracteres ambiguos, con dígito verificador para rechazar errores de tipeo antes de consultar la BD |
+| RF-21 | Generar `N` códigos únicos de ≥ 50 bits de entropía, con dígito verificador para rechazar errores de tipeo antes de consultar la BD. **Implementado:** alfabeto Crockford de 32 símbolos (sin I, L, O, U); 10 símbolos = exactamente 50 bits (un alfabeto más reducido, sin 0 ni 1, daría 49 bits y no cumpliría); la confusión O→0 e I/L→1 se corrige al normalizar lo que escribe el usuario; verificación Luhn módulo 32 |
 | RF-22 | Comprometer, activar, cerrar y revelar según §3; transiciones inválidas rechazadas |
 | RF-23 | Asignación por baraja determinista según §4; stock exacto garantizado |
 | RF-24 | Redención atómica e idempotente según §5, con errores tipados (`invalidCode`, `alreadyUsed`, `expired`, `campaignInactive`, `rateLimited`) |
@@ -131,6 +131,8 @@ Los tests prohíben usar `rand`, `mt_rand`, `random_int` y `shuffle` dentro de `
 - **B2 hecho:** motor puro + verificador Python con vectores cruzados.
 - **B3 hecho:** esquema y ciclo de vida (borrador → comprometido → activo → cerrado → revelado) con inmutabilidad **en la base de datos**, huellas HMAC de los códigos, mapa premio↔código y semilla **cifrados en reposo** (XChaCha20-Poly1305, ligados a su fila), bitácora encadenada, cliente de drand y recorrido completo probado contra la baliza real y verificado por el verificador independiente.
 - **Hallazgos de la prueba con drand real:** una ronda futura responde HTTP **425** (no 404); `randomness = SHA-256(signature)`; ocasionalmente responde un **500 transitorio** (se reintenta con tope); la ronda comprometida tarda ~60 s en estar disponible.
+- **B4 hecho:** `CodeFormat` (generación, verificación y normalización de lo que escribe el usuario) y `CodeGenerator` (genera por tandas, guarda solo huellas HMAC, exporta el texto en claro **una única vez** a un CSV 0600, todo o nada, SHA-256 del archivo en la bitácora). Comando `php artisan gamification:codes:generate {lote} --prefix= --out=`. El dígito verificador detecta todas las sustituciones de un símbolo y todas las transposiciones de adyacentes salvo el par `0↔Z` (verificado exhaustivamente); es para errores de tipeo, no es seguridad.
+- **Cómo se pierde un lote de códigos:** el texto en claro solo existe en el archivo exportado. Si se pierde, no hay forma de recuperarlo (por diseño) y hay que recrear el lote. Un lote con códigos a medias no se completa.
 - **Límite de memoria:** el motor asigna con arreglos en memoria; hasta ~100 mil códigos corre en segundos y con memoria por defecto. Para el tope de 1 millón de códigos hay que subir `memory_limit` (≈512 MB) o procesar por tandas (pendiente de medir en B-hardening).
 
 ## 11. Fuera de alcance de esta etapa
@@ -140,4 +142,4 @@ Panel de administración visual (SPEC-003) · integración real de acreditación
 - **D1 — RESUELTA (sí):** se mezcla una baliza pública externa (drand); la ronda `R` va dentro del compromiso.
 - **D2 — RESUELTA:** la **app host acredita** el dinero/puntos al recibir nuestro aviso firmado (callback con reintentos idempotentes). Esta etapa usa un *stub*; la integración real es SPEC-003.
 - **D3 — ABIERTA (legal, fuera de lo técnico):** ¿la regulación aplicable (juegos promocionales en Colombia) exige registrar o autorizar la campaña y conservar la auditoría un tiempo mínimo? Define la retención de la bitácora y quién firma la revelación. Hasta saberlo, la bitácora **no se purga**.
-- **D4 — Por defecto (cambiable sin impacto):** código visible `PREFIJO-XXXX-XXXX`: 10 caracteres aleatorios (alfabeto Crockford sin `0 O 1 I L U`, ≈ 50 bits) + 1 de verificación.
+- **D4 — RESUELTA al implementar B4:** código visible `PREFIJO-XXXX-XXXX-XXX` = 10 símbolos aleatorios (50 bits) + 1 de verificación, alfabeto Crockford de 32 símbolos. La spec decía "sin `0 O 1 I L U`" (30 símbolos, 49 bits), que incumplía RF-21; se corrigió. El prefijo es decorativo y se ignora al validar.
