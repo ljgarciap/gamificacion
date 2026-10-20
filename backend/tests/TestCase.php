@@ -40,6 +40,7 @@ abstract class TestCase extends BaseTestCase
         'GAMIF_DEV_ENDPOINTS' => 'false',
         'GAMIF_BEACON' => 'drand',
         'GAMIF_HOSTS' => '{}',
+        'GAMIF_TRUSTED_PROXIES' => '',
         'GAMIF_DEMO_INITIAL_BALANCE' => '0',
     ];
 

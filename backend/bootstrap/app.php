@@ -18,6 +18,15 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias(['host.auth' => AuthenticateHost::class]);
+
+        // Proxies de confianza (balanceador). El límite de intentos por IP depende de `$request->ip()`: sin esto, detrás de un balanceador todas
+        // las peticiones parecen venir de la IP del proxy y 30 intentos fallidos de UNA persona bloquearían el canje de TODOS. Con `*` cualquiera
+        // que llegue directo al servidor podría falsear su IP con X-Forwarded-For: úselo solo si la app NO es alcanzable sin pasar por el proxy.
+        // Lista separada por comas de IP/CIDR. Por defecto vacía = no se confía en ninguna cabecera X-Forwarded-*.
+        $proxies = array_values(array_filter(array_map('trim', explode(',', (string) env('GAMIF_TRUSTED_PROXIES', '')))));
+        if ($proxies !== []) {
+            $middleware->trustProxies(at: $proxies === ['*'] ? '*' : $proxies, headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO);
+        }
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
