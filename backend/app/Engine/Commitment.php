@@ -13,16 +13,36 @@ namespace App\Engine;
  */
 final class Commitment
 {
-    /** Resumen del conjunto de huellas de código (cada una de 32 bytes), en orden de índice. */
-    public static function codesDigest(array $codeHashes): string
+    /**
+     * Resumen del conjunto de huellas de código (cada una de 32 bytes), en orden de índice.
+     *
+     * Acepta un arreglo o un flujo (generador) y calcula el hash de forma incremental, para no cargar un millón de
+     * huellas en memoria. Con un flujo hay que indicar cuántas son; se comprueba que lleguen exactamente esas.
+     *
+     * @param  iterable<string>  $codeHashes
+     */
+    public static function codesDigest(iterable $codeHashes, ?int $count = null): string
     {
+        $count ??= is_countable($codeHashes) ? count($codeHashes) : null;
+        if ($count === null) {
+            throw new \InvalidArgumentException('con un flujo de huellas hay que indicar cuántas son');
+        }
+
+        $ctx = hash_init('sha256');
+        hash_update($ctx, Domain::CODES.Bytes::be32($count));
+        $seen = 0;
         foreach ($codeHashes as $h) {
             if (! is_string($h) || strlen($h) !== 32) {
                 throw new \InvalidArgumentException('cada huella de código debe tener 32 bytes');
             }
+            hash_update($ctx, $h);
+            $seen++;
+        }
+        if ($seen !== $count) {
+            throw new \InvalidArgumentException("se esperaban $count huellas y llegaron $seen");
         }
 
-        return hash('sha256', Domain::CODES.Bytes::be32(count($codeHashes)).implode('', $codeHashes), true);
+        return hash_final($ctx, true);
     }
 
     public static function commit(

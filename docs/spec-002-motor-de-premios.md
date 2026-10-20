@@ -84,7 +84,7 @@ borrador ──commit──▶ comprometido ──activar──▶ activo ──
 | R1 | Adivinar códigos (fuerza bruta) | ≥ 50 bits + dígito verificador; límite por usuario/IP, bloqueo progresivo, respuesta de tiempo constante; alertas por patrones |
 | R2 | Fuga de la BD revela códigos sin redimir | Solo se guardan huellas HMAC con *pepper* fuera de la BD; texto plano exportado una vez |
 | R3 | **Operador interno conoce qué códigos ganan** y los desvía | El mapa código↔premio se guarda **cifrado** (clave fuera de la BD); la API de administración nunca lista asignaciones; accesos auditados; control dual para exportar. *No eliminable del todo*: se mitiga y se audita. Detección: la bitácora permite revisar quién redimió los premios altos |
-| R4 | Manipular el resultado tras el compromiso | Compromiso publicado + restricciones en BD que impiden modificar un lote `comprometido`+; bitácora encadenada |
+| R4 | Manipular el resultado tras el compromiso | Compromiso publicado + triggers/restricciones en BD que impiden modificar un lote `comprometido`+ (probado con SQL directo y por mutación); bitácora encadenada. **Límite conocido:** borrar solo la(s) última(s) entrada(s) de la bitácora deja una cadena internamente válida; se mitiga **anclando fuera de la base el último hash** (se incluye en la exportación de auditoría y se publica junto al compromiso) — pendiente en B6 |
 | R5 | Escoger la semilla a conveniencia | Baliza pública mezclada tras el compromiso (D1) |
 | R6 | Doble redención por concurrencia o reintentos | `UPDATE … WHERE redeemed_at IS NULL` atómico + idempotencia; test de concurrencia |
 | R7 | Cliente manipulado dicta el resultado | El cliente nunca envía ni conoce el resultado (ya garantizado en SPEC-001) |
@@ -93,7 +93,7 @@ borrador ──commit──▶ comprometido ──activar──▶ activo ──
 | R10 | Enumerar/forzar el panel de administración | Autenticación fuerte, roles (superadmin/operador/auditor), límites de tasa, todo auditado |
 
 ## 8. Pila técnica (decisiones del Arquitecto)
-**Laravel 11 (PHP 8.3) + PostgreSQL 16** (Luis 2026-10-20: el panel de admin con roles, las colas y el límite de tasa ya vienen en el framework y coincide con 4 proyectos del workspace).
+**Laravel 13 (PHP 8.3) + PostgreSQL 16** (Luis 2026-10-20: el panel de admin con roles, las colas y el límite de tasa ya vienen en el framework y coincide con 4 proyectos del workspace). Se eligió la 13 y no la 11 porque Composer bloquea todas las 11.x por avisos de seguridad (ya sin soporte).
 Servicios `backend` y `db` en `docker-compose` (mismo flujo local que el front) · migraciones y Eloquent · colas para la *outbox* y los reintentos hacia la host · Pest/PHPUnit.
 `pepper`, clave de cifrado y JWT desde variables de entorno ahora, gestor de secretos (AWS) después.
 Estructura: `backend/app/Engine/` (motor **puro**: sin Laravel, sin BD, sin red, sin reloj; solo `random_bytes` y `hash_hmac`), `Domain/`, `Http/`.
@@ -125,6 +125,13 @@ Los tests prohíben usar `rand`, `mt_rand`, `random_int` y `shuffle` dentro de `
 | B7 | Contrato OpenAPI (cierra T3) y `HttpRepository` en Flutter; app standalone configurable mock/real | Frontend | B5 |
 | B8 | Revisión de seguridad | Cybersecurity | B5 |
 | B9 | Senior Reviewer · QA (concurrencia, estadística, E2E) | Senior/QA | B7 |
+
+## 10b. Estado de la implementación
+- **B1 hecho:** backend Laravel 13 + PostgreSQL 16 en Docker; tests contra PostgreSQL real y base aparte.
+- **B2 hecho:** motor puro + verificador Python con vectores cruzados.
+- **B3 hecho:** esquema y ciclo de vida (borrador → comprometido → activo → cerrado → revelado) con inmutabilidad **en la base de datos**, huellas HMAC de los códigos, mapa premio↔código y semilla **cifrados en reposo** (XChaCha20-Poly1305, ligados a su fila), bitácora encadenada, cliente de drand y recorrido completo probado contra la baliza real y verificado por el verificador independiente.
+- **Hallazgos de la prueba con drand real:** una ronda futura responde HTTP **425** (no 404); `randomness = SHA-256(signature)`; ocasionalmente responde un **500 transitorio** (se reintenta con tope); la ronda comprometida tarda ~60 s en estar disponible.
+- **Límite de memoria:** el motor asigna con arreglos en memoria; hasta ~100 mil códigos corre en segundos y con memoria por defecto. Para el tope de 1 millón de códigos hay que subir `memory_limit` (≈512 MB) o procesar por tandas (pendiente de medir en B-hardening).
 
 ## 11. Fuera de alcance de esta etapa
 Panel de administración visual (SPEC-003) · integración real de acreditación con la app host (SPEC-003) · gestor de secretos en AWS · multi-tenant por app host · analítica.
