@@ -8,6 +8,9 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: web
+      args:
+        # La web llama al backend DESDE EL NAVEGADOR. Por defecto, el de este mismo compose. Para usar el simulador: GAMIF_API_URL= docker compose build web
+        GAMIF_API_URL: ${GAMIF_API_URL-http://localhost:8000}
     ports:
       - "8080:80"
     environment:
@@ -22,7 +25,8 @@ services:
     command: >
       sh -c "cd /app && flutter pub get &&
              cd apps/standalone &&
-             flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8081"
+             flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8081
+             --dart-define=GAMIF_API_URL=${GAMIF_API_URL-http://localhost:8000}"
     ports:
       - "8081:8081"
     volumes:
@@ -69,6 +73,9 @@ services:
   backend:
     build:
       context: ./backend
+    # Servidor integrado de PHP en vez de `artisan serve`: este último NO pasa al servidor las variables de entorno del contenedor (solo unas
+    # pocas) y leería el .env (DB_CONNECTION=sqlite) en vez de PostgreSQL. Varios procesos: la web hace peticiones en paralelo (saldo, canje...).
+    command: php -S 0.0.0.0:8000 -t public public/index.php
     env_file:
       - path: ./backend/.env
         required: false
@@ -80,7 +87,9 @@ services:
       DB_USERNAME: gamification
       DB_PASSWORD: gamification
       # Vectores de prueba del verificador independiente (SPEC-002 §4): el motor debe reproducirlos byte a byte.
+      PHP_CLI_SERVER_WORKERS: "4"
       VERIFIER_DIR: /verifier
+      CONTRACT_DIR: /docs
     ports:
       - "8000:8000"
     depends_on:
@@ -90,6 +99,8 @@ services:
       - ./backend:/var/www/html
       - backend-vendor:/var/www/html/vendor
       - ./verifier:/verifier:ro
+      # Contrato (OpenAPI y ejemplos): las pruebas lo comparan con el código y, con UPDATE_CONTRACT_EXAMPLES=1, regeneran los ejemplos.
+      - ./docs:/docs
 
 volumes:
   db-data:

@@ -1,0 +1,7 @@
+{
+    "error": {
+        "code": "rateLimited",
+        "message": "Demasiados intentos. Intenta de nuevo más tarde.",
+        "retryAfter": 60
+    }
+}

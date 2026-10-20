@@ -1,5 +1,6 @@
-/// A Calculator.
-class Calculator {
-  /// Returns [value] plus 1.
-  int addOne(int value) => value + 1;
-}
+/// Cliente HTTP del backend de premios. `HttpRepository` implementa `GamificationRepository` contra la API v1.
+library;
+
+export 'src/dev_client.dart';
+export 'src/http_repository.dart';
+export 'src/token_provider.dart';

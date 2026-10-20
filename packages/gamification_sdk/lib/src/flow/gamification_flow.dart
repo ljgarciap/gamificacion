@@ -23,6 +23,7 @@ class GamificationFlow extends StatelessWidget {
     this.helpText,
     this.showBalance = true,
     this.demoCodes,
+    this.demoCodesLoader,
     this.onClose,
     this.onContinue,
     this.onBackHome,
@@ -40,6 +41,10 @@ class GamificationFlow extends StatelessWidget {
   final String? helpText;
   final bool showBalance;
   final Map<String, String>? demoCodes;
+
+  /// Alternativa a [demoCodes] para códigos que cambian (p. ej. los que aún se pueden canjear en un backend de desarrollo): se consulta cada
+  /// vez que aparece la pantalla de código, así los ya usados desaparecen. Un error al cargar se ignora (es solo una ayuda).
+  final Future<Map<String, String>> Function()? demoCodesLoader;
 
   /// Si es null no se dibuja el botón cerrar.
   final VoidCallback? onClose;
@@ -137,6 +142,7 @@ class _FlowRootState extends ConsumerState<_FlowRoot> {
           title: title,
           helpText: o.helpText,
           demoCodes: o.demoCodes,
+          demoCodesLoader: o.demoCodesLoader,
         );
       case FlowStage.playing:
         final redemption = state.redemption!;

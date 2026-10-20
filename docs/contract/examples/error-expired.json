@@ -1,0 +1,6 @@
+{
+    "error": {
+        "code": "expired",
+        "message": "Este código está vencido."
+    }
+}

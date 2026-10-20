@@ -5,6 +5,9 @@ enum FailureReason {
   campaignInactive,
   rateLimited,
   network,
+
+  /// El token del host no es válido o venció (HTTP 401). El cliente reintenta una vez pidiendo un token nuevo; si persiste, se muestra esto.
+  unauthorized,
   unknown;
 
   static FailureReason parse(String? raw) {

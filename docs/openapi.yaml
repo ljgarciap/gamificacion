@@ -1,0 +1,305 @@
+openapi: 3.1.0
+info:
+  title: Gamificación — API de redención de códigos
+  version: 1.0.0
+  description: |
+    API que valida códigos promocionales y entrega el premio YA asignado (SPEC-002). El servidor decide el resultado; el cliente solo lo representa.
+
+    Contrato verificado por pruebas: `backend/tests/Feature/Contract/OpenApiContractTest` (este archivo contra el código) y
+    `ContractExamplesTest` (los ejemplos de `docs/contract/examples/` contra respuestas reales). El cliente Flutter lee esos mismos
+    ejemplos en `packages/gamification_http/test/contract_test.dart`.
+
+    Descripción detallada de reglas y errores: `docs/api-v1.md`.
+servers:
+  - url: http://localhost:8000
+    description: Desarrollo local (Docker)
+security:
+  - bearerAuth: []
+tags:
+  - name: Redención
+  - name: Saldo
+  - name: Dev
+    description: Solo desarrollo local. Las rutas NO EXISTEN fuera de APP_ENV=local/testing, aunque GAMIF_DEV_ENDPOINTS esté activado.
+
+paths:
+  /v1/codes/redeem:
+    post:
+      tags: [Redención]
+      summary: Redime un código y devuelve su resultado
+      description: |
+        Atómico (un código solo se redime una vez) e idempotente: el mismo usuario con la misma `Idempotency-Key` recibe EXACTAMENTE la misma
+        respuesta, sin jugar ni acreditar de nuevo. La misma clave con otro código es un error de uso. Un intento fallido no consume la clave.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: 8 a 128 caracteres entre letras, números y `._-:`. Genérela una vez por intento y reutilícela al reintentar tras un fallo de red.
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 128
+            pattern: '^[A-Za-z0-9._\-:]{8,128}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  maxLength: 128
+                  description: |
+                    Se normaliza: mayúsculas/minúsculas, espacios, guiones, el prefijo (decorativo) y las confusiones O/0 e I/L/1 se toleran.
+                  examples: ['RULETA-K3J9-QW2X-7HC']
+      responses:
+        '200':
+          description: Resultado de la redención (o su repetición idéntica).
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Redemption' }
+        '400': { $ref: '#/components/responses/IdempotencyKeyRequired' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/CampaignInactive' }
+        '409': { $ref: '#/components/responses/AlreadyUsed' }
+        '410': { $ref: '#/components/responses/Expired' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /v1/balance:
+    get:
+      tags: [Saldo]
+      summary: Saldo del usuario en COP
+      description: En el modo independiente es un saldo de demostración; en una app host la billetera es del host.
+      responses:
+        '200':
+          description: Saldo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Balance' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /v1/dev/token:
+    post:
+      tags: [Dev]
+      summary: Emite un token de desarrollo (SOLO local)
+      x-dev-only: true
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId: { type: string, minLength: 1, maxLength: 128, default: demo-user }
+      responses:
+        '200':
+          description: Token firmado con el emisor de desarrollo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, expiresIn, userId]
+                properties:
+                  token: { type: string }
+                  expiresIn: { type: integer, const: 300 }
+                  userId: { type: string }
+        '422': { description: userId inválido }
+        '503': { description: El emisor de desarrollo no está configurado }
+
+  /v1/dev/demo-codes:
+    get:
+      tags: [Dev]
+      summary: Códigos de demostración que todavía se pueden canjear (SOLO local)
+      x-dev-only: true
+      security: []
+      responses:
+        '200':
+          description: Lista de códigos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [codes]
+                properties:
+                  codes:
+                    type: array
+                    items:
+                      type: object
+                      required: [code, game, description]
+                      properties:
+                        code: { type: string }
+                        game: { type: string }
+                        description: { type: string }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT corto que emite la app host. `iss` registrado en la configuración del servidor (algoritmo y clave fijados por emisor: HS256, RS256 o
+        ES256); `sub`, `aud` = `gamification`, `iat` y `exp` obligatorios; vida máxima 600 s. El usuario sale SOLO del token.
+
+  responses:
+    IdempotencyKeyRequired:
+      description: Falta la `Idempotency-Key` o su formato es inválido.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthenticated:
+      description: Token ausente o inválido. La respuesta es idéntica para toda causa (no se dice por qué).
+      headers:
+        WWW-Authenticate: { schema: { type: string, const: Bearer } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    CampaignInactive:
+      description: El lote está comprometido pero todavía no activo.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    AlreadyUsed:
+      description: El código ya fue canjeado (por otra persona, o por el mismo usuario si la campaña es `rejectOnly`).
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Expired:
+      description: Lote cerrado o revelado, o ventana de redención vencida.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unprocessable:
+      description: '`invalidCode` (no existe, mal escrito, lote en borrador) o `idempotencyKeyReuse` (la clave ya se usó con otro código).'
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    RateLimited:
+      description: Bloqueo por intentos fallidos o tope de peticiones. Cada reincidencia duplica el bloqueo hasta un tope.
+      headers:
+        Retry-After: { description: "Segundos a esperar", schema: { type: integer } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    ServerError:
+      description: Error interno. Nunca incluye detalles.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { $ref: '#/components/schemas/ErrorCode' }
+            message: { type: string, description: "Orientativo; el cliente debe mapear `code`." }
+            retryAfter: { type: integer, description: "Segundos (solo en `rateLimited`)." }
+
+    ErrorCode:
+      type: string
+      enum:
+        - invalidCode
+        - alreadyUsed
+        - expired
+        - campaignInactive
+        - rateLimited
+        - idempotencyKeyReuse
+        - idempotencyKeyRequired
+        - unauthenticated
+        - serverError
+
+    Balance:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount: { type: integer, description: "Pesos colombianos, sin decimales." }
+        currency: { type: string, const: COP }
+
+    PrizeType:
+      type: string
+      enum: [money, coupon, points, extraSpin, none]
+
+    Prize:
+      type: object
+      required: [id, type, label]
+      properties:
+        id: { type: string }
+        type: { $ref: '#/components/schemas/PrizeType' }
+        label: { type: string }
+        amount: { type: integer, description: 'COP para `money`; cantidad para `points`.' }
+        couponCode: { type: string }
+        iconKey: { type: string }
+
+    Redemption:
+      type: object
+      required: [redemptionId, alreadyPlayed, playedAt, campaign, outcome]
+      properties:
+        redemptionId: { type: string, format: uuid }
+        alreadyPlayed:
+          type: boolean
+          description: true si es el resultado anterior de un código ya jugado por este mismo usuario (`showPrevious`).
+        playedAt: { type: string, format: date-time }
+        campaign: { $ref: '#/components/schemas/Campaign' }
+        outcome: { $ref: '#/components/schemas/Outcome' }
+
+    Campaign:
+      type: object
+      required: [id, name, gameType, usedCodeBehavior, title, theme, gameConfig]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        gameType: { type: string, enum: [roulette, scratch] }
+        usedCodeBehavior: { type: string, enum: [rejectOnly, showPrevious] }
+        title: { type: [string, 'null'] }
+        theme:
+          type: object
+          description: Tokens de color (`#RRGGBB`) y opcionalmente `fontFamily` y `logoUrl`. Vacío = tema por defecto.
+          additionalProperties: { type: string }
+        gameConfig:
+          oneOf:
+            - { $ref: '#/components/schemas/RouletteConfig' }
+            - { $ref: '#/components/schemas/ScratchConfig' }
+
+    RouletteConfig:
+      type: object
+      required: [segments]
+      properties:
+        segments:
+          type: array
+          minItems: 4
+          maxItems: 12
+          items: { $ref: '#/components/schemas/Prize' }
+        durationMs: { type: integer }
+        fullTurns: { type: integer }
+        offsetSpread: { type: number }
+
+    ScratchConfig:
+      type: object
+      required: [rows, cols]
+      properties:
+        rows: { type: integer, minimum: 2, maximum: 5 }
+        cols: { type: integer, minimum: 2, maximum: 5 }
+        revealThreshold: { type: number }
+        brushWidth: { type: number }
+
+    Outcome:
+      type: object
+      required: [prize, extraSpins, gameResult]
+      properties:
+        prize: { $ref: '#/components/schemas/Prize' }
+        extraSpins: { type: integer, minimum: 0 }
+        gameResult:
+          oneOf:
+            - { $ref: '#/components/schemas/RouletteResult' }
+            - { $ref: '#/components/schemas/ScratchResult' }
+
+    RouletteResult:
+      type: object
+      required: [segmentIndex]
+      properties:
+        segmentIndex: { type: integer, minimum: 0, description: "Segmento (de `gameConfig.segments`) donde se detiene la ruleta." }
+
+    ScratchResult:
+      type: object
+      required: [grid]
+      properties:
+        grid:
+          type: array
+          items: { type: string }
+          description: |
+            Símbolo de cada casilla, fila por fila. Premio = exactamente 3 símbolos iguales al `prize.id`; el relleno nunca forma otro trío.
+            Un símbolo desconocido se muestra como texto.

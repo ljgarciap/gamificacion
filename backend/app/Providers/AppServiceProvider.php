@@ -8,6 +8,7 @@ use App\Domain\Balance\BalanceProvider;
 use App\Domain\Balance\StubBalanceProvider;
 use App\Domain\Beacon\BeaconClient;
 use App\Domain\Beacon\DrandBeacon;
+use App\Domain\Beacon\LocalBeacon;
 use App\Domain\Fulfillment\PrizeFulfillment;
 use App\Domain\Fulfillment\StubFulfillment;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -23,11 +24,22 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Baliza pública de aleatoriedad: drand por defecto, configurable en config/gamification.php.
-        $this->app->singleton(BeaconClient::class, fn (): BeaconClient => new DrandBeacon(
-            (string) config('gamification.beacon.base_url'),
-            (string) config('gamification.beacon.chain_hash'),
-            (int) config('gamification.beacon.timeout_seconds'),
-        ));
+        $this->app->singleton(BeaconClient::class, function (): BeaconClient {
+            if (config('gamification.beacon.driver') === 'local') {
+                // La baliza local NO es aleatoria: jamás fuera de desarrollo, y si alguien la configura en producción se descubre YA.
+                if (! $this->app->environment('local', 'testing')) {
+                    throw new \RuntimeException('GAMIF_BEACON=local solo se permite en entornos local/testing: no es aleatoria.');
+                }
+
+                return new LocalBeacon;
+            }
+
+            return new DrandBeacon(
+                (string) config('gamification.beacon.base_url'),
+                (string) config('gamification.beacon.chain_hash'),
+                (int) config('gamification.beacon.timeout_seconds'),
+            );
+        });
 
         // `bind` (no singleton): lee la configuración en cada resolución, así los cambios (y las pruebas) se respetan.
         $this->app->bind(HostTokenVerifier::class, fn (): HostTokenVerifier => HostTokenVerifier::fromConfig());

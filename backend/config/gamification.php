@@ -60,6 +60,17 @@ return [
         'initial_balance' => (int) env('GAMIF_DEMO_INITIAL_BALANCE', 0),
     ],
 
+    /*
+    | Utilidades SOLO de desarrollo local: un emisor de tokens (para que la app independiente pueda autenticarse sin una app host) y la lista de
+    | códigos de demostración. Se activan con GAMIF_DEV_ENDPOINTS=true Y únicamente si APP_ENV es local o testing; en cualquier otro entorno las
+    | rutas NO existen aunque la variable esté puesta.
+    */
+    'dev' => [
+        'enabled' => filter_var(env('GAMIF_DEV_ENDPOINTS', false), FILTER_VALIDATE_BOOLEAN),
+        // Emisor (debe existir en GAMIF_HOSTS) con el que se firman los tokens de desarrollo.
+        'issuer' => env('GAMIF_DEV_ISSUER', 'standalone-dev'),
+    ],
+
     /* Tope de códigos por lote (también lo valida el motor y la base). */
     'max_codes_per_batch' => 1_000_000,
 
@@ -68,6 +79,9 @@ return [
     | `chain_hash`; el activador NUNCA cae a una semilla sin baliza: si no hay valor todavía, espera y reintenta.
     */
     'beacon' => [
+        // 'drand' (real) o 'local'. 'local' NO es aleatoria (devuelve un valor determinista) y solo se acepta en local/testing: sirve para
+        // ver el flujo completo en desarrollo sin esperar a drand. Fuera de esos entornos, usarla es un error que se detecta al resolverla.
+        'driver' => env('GAMIF_BEACON', 'drand'),
         'base_url' => env('DRAND_URL', 'https://api.drand.sh'),
         'chain_hash' => env('DRAND_CHAIN', '52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971'),
         // La ronda comprometida es la primera posterior a (ahora + margen): da tiempo a publicar el compromiso antes.

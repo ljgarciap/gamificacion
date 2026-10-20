@@ -86,6 +86,73 @@ final class GenerateKeysCommandTest extends TestCase
         }
     }
 
+    // --- Configuración de desarrollo (--dev) ---------------------------------------------------------------------
+
+    public function test_dev_agrega_el_emisor_de_tokens_con_su_propia_clave_aleatoria(): void
+    {
+        $this->artisan('gamification:keys', ['--write' => true, '--dev' => true, '--path' => $this->env])->assertSuccessful();
+
+        $raw = (string) $this->value('GAMIF_HOSTS');
+        $this->assertStringStartsWith("'", $raw, 'entre comillas simples: es JSON');
+        $hosts = json_decode(trim($raw, "'"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['standalone-dev'], array_keys($hosts));
+        $this->assertSame('HS256', $hosts['standalone-dev']['alg']);
+        $this->assertSame(32, strlen((string) base64_decode($hosts['standalone-dev']['key'], true)));
+        $this->assertNotSame($this->value('GAMIF_PRIZE_MAP_KEY'), $hosts['standalone-dev']['key'], 'una clave distinta de la del mapa de premios');
+    }
+
+    public function test_dev_activa_lo_necesario_para_trabajar_en_local(): void
+    {
+        $this->artisan('gamification:keys', ['--write' => true, '--dev' => true, '--path' => $this->env])->assertSuccessful();
+
+        $this->assertSame('true', $this->value('GAMIF_DEV_ENDPOINTS'));
+        $this->assertSame('local', $this->value('GAMIF_BEACON'));
+        $this->assertSame('http://localhost:8080,http://localhost:8081', $this->value('GAMIF_CORS_ORIGINS'));
+        $this->assertSame('120000', $this->value('GAMIF_DEMO_INITIAL_BALANCE'));
+    }
+
+    public function test_sin_dev_no_se_agrega_nada_de_desarrollo(): void
+    {
+        $this->artisan('gamification:keys', ['--write' => true, '--path' => $this->env])->assertSuccessful();
+        foreach (['GAMIF_HOSTS', 'GAMIF_DEV_ENDPOINTS', 'GAMIF_BEACON', 'GAMIF_CORS_ORIGINS'] as $name) {
+            $this->assertNull($this->value($name), "$name no debe agregarse sin --dev");
+        }
+    }
+
+    public function test_dev_no_pisa_lo_que_ya_existe_pero_si_agrega_lo_que_falta(): void
+    {
+        file_put_contents($this->env, "GAMIF_BEACON=drand
+GAMIF_DEV_ENDPOINTS=false
+");
+        $this->artisan('gamification:keys', ['--write' => true, '--dev' => true, '--path' => $this->env])->assertSuccessful();
+
+        $this->assertSame('drand', $this->value('GAMIF_BEACON'), 'respeta lo que ya estaba');
+        $this->assertSame('false', $this->value('GAMIF_DEV_ENDPOINTS'));
+        $this->assertNotNull($this->value('GAMIF_HOSTS'), 'pero agrega lo que faltaba');
+    }
+
+    public function test_dev_sin_write_solo_imprime(): void
+    {
+        $this->artisan('gamification:keys', ['--dev' => true, '--path' => $this->env])
+            ->expectsOutputToContain('GAMIF_HOSTS=')
+            ->expectsOutputToContain('GAMIF_BEACON=local')
+            ->assertSuccessful();
+        $this->assertSame('', (string) file_get_contents($this->env));
+    }
+
+    public function test_cada_ejecucion_dev_genera_un_emisor_con_clave_distinta(): void
+    {
+        $other = tempnam(sys_get_temp_dir(), 'env-test-');
+        try {
+            $this->artisan('gamification:keys', ['--write' => true, '--dev' => true, '--path' => $this->env])->assertSuccessful();
+            $this->artisan('gamification:keys', ['--write' => true, '--dev' => true, '--path' => $other])->assertSuccessful();
+            preg_match('/^GAMIF_HOSTS=(.+)$/m', (string) file_get_contents($other), $m);
+            $this->assertNotSame($this->value('GAMIF_HOSTS'), $m[1]);
+        } finally {
+            @unlink($other);
+        }
+    }
+
     // --- Validación de los secretos ------------------------------------------------------------------------------
 
     public function test_un_secreto_ausente_o_invalido_falla_fuerte(): void

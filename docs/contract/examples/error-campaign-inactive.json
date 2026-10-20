@@ -1,0 +1,6 @@
+{
+    "error": {
+        "code": "campaignInactive",
+        "message": "Esta promoción no está activa."
+    }
+}

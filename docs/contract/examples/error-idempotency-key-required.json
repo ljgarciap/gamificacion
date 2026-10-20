@@ -1,0 +1,6 @@
+{
+    "error": {
+        "code": "idempotencyKeyRequired",
+        "message": "Falta el encabezado Idempotency-Key (8 a 128 caracteres: letras, números y ._-:)."
+    }
+}

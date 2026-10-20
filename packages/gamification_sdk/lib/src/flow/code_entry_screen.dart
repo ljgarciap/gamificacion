@@ -15,6 +15,7 @@ class CodeEntryScreen extends ConsumerStatefulWidget {
     required this.title,
     this.helpText,
     this.demoCodes,
+    this.demoCodesLoader,
   });
 
   final String title;
@@ -25,6 +26,9 @@ class CodeEntryScreen extends ConsumerStatefulWidget {
   /// Código -> descripción. Solo en builds no productivos (RF-08).
   final Map<String, String>? demoCodes;
 
+  /// Cargador de códigos de prueba; si existe, manda sobre [demoCodes]. Se consulta al aparecer la pantalla.
+  final Future<Map<String, String>> Function()? demoCodesLoader;
+
   @override
   ConsumerState<CodeEntryScreen> createState() => _CodeEntryScreenState();
 }
@@ -33,10 +37,25 @@ class _CodeEntryScreenState extends ConsumerState<CodeEntryScreen> {
   final _controller = TextEditingController();
   Timer? _tick;
 
+  /// Códigos que devolvió el cargador (null mientras carga o si no hay cargador).
+  Map<String, String>? _loadedDemoCodes;
+
   @override
   void initState() {
     super.initState();
     _controller.addListener(() => setState(() {}));
+    _loadDemoCodes();
+  }
+
+  Future<void> _loadDemoCodes() async {
+    final loader = widget.demoCodesLoader;
+    if (loader == null) return;
+    try {
+      final codes = await loader();
+      if (mounted) setState(() => _loadedDemoCodes = codes);
+    } catch (_) {
+      // Es solo una ayuda de desarrollo: si falla, el panel simplemente queda vacío.
+    }
   }
 
   @override
@@ -156,7 +175,7 @@ class _CodeEntryScreenState extends ConsumerState<CodeEntryScreen> {
               onPressed: () => _showHelp(context, widget.helpText!),
               child: Text(s.helpLink),
             ),
-          if (widget.demoCodes != null && widget.demoCodes!.isNotEmpty) _demoPanel(s, theme),
+          if ((_loadedDemoCodes ?? widget.demoCodes)?.isNotEmpty ?? false) _demoPanel(s, theme),
         ],
       ),
     );
@@ -203,7 +222,7 @@ class _CodeEntryScreenState extends ConsumerState<CodeEntryScreen> {
           ],
         ),
         children: [
-          for (final entry in widget.demoCodes!.entries)
+          for (final entry in (_loadedDemoCodes ?? widget.demoCodes)!.entries)
             ListTile(
               dense: true,
               title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w700)),

@@ -1,0 +1,6 @@
+{
+    "error": {
+        "code": "alreadyUsed",
+        "message": "Este código ya fue utilizado."
+    }
+}

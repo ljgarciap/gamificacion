@@ -1,0 +1,6 @@
+{
+    "error": {
+        "code": "invalidCode",
+        "message": "El código no es válido."
+    }
+}

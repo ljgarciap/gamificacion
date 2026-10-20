@@ -115,6 +115,7 @@ class EsStrings extends GamificationStrings {
             ? 'Demasiados intentos. Espera un momento.'
             : 'Demasiados intentos. Reintenta en ${retryAfter.inSeconds} s.',
         FailureReason.network => 'Sin conexión. Verifica tu internet e inténtalo de nuevo.',
+        FailureReason.unauthorized => 'Tu sesión no es válida. Vuelve a abrir la aplicación e inténtalo de nuevo.',
         FailureReason.unknown => 'Ocurrió un error inesperado. Inténtalo de nuevo.',
       };
 }
@@ -184,6 +185,7 @@ class EnStrings extends GamificationStrings {
             ? 'Too many attempts. Please wait a moment.'
             : 'Too many attempts. Try again in ${retryAfter.inSeconds} s.',
         FailureReason.network => 'No connection. Check your internet and try again.',
+        FailureReason.unauthorized => 'Your session is not valid. Please reopen the app and try again.',
         FailureReason.unknown => 'An unexpected error occurred. Please try again.',
       };
 }
