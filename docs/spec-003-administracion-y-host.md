@@ -1,6 +1,6 @@
 # SPEC-003 — Panel de administración, integración con la app host y giro extra
 
-Estado: **BORRADOR — pendiente de aprobación de Luis**
+Estado: **APROBADA por Luis (2026-10-20, "procede")** con las propuestas por defecto en D8 (sin correo), D9 y D10 (solo español). D3 y D5 siguen abiertas (legal): no bloquean las tareas.
 Origen: lo que SPEC-002 dejó explícitamente para esta etapa (§11, D2, D5, D6, D7) + decisiones de Luis 2026-10-20 (sección 2).
 Depende de: SPEC-002 completa (B1–B9, `docs/qa-b9.md`, `docs/seguridad-b8.md`).
 Prioridad: **después de SPEC-004** (Concéntrese y Dados, pedidos por Luis para la demo el 2026-10-20). No dependen entre sí.

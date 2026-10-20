@@ -108,3 +108,13 @@ G6 y G7 corren en paralelo. Estimación de alcance: pequeño-mediano; no toca el
 - **D11 — Reglas de la demo de Dados.** Propuesta: 2 dados; los **dobles** pagan (1-1 y 6-6 → $ 50.000; 2-2 al 5-5 → $ 10.000) y el resto es "Sin premio". Cualquier otra tabla se cambia solo por configuración.
 - **D12 — Tamaño de Concéntrese en la demo.** Propuesta: 4×3 (6 parejas). Configurable de 3 a 8 parejas.
 - **D13 — Transparencia del juego.** Propuesta: mostrar un texto corto ("tu premio ya está decidido; el juego es la forma de descubrirlo"), igual que "Tu premio ya está asegurado" del raspa. Es una decisión de comunicación y posiblemente legal (D3).
+
+## 11. Evolución futura (idea de Luis, 2026-10-20) — fuera de esta etapa
+En la demo la habilidad no cambia el premio y está bien. Más adelante se podría **medir la habilidad contra un oponente** (p. ej. una IA) y basarse en probabilidad para ofrecer opciones: quién resuelve más rápido, o cuántas parejas halla.
+Implicaciones que hay que decidir **antes** de especificarlo, porque cambian el principio de esta plataforma:
+- **El premio deja de estar pre-asignado por código.** Hoy el sorteo (SPEC-002) fija el premio de cada código con stock exacto y es verificable por terceros. Si el desempeño del jugador influye, hay que decidir qué parte sigue siendo sorteo (p. ej. el *techo* de premio posible, o un premio base más una bonificación) para conservar stock exacto y auditoría.
+- **Estatus legal (D3):** un juego donde influye la habilidad se trata distinto de uno de azar en la regulación de promociones; conviene la asesoría legal antes de diseñarlo.
+- **Un oponente IA** debe ser configurable por campaña (dificultad como parámetro, nunca fija) y su ventaja o desventaja debe quedar registrada para auditar que no se manipula el resultado.
+- El cliente seguiría sin decidir nada: el servidor valida el tiempo y los movimientos recibidos.
+Cuando se retome: spec nueva (SPEC-00X) con Game Expert para el balance, y decisión de negocio sobre cómo se combinan sorteo y desempeño.
+
