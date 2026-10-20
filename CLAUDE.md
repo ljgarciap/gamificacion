@@ -30,4 +30,4 @@ Juegos: MVP = Ruleta + Raspa y Gana. Roadmap = Concéntrese, Dados.
 - Para flujo diario rápido usar `flutter run -d chrome` en el host; Docker es para reproducibilidad y despliegue.
 
 ## Estado
-T1 (monorepo) y Docker local completadas (tools 6/6 analyze limpio; web sirve en :8080). Siguiente: T2 (`gamification_core`).
+T1 (monorepo), Docker local y T2 (`gamification_core`, 26 tests) completadas. Siguiente: T4 (tema + i18n) y T5 (flujo común); T3 (OpenAPI) en paralelo.
