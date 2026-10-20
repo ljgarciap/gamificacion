@@ -25,11 +25,24 @@ final class Fixtures
         return new BatchLifecycle($this->beacon, $this->vault, $this->audit);
     }
 
+    /** Configuración de juego válida: la ruleta usa los 4 premios (con "sin premio" repetido) y el raspa los símbolos por defecto. */
+    public static function gameConfig(string $gameType): array
+    {
+        return match ($gameType) {
+            'roulette' => ['segments' => ['p50k', 'none', 'p10k', 'p100k', 'none', 'p10k', 'none', 'p50k']],
+            'scratch' => ['rows' => 3, 'cols' => 3],
+            default => [],
+        };
+    }
+
     /** Campaña con cuatro premios: none, p10k, p50k y p100k. */
-    public function campaign(string $gameType = 'roulette'): string
+    public function campaign(string $gameType = 'roulette', string $usedCodeBehavior = 'rejectOnly'): string
     {
         $id = (string) Str::uuid();
-        DB::table('campaigns')->insert(['id' => $id, 'name' => 'Campaña de prueba', 'game_type' => $gameType]);
+        DB::table('campaigns')->insert([
+            'id' => $id, 'name' => 'Campaña de prueba', 'game_type' => $gameType, 'used_code_behavior' => $usedCodeBehavior,
+            'title' => 'Gira y Gana', 'game_config' => json_encode(self::gameConfig($gameType)),
+        ]);
         DB::table('prizes')->insert([
             ['campaign_id' => $id, 'prize_id' => 'none', 'type' => 'none', 'label' => 'Sin premio', 'amount' => null],
             ['campaign_id' => $id, 'prize_id' => 'p10k', 'type' => 'money', 'label' => '$ 10.000', 'amount' => 10000],

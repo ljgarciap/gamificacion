@@ -12,6 +12,54 @@ return [
     'prize_map_key' => env('GAMIF_PRIZE_MAP_KEY'),
     'code_pepper' => env('GAMIF_CODE_PEPPER'),
 
+    /*
+    | Apps host autorizadas a llamar a la API (SPEC-002 R9). JSON en GAMIF_HOSTS: {"emisor": {"alg": "HS256", "key": "<base64 de 32+ bytes>"}}
+    | o {"emisor": {"alg": "RS256"|"ES256", "key": "<PEM de la clave PÚBLICA>"}}. El algoritmo y la clave los fija ESTA configuración por
+    | emisor: nunca se confía en lo que declare el token (evita `alg: none` y confusión de algoritmos).
+    */
+    'hosts' => json_decode((string) env('GAMIF_HOSTS', '{}'), true) ?: [],
+
+    'token' => [
+        'audience' => env('GAMIF_TOKEN_AUDIENCE', 'gamification'),
+        // Tokens cortos: un token robado sirve poco tiempo.
+        'max_lifetime_seconds' => (int) env('GAMIF_TOKEN_MAX_LIFETIME', 600),
+        'leeway_seconds' => (int) env('GAMIF_TOKEN_LEEWAY', 30),
+    ],
+
+    /*
+    | Límites de intentos fallidos al redimir (R1) y de peticiones. Bloqueo progresivo: cada vez que se supera el máximo de fallos
+    | dentro de la ventana, el bloqueo dura el doble que el anterior (hasta el tope). Por ahora son configuración; su administración
+    | desde un panel (regla de parámetros) llega con SPEC-003.
+    */
+    'redeem' => [
+        'user' => [
+            'max_failures' => (int) env('GAMIF_USER_MAX_FAILURES', 5),
+            'window_seconds' => (int) env('GAMIF_USER_WINDOW', 600),
+            'lockout_base_seconds' => (int) env('GAMIF_USER_LOCKOUT_BASE', 60),
+            'lockout_max_seconds' => (int) env('GAMIF_USER_LOCKOUT_MAX', 3600),
+        ],
+        // Por IP el máximo es mayor: varias personas pueden compartir una (oficina, red móvil).
+        'ip' => [
+            'max_failures' => (int) env('GAMIF_IP_MAX_FAILURES', 30),
+            'window_seconds' => (int) env('GAMIF_IP_WINDOW', 600),
+            'lockout_base_seconds' => (int) env('GAMIF_IP_LOCKOUT_BASE', 60),
+            'lockout_max_seconds' => (int) env('GAMIF_IP_LOCKOUT_MAX', 3600),
+        ],
+        'requests_per_minute' => (int) env('GAMIF_REQUESTS_PER_MINUTE', 60),
+    ],
+
+    /* Entrega de avisos de acreditación al host (outbox transaccional): al menos una vez, con reintentos y espera creciente. */
+    'outbox' => [
+        'max_attempts' => (int) env('GAMIF_OUTBOX_MAX_ATTEMPTS', 8),
+        'backoff_base_seconds' => (int) env('GAMIF_OUTBOX_BACKOFF_BASE', 30),
+        'backoff_max_seconds' => (int) env('GAMIF_OUTBOX_BACKOFF_MAX', 3600),
+    ],
+
+    /* Solo para el modo independiente/demostración: saldo inicial de cada usuario. Una app host real tiene su propia billetera. */
+    'demo' => [
+        'initial_balance' => (int) env('GAMIF_DEMO_INITIAL_BALANCE', 0),
+    ],
+
     /* Tope de códigos por lote (también lo valida el motor y la base). */
     'max_codes_per_batch' => 1_000_000,
 

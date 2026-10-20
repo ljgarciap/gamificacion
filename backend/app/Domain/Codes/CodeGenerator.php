@@ -132,7 +132,8 @@ final class CodeGenerator
                 $canonical = CodeFormat::canonicalFromBytes(($this->randomBytes)(CodeFormat::BYTES_NEEDED));
                 $codes[$canonical] = true; // repetido dentro de la tanda: se descarta
             }
-            $canon = array_keys($codes);
+            // array_keys devuelve ENTEROS para las claves que parecen números (p. ej. un código de 11 dígitos sin ceros a la izquierda).
+            $canon = array_map('strval', array_keys($codes));
             $hashes = array_map(fn (string $c): string => $this->hasher->hash($c), $canon);
 
             try {

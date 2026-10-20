@@ -5,6 +5,7 @@ namespace App\Domain\Batches;
 use App\Domain\Audit\AuditLog;
 use App\Domain\Beacon\BeaconClient;
 use App\Domain\Crypto\PrizeVault;
+use App\Domain\Redemption\Presentation;
 use App\Engine\Commitment;
 use App\Engine\Pool;
 use App\Engine\PrizeAssigner;
@@ -139,6 +140,10 @@ final class BatchLifecycle
             $pool = $this->poolOf($b);
             $this->assertPrizesExist($b->campaign_id, $pool);
 
+            // Mejor rechazar AHORA que descubrir, con un usuario jugando, que un premio no cabe en la ruleta.
+            $campaign = DB::selectOne('SELECT game_type, game_config::text AS cfg FROM campaigns WHERE id = ?', [$b->campaign_id]);
+            Presentation::assertRepresentable($b->campaign_id, $campaign->game_type, json_decode($campaign->cfg, true), $pool);
+
             $digest = Commitment::codesDigest($this->codeHashes($batchId), (int) $b->total_codes);
             $seed = random_bytes(32); // el CSPRNG del sistema operativo: único punto donde nace el azar del sorteo
             $commitment = Commitment::commit($batchId, $pool, $digest, $chain, $round, $seed);
@@ -228,7 +233,8 @@ final class BatchLifecycle
         DB::transaction(function () use ($batchId, $actor): void {
             $b = $this->lock($batchId);
             $this->requireState($b, 'active', 'close');
-            DB::update("UPDATE batches SET state = 'closed', closed_at = now(), updated_at = now() WHERE id = ?", [$batchId]);
+            // clock_timestamp() y no now(): now() es la hora de INICIO de la transacción, y el cierre pudo esperar a los canjes en curso.
+            DB::update("UPDATE batches SET state = 'closed', closed_at = clock_timestamp(), updated_at = now() WHERE id = ?", [$batchId]);
             $redeemed = (int) DB::selectOne('SELECT count(*) AS c FROM codes WHERE batch_id = ? AND redeemed_at IS NOT NULL', [$batchId])->c;
             $this->audit->append($actor, 'batch.closed', 'batch', $batchId, [
                 'redeemed' => $redeemed, 'total_codes' => (int) $b->total_codes,
