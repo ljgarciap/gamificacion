@@ -1,0 +1,138 @@
+{
+    "version": 2,
+    "batch_id": "27dbbacd-6266-4e18-8310-987885e08af4",
+    "chain_hash": "636861696e2d64652d7072756562612d30313233343536373839616263646566",
+    "beacon_round": 5000000,
+    "beacon_value": "b3f04437bbe158e1161e74ceb6297f59438456bd86fe726c21ac311f6a524ed2",
+    "pool": [
+        {
+            "prize_id": "none",
+            "quantity": 12
+        },
+        {
+            "prize_id": "p100k",
+            "quantity": 1
+        },
+        {
+            "prize_id": "p10k",
+            "quantity": 4
+        },
+        {
+            "prize_id": "p50k",
+            "quantity": 2
+        }
+    ],
+    "codes_digest": "998f5b99ff7e71c280d0c3961e489e43d420e57a1f6d864286c2bc1462b1ae2b",
+    "commitment": "628c51c3e8c6aedf47b2f9932fc8a402ab93642a74c8aab09e3f646105a9e5d5",
+    "seed": "80867523037e4c35f648c1e7464c666de60b71aea4f12350aa0fdb1f8e019882",
+    "code_hashes": [
+        "269dc7a390a0ba731dc8d1ef1a5e6dabafd577872cddc0d083a10086d840b4f2",
+        "905ca3646212ee725dc8fc54fe5da25c061d6b58f05d9912ca031d172acd6930",
+        "6ab32abb4026c4dd820e3dab033b5dfc1c8b1468254ec7d311b6cf2ff7d5e155",
+        "453ae400a09afff5bf17ea9ce7cb615013e55f201612fbe095ac0795f4469dac",
+        "c941a1d2ea0ee52ca7e7f2946a53aff0983d839fdcde1c4e7b7ef067578343ad",
+        "2ca09ea1fceeac8e9a162a739a412cbd982ec24babc14b48ad83bf29bc227144",
+        "d9ade92a56732e96eddaab7c53ff94cdcc0977e2a16215fa87bf15c50c29ab18",
+        "cd5ce5d6812e9161fcf8f116417040a891f82d1a33ee535b9fbe7f712a165ea8",
+        "9453c381148dcf72eabad2681bc45eea98b7efe20155b90c1642070bb3c46aaa",
+        "b5b6bdf74c1e413de816fe19ba12e9835b30fbedaa67443150ce922f4fa860bc",
+        "1e5178a86e0711aeb613a6dc30c10fcb85dc4157383eaf145940e4d4dc456c58",
+        "d5b3f7d054f2ad233b7dcf63724d0b5eb967cb222160c0998b5fc31120964b93",
+        "986f55317122428fe513b981dab3490470d59409783030b017cd56b42c93b022",
+        "ef6527d5fe037ce521fc13e09a7b399840c6cdfb5fa173be03669394f9feed2e",
+        "ac85ddb80e886bfa79fe604cc8dcb3e19efd9847ab03ae9fdfc3d9214319c45b",
+        "bdb96fec8334935ebcc7b25f522b961f3e93ce3ac587cadda52bfe9992040b0d",
+        "9bfe923c0d4029f41ae5bb92607159d28be91b20a2d514d4adc7b4d377f08b0e",
+        "b42d1e2a6e6f3419f8a67cb24612bcf5762cd5b5e6e1b480e61898179602602f",
+        "fb50b40ec00b6f0c282c3b817b8981b76d8d7f9606cded53eb0c29c055589f7e"
+    ],
+    "assignments": [
+        "none",
+        "none",
+        "none",
+        "none",
+        "p10k",
+        "none",
+        "none",
+        "none",
+        "p100k",
+        "none",
+        "none",
+        "p10k",
+        "none",
+        "p50k",
+        "none",
+        "none",
+        "p10k",
+        "p10k",
+        "p50k"
+    ],
+    "audit_log": [
+        {
+            "id": 39,
+            "actor": "tester",
+            "action": "batch.created",
+            "subject_type": "batch",
+            "subject_id": "27dbbacd-6266-4e18-8310-987885e08af4",
+            "data": "{\"campaign_id\":\"558a3b39-592c-4575-b110-3d4fab750fab\",\"name\":\"Lote de prueba\",\"pool\":[{\"prize_id\":\"none\",\"quantity\":12},{\"prize_id\":\"p100k\",\"quantity\":1},{\"prize_id\":\"p10k\",\"quantity\":4},{\"prize_id\":\"p50k\",\"quantity\":2}],\"total_codes\":19}",
+            "at_micros": 1792532558808759,
+            "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "hash": "9d61b7cd37aec42f455b3ea3b6787c932e8b41d71bb41df9f1a3be3f3d9ca833"
+        },
+        {
+            "id": 40,
+            "actor": "tester",
+            "action": "batch.codes_added",
+            "subject_type": "batch",
+            "subject_id": "27dbbacd-6266-4e18-8310-987885e08af4",
+            "data": "{\"count\":19,\"from_idx\":0}",
+            "at_micros": 1792532558812407,
+            "prev_hash": "9d61b7cd37aec42f455b3ea3b6787c932e8b41d71bb41df9f1a3be3f3d9ca833",
+            "hash": "ca633f61a6330ab1fbf8b772b0edaac4cdce604e68ad5ebd4e50a071b29214ea"
+        },
+        {
+            "id": 41,
+            "actor": "tester",
+            "action": "batch.committed",
+            "subject_type": "batch",
+            "subject_id": "27dbbacd-6266-4e18-8310-987885e08af4",
+            "data": "{\"batch_id\":\"27dbbacd-6266-4e18-8310-987885e08af4\",\"beacon_round\":5000000,\"chain_hash\":\"636861696e2d64652d7072756562612d30313233343536373839616263646566\",\"codes_digest\":\"998f5b99ff7e71c280d0c3961e489e43d420e57a1f6d864286c2bc1462b1ae2b\",\"commitment\":\"628c51c3e8c6aedf47b2f9932fc8a402ab93642a74c8aab09e3f646105a9e5d5\",\"pool\":[{\"prize_id\":\"none\",\"quantity\":12},{\"prize_id\":\"p100k\",\"quantity\":1},{\"prize_id\":\"p10k\",\"quantity\":4},{\"prize_id\":\"p50k\",\"quantity\":2}],\"pool_hash\":\"14625a55ce4998c5512273150ee95ae6148a8edcf8574e5a84bb65554835e603\",\"prizes\":[{\"amount\":null,\"label\":\"Sin premio\",\"prize_id\":\"none\",\"type\":\"none\"},{\"amount\":100000,\"label\":\"$ 100.000\",\"prize_id\":\"p100k\",\"type\":\"money\"},{\"amount\":10000,\"label\":\"$ 10.000\",\"prize_id\":\"p10k\",\"type\":\"money\"},{\"amount\":50000,\"label\":\"$ 50.000\",\"prize_id\":\"p50k\",\"type\":\"money\"}]}",
+            "at_micros": 1792532558815453,
+            "prev_hash": "ca633f61a6330ab1fbf8b772b0edaac4cdce604e68ad5ebd4e50a071b29214ea",
+            "hash": "924a6a2415b63ae38faef3db7d0b22e9a93d516cd46c1f2dab9046cb0caf29ba"
+        },
+        {
+            "id": 42,
+            "actor": "tester",
+            "action": "batch.activated",
+            "subject_type": "batch",
+            "subject_id": "27dbbacd-6266-4e18-8310-987885e08af4",
+            "data": "{\"beacon_round\":5000000,\"beacon_value\":\"b3f04437bbe158e1161e74ceb6297f59438456bd86fe726c21ac311f6a524ed2\"}",
+            "at_micros": 1792532558818171,
+            "prev_hash": "924a6a2415b63ae38faef3db7d0b22e9a93d516cd46c1f2dab9046cb0caf29ba",
+            "hash": "e2ad5af566b947a4a2abda3b5f3f584f05e4a7b412a3c72be73dd9f82ed244a6"
+        },
+        {
+            "id": 43,
+            "actor": "ana",
+            "action": "batch.closed",
+            "subject_type": "batch",
+            "subject_id": "27dbbacd-6266-4e18-8310-987885e08af4",
+            "data": "{\"redeemed\":0,\"total_codes\":19}",
+            "at_micros": 1792532558819444,
+            "prev_hash": "e2ad5af566b947a4a2abda3b5f3f584f05e4a7b412a3c72be73dd9f82ed244a6",
+            "hash": "438e8c25c31f8174719fa08aaaab63d643eecd2300afcccead8930949df1d5db"
+        },
+        {
+            "id": 44,
+            "actor": "ana",
+            "action": "batch.revealed",
+            "subject_type": "batch",
+            "subject_id": "27dbbacd-6266-4e18-8310-987885e08af4",
+            "data": "{\"seed\":\"80867523037e4c35f648c1e7464c666de60b71aea4f12350aa0fdb1f8e019882\"}",
+            "at_micros": 1792532558821063,
+            "prev_hash": "438e8c25c31f8174719fa08aaaab63d643eecd2300afcccead8930949df1d5db",
+            "hash": "45c81915fc62cb1127e472d1bed4af1a6bacff83551239b8a13788ee7deb691f"
+        }
+    ]
+}

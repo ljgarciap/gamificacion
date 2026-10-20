@@ -7,11 +7,15 @@ y un tercero puede comprobar una campaña sin confiar en nuestro servidor.
 
 Uso:
     python3 gamif_verify.py verify export.json     # verifica la exportación de auditoría de un lote
+    python3 gamif_verify.py verify export.json --anchor ancla.json  # ...y que la bitácora no perdió su final
     python3 gamif_verify.py vectors > vectors.json # genera los vectores de prueba del motor
 
 Lo que verifica y lo que NO:
   - SÍ: que el compromiso publicado se reproduce con la semilla revelada, que la baraja recalculada coincide con
     las asignaciones usadas y que los conteos son exactamente el stock del pool.
+  - SÍ: que la bitácora encadenada incluida es íntegra (cada hash se recomputa) y coincide con lo publicado (compromiso,
+    valor de baliza y semilla revelada). Con `--anchor`, que el último hash publicado FUERA de la base sigue en la cadena: sin
+    ancla, borrar las últimas entradas deja una cadena válida y no se puede detectar.
   - NO (hazlo tú): que el valor de baliza `beacon_value` es realmente el de la ronda `beacon_round` de la
     cadena `chain_hash` de drand. Consúltalo en https://api.drand.sh/<chain_hash>/public/<ronda> y compara el
     campo `randomness`. Este programa no usa la red a propósito.
@@ -27,6 +31,8 @@ DOMAIN_CODES = b"gamif/v1/codes"
 DOMAIN_COMMIT = b"gamif/v1/commit"
 DOMAIN_MIX = b"gamif/v1/mix"
 DOMAIN_SHUFFLE = b"gamif/v1/shuffle"
+DOMAIN_AUDIT = b"gamif/v1/audit"
+AUDIT_GENESIS = b"\x00" * 32
 
 MAX_WORD = 2 ** 32  # el muestreador lee 4 bytes por intento
 
@@ -164,10 +170,82 @@ def assign(pool, seed: bytes, beacon: bytes, batch_id: str):
     return shuffle(expand_pool(pool), Drbg(mix_seed(seed, beacon, batch_id)))
 
 
+# --- Bitácora encadenada ----------------------------------------------------------------------------------
+
+def audit_entry_hash(prev: bytes, e: dict) -> bytes:
+    """hash = SHA256("gamif/v1/audit" || prev || lp(actor) || lp(action) || lp(subject_type) || lp(subject_id) || lp(data) || be64(µs))."""
+    return sha256(
+        DOMAIN_AUDIT + prev
+        + lp(e["actor"].encode("utf-8")) + lp(e["action"].encode("utf-8"))
+        + lp(e["subject_type"].encode("utf-8")) + lp(e["subject_id"].encode("utf-8"))
+        + lp(e["data"].encode("utf-8")) + be64(int(e["at_micros"]))
+    )
+
+
+def verify_audit_log(export: dict, anchor=None):
+    """Fallos de la bitácora incluida en la exportación (lista vacía = íntegra y coherente con lo publicado)."""
+    failures = []
+    entries = export.get("audit_log")
+    if not isinstance(entries, list) or not entries:
+        return ["la exportación no incluye la bitácora (audit_log): no se puede comprobar su integridad"]
+
+    prev = AUDIT_GENESIS
+    by_id = {}
+    try:
+        for e in entries:
+            if bytes.fromhex(e["prev_hash"]) != prev:
+                failures.append(f"la entrada {e['id']} no cuelga de la anterior: la cadena está rota o reordenada")
+                break
+            calc = audit_entry_hash(prev, e)
+            if calc != bytes.fromhex(e["hash"]):
+                failures.append(f"el hash de la entrada {e['id']} no coincide con su contenido: fue alterada")
+                break
+            by_id[int(e["id"])] = e
+            prev = calc
+    except (KeyError, ValueError, TypeError, AttributeError) as exc:
+        return failures + [f"entrada de bitácora mal formada: {exc!r}"]
+    if failures:
+        return failures
+
+    batch_id = export.get("batch_id")
+    batch_entries = {}
+    for e in entries:
+        if e["subject_type"] == "batch" and e["subject_id"] == batch_id:
+            try:
+                batch_entries[e["action"]] = json.loads(e["data"])
+            except ValueError:
+                failures.append(f"la entrada {e['id']} tiene datos que no son JSON")
+    checks = (
+        ("batch.committed", "commitment", export.get("commitment"), "el compromiso"),
+        ("batch.committed", "codes_digest", export.get("codes_digest"), "el resumen de huellas de código"),
+        ("batch.activated", "beacon_value", export.get("beacon_value"), "el valor de baliza"),
+        ("batch.revealed", "seed", export.get("seed"), "la semilla revelada"),
+    )
+    for action, field, published, label in checks:
+        data = batch_entries.get(action)
+        if data is None:
+            failures.append(f"la bitácora no registra {action} para este lote")
+        elif data.get(field) != published:
+            failures.append(f"{label} de la exportación no coincide con el registrado en la bitácora ({action})")
+
+    if anchor is not None:
+        try:
+            a_id, a_hash = int(anchor["head_id"]), anchor["head_hash"]
+        except (KeyError, ValueError, TypeError) as exc:
+            return failures + [f"ancla mal formada: {exc!r}"]
+        found = by_id.get(a_id)
+        if found is None:
+            last = entries[-1]["id"]
+            failures.append(f"el ancla apunta a la entrada {a_id} pero la bitácora exportada termina en la {last}: se perdió el final de la bitácora")
+        elif found["hash"] != a_hash:
+            failures.append(f"la entrada {a_id} tiene otro hash que el publicado en el ancla: la historia fue reescrita")
+    return failures
+
+
 # --- Verificación de una exportación de auditoría ---------------------------------------------------------
 
-def verify_export(export: dict):
-    """Devuelve la lista de fallos encontrados (vacía = todo coincide)."""
+def verify_export(export: dict, anchor=None):
+    """Devuelve la lista de fallos encontrados (vacía = todo coincide). `anchor`: ancla publicada fuera de la base (opcional)."""
     failures = []
     try:
         pool = [(e["prize_id"], e["quantity"]) for e in export["pool"]]
@@ -213,6 +291,8 @@ def verify_export(export: dict):
     extra = set(counts) - {pid for pid, _ in pool}
     if extra:
         failures.append(f"hay asignaciones a premios que no están en el pool: {sorted(extra)}")
+    if export.get("version", 1) >= 2:
+        failures += verify_audit_log(export, anchor)
     return failures
 
 
@@ -291,15 +371,24 @@ def main(argv):
         json.dump(make_vectors(), sys.stdout, indent=2, ensure_ascii=False, sort_keys=True)
         sys.stdout.write("\n")
         return 0
-    if len(argv) == 3 and argv[1] == "verify":
+    if len(argv) in (3, 5) and argv[1] == "verify" and (len(argv) == 3 or argv[3] == "--anchor"):
         with open(argv[2], encoding="utf-8") as fh:
-            failures = verify_export(json.load(fh))
+            export = json.load(fh)
+        anchor = None
+        if len(argv) == 5:
+            with open(argv[4], encoding="utf-8") as fh:
+                anchor = json.load(fh)
+        failures = verify_export(export, anchor)
         if failures:
             print("FALLA la verificación:")
             for f in failures:
                 print(" -", f)
             return 1
         print("OK: el compromiso se reproduce, la baraja coincide con las asignaciones y los conteos son el stock.")
+        if export.get("version", 1) < 2:
+            print("AVISO: exportación versión 1, sin bitácora: no se comprobó su integridad.")
+        elif anchor is None:
+            print("AVISO: sin --anchor no se puede detectar que se haya borrado el final de la bitácora.")
         print("Recuerda comprobar tú mismo el valor de la baliza contra drand (ver el encabezado de este archivo).")
         return 0
     print(__doc__)

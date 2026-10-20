@@ -161,6 +161,98 @@ class VerifyExportTests(unittest.TestCase):
         self.assertEqual(e, copia)
 
 
+def load_fixture(name):
+    with open(os.path.join(HERE, "fixtures", name), encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def rehash_from(entries, start):
+    """Reescribe la historia COHERENTEMENTE: recalcula los hashes desde `start` para que la cadena siga siendo válida."""
+    prev = bytes.fromhex(entries[start]["prev_hash"])
+    for e in entries[start:]:
+        e["prev_hash"] = prev.hex()
+        prev = g.audit_entry_hash(prev, e)
+        e["hash"] = prev.hex()
+    return entries[-1]["hash"]
+
+
+class AuditLogTests(unittest.TestCase):
+    """Sobre una exportación REAL generada por el backend (verifier/fixtures; se regenera con UPDATE_VERIFIER_FIXTURE=1)."""
+
+    def setUp(self):
+        self.export = load_fixture("export-sample.json")
+        self.anchor = load_fixture("anchor-sample.json")
+
+    def index_of(self, action):
+        return next(i for i, e in enumerate(self.export["audit_log"]) if e["action"] == action and e["subject_id"] == self.export["batch_id"])
+
+    def test_la_exportacion_real_y_su_ancla_verifican(self):
+        self.assertEqual(g.verify_export(self.export, self.anchor), [])
+
+    def test_la_cadena_reproduce_el_hash_del_backend(self):
+        e = self.export["audit_log"][0]
+        self.assertEqual(bytes.fromhex(e["prev_hash"]), g.AUDIT_GENESIS)
+        self.assertEqual(g.audit_entry_hash(g.AUDIT_GENESIS, e).hex(), e["hash"])
+
+    def test_detecta_una_entrada_alterada(self):
+        self.export["audit_log"][2]["actor"] = "intruso"
+        self.assertTrue(any("alterada" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_entradas_reordenadas(self):
+        log = self.export["audit_log"]
+        log[1], log[2] = log[2], log[1]
+        self.assertTrue(any("rota o reordenada" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_una_entrada_eliminada_en_el_medio(self):
+        del self.export["audit_log"][3]
+        self.assertTrue(any("rota o reordenada" in f for f in g.verify_export(self.export)))
+
+    def test_borrar_el_final_sin_ancla_NO_se_detecta_con_ancla_si(self):
+        """El límite conocido (R4): sin ancla, una cadena truncada es válida. Con ancla publicada, se detecta."""
+        del self.export["audit_log"][-1]
+        failures_sin_ancla = g.verify_export(self.export)
+        self.assertFalse(any("bitácora" in f and "final" in f for f in failures_sin_ancla))
+        self.assertTrue(any("se perdió el final" in f for f in g.verify_export(self.export, self.anchor)))
+
+    def test_reescribir_la_historia_coherentemente_lo_detecta_el_ancla(self):
+        log = self.export["audit_log"]
+        log[0]["actor"] = "otro"
+        rehash_from(log, 0)
+        self.assertEqual([f for f in g.verify_export(self.export) if "alterada" in f or "rota" in f], [], "la cadena reescrita es válida")
+        self.assertTrue(any("reescrita" in f for f in g.verify_export(self.export, self.anchor)))
+
+    def test_detecta_un_ancla_de_otra_historia(self):
+        self.anchor["head_hash"] = "00" * 32
+        self.assertTrue(any("reescrita" in f for f in g.verify_export(self.export, self.anchor)))
+
+    def test_la_semilla_exportada_debe_coincidir_con_la_registrada(self):
+        i = self.index_of("batch.revealed")
+        data = json.loads(self.export["audit_log"][i]["data"])
+        data["seed"] = g._key("otra").hex()
+        self.export["audit_log"][i]["data"] = json.dumps(data, sort_keys=True, separators=(",", ":"))
+        rehash_from(self.export["audit_log"], i)
+        self.assertTrue(any("semilla" in f for f in g.verify_export(self.export)))
+
+    def test_el_compromiso_exportado_debe_coincidir_con_el_registrado(self):
+        i = self.index_of("batch.committed")
+        data = json.loads(self.export["audit_log"][i]["data"])
+        data["commitment"] = "11" * 32
+        self.export["audit_log"][i]["data"] = json.dumps(data, sort_keys=True, separators=(",", ":"))
+        rehash_from(self.export["audit_log"], i)
+        self.assertTrue(any("compromiso" in f and "bitácora" in f for f in g.verify_export(self.export)))
+
+    def test_sin_bitacora_en_una_exportacion_v2_es_un_fallo(self):
+        del self.export["audit_log"]
+        self.assertTrue(any("audit_log" in f for f in g.verify_export(self.export)))
+
+    def test_una_exportacion_v1_sigue_verificando_el_sorteo(self):
+        e = sample_export()
+        self.assertEqual(g.verify_export(e), [])
+
+    def test_ancla_mal_formada(self):
+        self.assertTrue(any("ancla mal formada" in f for f in g.verify_export(self.export, {"head_id": "x"})))
+
+
 class VectorsTests(unittest.TestCase):
     def test_los_vectores_publicados_estan_al_dia(self):
         # vectors.json es la fuente de verdad para otras implementaciones: debe coincidir con lo que genera el código.
