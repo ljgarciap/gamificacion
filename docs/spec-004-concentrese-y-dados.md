@@ -1,6 +1,6 @@
 # SPEC-004 — Concéntrese (memoria de parejas) y Dados
 
-Estado: **BORRADOR — pendiente de aprobación de Luis**
+Estado: **APROBADA por Luis (2026-10-20)** — D11 dobles pagan · D12 4×3 (propuesta) · D13 aviso de transparencia: sí
 Origen: petición de Luis 2026-10-20: *"me interesa que al menos haya otros dos juegos en la demo, el Concéntrese (memoria de parejas) y dados"*. Ambos están en el roadmap de SPEC-001.
 Prioridad: **antes de SPEC-003** (el panel y el host no dependen de esto, ni esto de ellos).
 Depende de: SPEC-001 (contrato de juego, `GameModule`) y SPEC-002 (motor de premios, `Presentation`).
@@ -30,7 +30,7 @@ El servidor decide **la disposición** de las cartas (qué símbolo hay en cada 
 
 ### 3.3 Contrato
 `gameResult`: `{ "cards": ["star","moon","p10k", ...] }` — un id de símbolo por posición (longitud = 2 × pares). La pareja premio son las dos posiciones cuyo id es el id del premio.
-`gameConfig`: `{ "pairs": 6, "columns": 4, "flipBackMs": 900, "symbols": [...], "prizes": {id → definición} }`.
+`gameConfig`: `{ "pairs": 6, "columns": 4, "flipBackMs": 900 }`. La carta del premio se dibuja con el premio de la redención (como el raspa); los símbolos de relleno son los del cliente.
 
 ### 3.4 Configuración y validación (al comprometer el lote)
 `game_config` de la campaña: `pairs` (3–8, def. 6), `columns` (def. 4), `symbols` (lista de relleno, def. la del raspa), `flipBackMs` (def. 900).
@@ -44,7 +44,7 @@ Ejemplo de campaña de demostración: los **dobles** pagan (1-1 … 6-6 → un p
 
 ### 4.2 Contrato
 `gameResult`: `{ "dice": [4, 4] }`.
-`gameConfig`: `{ "diceCount": 2, "rollDurationMs": 1800, "rolls": { "<premio>": [[a,b], ...] }, "prizes": {id → definición} }` (las combinaciones se envían para poder mostrar la tabla de premios en pantalla).
+`gameConfig`: `{ "diceCount": 2, "rollDurationMs": 1800, "legend": [ { "prize": {definición}, "rolls": [[a,b], ...] } ] }` (la leyenda permite mostrar la tabla de premios en pantalla; las combinaciones van ordenadas `a ≤ b`).
 
 ### 4.3 Configuración y validación (al comprometer el lote)
 `game_config.rolls`: mapa premio → lista de combinaciones `[a,b]`, con `a,b` entre 1 y 6.
