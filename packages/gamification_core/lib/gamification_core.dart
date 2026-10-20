@@ -16,3 +16,4 @@ export 'src/models/redemption.dart';
 export 'src/models/theme.dart';
 export 'src/ui/scope.dart';
 export 'src/ui/strings.dart';
+export 'src/ui/symbols.dart';

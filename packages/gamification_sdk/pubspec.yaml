@@ -19,6 +19,10 @@ dependencies:
     path: ../game_roulette
   game_scratch:
     path: ../game_scratch
+  game_memory:
+    path: ../game_memory
+  game_dice:
+    path: ../game_dice
 
 dev_dependencies:
   flutter_test:

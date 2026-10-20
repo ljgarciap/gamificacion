@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:game_dice/game_dice.dart';
+import 'package:game_memory/game_memory.dart';
 import 'package:game_roulette/game_roulette.dart';
 import 'package:game_scratch/game_scratch.dart';
 import 'package:gamification_core/gamification_core.dart';
@@ -51,6 +53,10 @@ void main() {
     'redemption-scratch-win',
     'redemption-scratch-none',
     'redemption-scratch-already-played',
+    'redemption-memory-win',
+    'redemption-memory-none',
+    'redemption-dice-win',
+    'redemption-dice-none',
   ];
   const errorExamples = <String, (int, FailureReason)>{
     'error-invalid-code': (422, FailureReason.invalidCode),
@@ -82,7 +88,7 @@ void main() {
         expect(viaHttp.redemptionId, viaModel.redemptionId);
         expect(viaModel.redemptionId, isNotEmpty);
         expect(viaModel.playedAt, isNotNull, reason: 'playedAt es una fecha ISO 8601 válida');
-        expect(viaModel.campaign.gameType, anyOf('roulette', 'scratch'));
+        expect(viaModel.campaign.gameType, anyOf('roulette', 'scratch', 'memory', 'dice'));
         expect(viaModel.outcome.prize.label, isNotEmpty);
         expect(
           viaModel.outcome.prize.type,
@@ -167,6 +173,43 @@ void main() {
     test('el resultado de un código ya jugado también es representable', () {
       final r = Redemption.fromJson(_example('redemption-scratch-already-played'));
       expect(ScratchConfig.fromRedemption(r).winningCells(r.outcome.prize), hasLength(3));
+    });
+  });
+
+  group('Concéntrese entiende el contrato', () {
+    test('premio: una pareja con el símbolo del premio y cada símbolo exactamente dos veces', () {
+      final r = Redemption.fromJson(_example('redemption-memory-win'));
+      final config = MemoryConfig.fromRedemption(r);
+      expect(config.cards, hasLength(config.pairs * 2));
+      expect(config.prizeCards(r.outcome.prize), hasLength(2));
+    });
+
+    test('sin premio: ninguna carta del premio', () {
+      final r = Redemption.fromJson(_example('redemption-memory-none'));
+      final config = MemoryConfig.fromRedemption(r);
+      expect(r.outcome.prize.isWin, isFalse);
+      expect(config.prizeCards(r.outcome.prize), isEmpty);
+      expect(config.cards.toSet(), hasLength(config.pairs), reason: 'todo son parejas de relleno');
+    });
+  });
+
+  group('Dados entiende el contrato', () {
+    for (final name in ['redemption-dice-win', 'redemption-dice-none']) {
+      test('$name: la combinación pertenece al premio y la tabla solo trae premios de la campaña', () {
+        final r = Redemption.fromJson(_example(name));
+        final config = DiceConfig.fromRedemption(r);
+        final (a, b) = config.dice;
+        final rolls = config.legend.firstWhere((e) => e.prize.id == r.outcome.prize.id).rolls;
+        expect(rolls, contains(a < b ? (a, b) : (b, a)));
+        expect(config.legend.every((e) => e.rolls.every((c) => c.$1 <= c.$2)), isTrue, reason: 'combinaciones a ≤ b');
+        final all = [for (final e in config.legend) ...e.rolls];
+        expect(all.toSet(), hasLength(all.length), reason: 'ninguna combinación pertenece a dos premios');
+      });
+    }
+
+    test('premio: los dados son una combinación del premio ganador', () {
+      final r = Redemption.fromJson(_example('redemption-dice-win'));
+      expect(r.outcome.prize.isWin, isTrue);
     });
   });
 

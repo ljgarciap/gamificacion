@@ -40,6 +40,10 @@ dependencies:
     path: ../../packages/game_roulette
   game_scratch:
     path: ../../packages/game_scratch
+  game_memory:
+    path: ../../packages/game_memory
+  game_dice:
+    path: ../../packages/game_dice
   gamification_http:
     path: ../../packages/gamification_http
   http: ^1.6.0

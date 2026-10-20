@@ -44,6 +44,10 @@ class MockRepository implements GamificationRepository {
     'RULETA-REPITE': 'Ruleta con showPrevious al reutilizar',
     'RASPA-GANA': 'Raspa: gana \$ 10.000',
     'RASPA-NADA': 'Raspa: sin premio',
+    'CONCENTRESE-GANA': 'Concéntrese: gana \$ 10.000',
+    'CONCENTRESE-NADA': 'Concéntrese: sin premio',
+    'DADOS-GANA': 'Dados: dobles seis, gana \$ 50.000',
+    'DADOS-NADA': 'Dados: sin premio',
     'VENCIDO': 'Error: código vencido',
     'INACTIVA': 'Error: campaña inactiva',
     'LIMITE': 'Error: demasiados intentos',
@@ -156,6 +160,65 @@ class MockRepository implements GamificationRepository {
           ? ['p10k', 'star', 'p10k', 'moon', 'p10k', 'sun', 'star', 'moon', 'sun']
           : ['star', 'moon', 'sun', 'coin', 'gem', 'star', 'moon', 'sun', 'coin'];
       return (campaign: campaign, outcome: Outcome(prize: win ? prize10k : noPrize, gameResult: {'grid': grid}));
+    }
+
+    if (code == 'CONCENTRESE-GANA' || code == 'CONCENTRESE-NADA') {
+      final win = code == 'CONCENTRESE-GANA';
+      const prize10k = Prize(id: 'p10k', type: PrizeType.money, label: r'$ 10.000', amount: 10000);
+      const noPrize = Prize(id: 'none', type: PrizeType.none, label: 'Sin premio');
+      final campaign = Campaign(
+        id: 'demo-concentrese',
+        name: 'Concéntrese',
+        gameType: 'memory',
+        title: 'Concéntrese',
+        gameConfig: const {'pairs': 6, 'columns': 4, 'flipBackMs': 900},
+      );
+      // Disposición decidida por el servidor: cada símbolo dos veces; con premio, una de las parejas es la del premio.
+      final cards = win
+          ? ['star', 'p10k', 'moon', 'sun', 'coin', 'gem', 'moon', 'p10k', 'sun', 'star', 'gem', 'coin']
+          : ['star', 'bell', 'moon', 'sun', 'coin', 'gem', 'moon', 'bell', 'sun', 'star', 'gem', 'coin'];
+      return (campaign: campaign, outcome: Outcome(prize: win ? prize10k : noPrize, gameResult: {'cards': cards}));
+    }
+
+    if (code == 'DADOS-GANA' || code == 'DADOS-NADA') {
+      final win = code == 'DADOS-GANA';
+      const prize50k = Prize(id: 'p50k', type: PrizeType.money, label: r'$ 50.000', amount: 50000);
+      const noPrize = Prize(id: 'none', type: PrizeType.none, label: 'Sin premio');
+      final campaign = Campaign(
+        id: 'demo-dados',
+        name: 'Dados de la suerte',
+        gameType: 'dice',
+        title: 'Dados de la suerte',
+        gameConfig: {
+          'diceCount': 2,
+          'rollDurationMs': 1800,
+          'legend': [
+            {
+              'prize': prize50k.toJson(),
+              'rolls': [
+                [1, 1],
+                [6, 6],
+              ],
+            },
+            {
+              'prize': noPrize.toJson(),
+              'rolls': [
+                [1, 2],
+                [3, 5],
+              ],
+            },
+          ],
+        },
+      );
+      return (
+        campaign: campaign,
+        outcome: Outcome(
+          prize: win ? prize50k : noPrize,
+          gameResult: {
+            'dice': win ? [6, 6] : [3, 5],
+          },
+        ),
+      );
     }
     return null;
   }

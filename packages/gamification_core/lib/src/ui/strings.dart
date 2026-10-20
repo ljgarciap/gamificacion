@@ -34,10 +34,21 @@ abstract class GamificationStrings {
   String get revealAll;
   String get scratchHere;
   String get unsupportedGame;
+  String get rollDice;
+  String get memoryHint;
+  String get diceHint;
+  String get diceTable;
+  String get diceRolling;
 
   String pointsWon(int points);
   String rouletteLabel(int segments);
   String scratchLabel(int rows, int cols);
+  String memoryLabel(int pairs);
+  String memoryProgress(int found, int total);
+  String cardFaceDown(int position, int total);
+  String cardFaceUp(int position, int total, String what);
+  String diceLabel(int a, int b);
+  String diceCombo(int a, int b);
   String previouslyPlayed(DateTime date);
   String failure(FailureReason reason, {Duration? retryAfter});
 
@@ -93,6 +104,16 @@ class EsStrings extends GamificationStrings {
   String get scratchHere => 'RASPA AQUÍ';
   @override
   String get unsupportedGame => 'Este juego no está disponible en esta versión.';
+  @override
+  String get rollDice => 'TIRAR';
+  @override
+  String get memoryHint => 'Encuentra las parejas';
+  @override
+  String get diceHint => 'Toca TIRAR para lanzar los dados';
+  @override
+  String get diceTable => 'Tabla de premios';
+  @override
+  String get diceRolling => 'Tirando los dados…';
 
   @override
   String pointsWon(int points) => '+$points puntos';
@@ -100,6 +121,18 @@ class EsStrings extends GamificationStrings {
   String rouletteLabel(int segments) => 'Ruleta con $segments premios posibles';
   @override
   String scratchLabel(int rows, int cols) => 'Tarjeta de raspa y gana de $rows por $cols casillas';
+  @override
+  String memoryLabel(int pairs) => 'Tablero de Concéntrese con $pairs parejas';
+  @override
+  String memoryProgress(int found, int total) => 'Parejas: $found de $total';
+  @override
+  String cardFaceDown(int position, int total) => 'Carta $position de $total, boca abajo';
+  @override
+  String cardFaceUp(int position, int total, String what) => 'Carta $position de $total: $what';
+  @override
+  String diceLabel(int a, int b) => 'Dados: $a y $b';
+  @override
+  String diceCombo(int a, int b) => '$a y $b';
   @override
   String previouslyPlayed(DateTime d) =>
       'Este código ya fue jugado el ${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
@@ -164,6 +197,16 @@ class EnStrings extends GamificationStrings {
   String get scratchHere => 'SCRATCH HERE';
   @override
   String get unsupportedGame => 'This game is not available in this version.';
+  @override
+  String get rollDice => 'ROLL';
+  @override
+  String get memoryHint => 'Find the pairs';
+  @override
+  String get diceHint => 'Tap ROLL to throw the dice';
+  @override
+  String get diceTable => 'Prize table';
+  @override
+  String get diceRolling => 'Rolling the dice…';
 
   @override
   String pointsWon(int points) => '+$points points';
@@ -171,6 +214,18 @@ class EnStrings extends GamificationStrings {
   String rouletteLabel(int segments) => 'Roulette with $segments possible prizes';
   @override
   String scratchLabel(int rows, int cols) => 'Scratch card with $rows by $cols squares';
+  @override
+  String memoryLabel(int pairs) => 'Memory board with $pairs pairs';
+  @override
+  String memoryProgress(int found, int total) => 'Pairs: $found of $total';
+  @override
+  String cardFaceDown(int position, int total) => 'Card $position of $total, face down';
+  @override
+  String cardFaceUp(int position, int total, String what) => 'Card $position of $total: $what';
+  @override
+  String diceLabel(int a, int b) => 'Dice: $a and $b';
+  @override
+  String diceCombo(int a, int b) => '$a and $b';
   @override
   String previouslyPlayed(DateTime d) =>
       'This code was already played on ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

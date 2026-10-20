@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:game_dice/game_dice.dart';
+import 'package:game_memory/game_memory.dart';
 import 'package:game_roulette/game_roulette.dart';
 import 'package:game_scratch/game_scratch.dart';
 import 'package:gamification_core/gamification_core.dart';
@@ -36,7 +38,9 @@ class _GamificationAppState extends State<GamificationApp> {
   Future<Map<String, String>> Function()? _demoCodesLoader;
   late final _registry = GameRegistry()
     ..register(RouletteModule())
-    ..register(ScratchModule());
+    ..register(ScratchModule())
+    ..register(MemoryModule())
+    ..register(DiceModule());
   final _events = GamificationEvents();
 
   @override
