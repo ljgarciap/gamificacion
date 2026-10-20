@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:gamification_sdk/gamification_sdk.dart';
 
 void main() {
-  test('adds one to input values', () {
-    final calculator = Calculator();
-    expect(calculator.addOne(2), 3);
-    expect(calculator.addOne(-7), -6);
-    expect(calculator.addOne(0), 1);
+  group('normalizeCode', () {
+    test('mayúsculas y sin espacios', () {
+      expect(normalizeCode('  ruleta 50k '), 'RULETA50K');
+      expect(normalizeCode('a\tb\nc'), 'ABC');
+    });
+    test('vacío queda vacío', () => expect(normalizeCode('   '), ''));
   });
 }

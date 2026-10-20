@@ -13,6 +13,16 @@ class GamePreferences {
   final bool sound;
   final bool haptics;
   final bool reduceMotion;
+
+  @override
+  bool operator ==(Object other) =>
+      other is GamePreferences &&
+      other.sound == sound &&
+      other.haptics == haptics &&
+      other.reduceMotion == reduceMotion;
+
+  @override
+  int get hashCode => Object.hash(sound, haptics, reduceMotion);
 }
 
 /// Lo que un juego recibe para representar una redención ya resuelta.

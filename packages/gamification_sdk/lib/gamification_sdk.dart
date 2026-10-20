@@ -1,5 +1,5 @@
-/// A Calculator.
-class Calculator {
-  /// Returns [value] plus 1.
-  int addOne(int value) => value + 1;
-}
+/// Fachada pública de la plataforma de minijuegos: flujo común (código -> juego -> resultado).
+library;
+
+export 'src/flow/flow_controller.dart' show normalizeCode;
+export 'src/flow/gamification_flow.dart';

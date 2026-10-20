@@ -41,6 +41,7 @@ class MockRepository implements GamificationRepository {
   static const demoCodes = <String, String>{
     'RULETA-50K': 'Ruleta: gana \$ 50.000 (segmento 0)',
     'RULETA-NADA': 'Ruleta: sin premio (segmento 1)',
+    'RULETA-PUNTOS': 'Ruleta: 250 puntos (segmento 3)',
     'RULETA-CUPON': 'Ruleta: cupón (segmento 5)',
     'RULETA-EXTRA': 'Ruleta: giro extra (segmento 6)',
     'RULETA-REPITE': 'Ruleta con showPrevious al reutilizar',
@@ -54,6 +55,7 @@ class MockRepository implements GamificationRepository {
   static const _rouletteIndex = {
     'RULETA-50K': 0,
     'RULETA-NADA': 1,
+    'RULETA-PUNTOS': 3,
     'RULETA-CUPON': 5,
     'RULETA-EXTRA': 6,
     'RULETA-REPITE': 2,

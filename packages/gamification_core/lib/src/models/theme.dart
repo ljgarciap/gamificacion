@@ -47,6 +47,24 @@ class GamificationTheme {
   /// Colores que alternan en los segmentos de la ruleta.
   List<Color> get segmentColors => [primary, info, navy, accent];
 
+  @override
+  bool operator ==(Object other) =>
+      other is GamificationTheme &&
+      other.primary == primary &&
+      other.navy == navy &&
+      other.accent == accent &&
+      other.info == info &&
+      other.background == background &&
+      other.surface == surface &&
+      other.error == error &&
+      other.success == success &&
+      other.fontFamily == fontFamily &&
+      other.logoUrl == logoUrl;
+
+  @override
+  int get hashCode => Object.hash(
+      primary, navy, accent, info, background, surface, error, success, fontFamily, logoUrl);
+
   static Color? _parseHex(String? hex) {
     if (hex == null) return null;
     final h = hex.startsWith('#') ? hex.substring(1) : hex;

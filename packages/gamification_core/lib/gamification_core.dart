@@ -13,3 +13,5 @@ export 'src/models/money.dart';
 export 'src/models/prize.dart';
 export 'src/models/redemption.dart';
 export 'src/models/theme.dart';
+export 'src/ui/scope.dart';
+export 'src/ui/strings.dart';
