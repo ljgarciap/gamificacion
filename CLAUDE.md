@@ -7,6 +7,8 @@ Juegos: MVP = Ruleta + Raspa y Gana. Roadmap = Concéntrese, Dados.
 - `docs/spec-001-nucleo-ruleta-raspa.md` — spec APROBADA (decisiones de negocio en sección 9)
 - `docs/ux-spec-001.md` — spec visual APROBADA
 - `docs/arquitectura-y-plan.md` — estructura y desglose T1–T12
+- `docs/spec-004-concentrese-y-dados.md` — BORRADOR (prioridad, pedido por Luis para la demo): Concéntrese y Dados, sin tocar motor ni base
+- `docs/spec-003-administracion-y-host.md` — BORRADOR (después de SPEC-004): panel Angular con 2FA y roles, control dual, host real firmado + simulador, giro extra por reserva
 - `docs/spec-002-motor-de-premios.md` — motor de premios y backend, APROBADA (pre-asignado, stock exacto, compromiso + baliza drand, verificable por terceros)
 
 ## Reglas del proyecto
