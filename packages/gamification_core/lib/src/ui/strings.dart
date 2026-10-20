@@ -38,6 +38,7 @@ abstract class GamificationStrings {
 
   String pointsWon(int points);
   String rouletteLabel(int segments);
+  String scratchLabel(int rows, int cols);
   String previouslyPlayed(DateTime date);
   String failure(FailureReason reason, {Duration? retryAfter});
 
@@ -98,6 +99,8 @@ class EsStrings extends GamificationStrings {
   String pointsWon(int points) => '+$points puntos';
   @override
   String rouletteLabel(int segments) => 'Ruleta con $segments premios posibles';
+  @override
+  String scratchLabel(int rows, int cols) => 'Tarjeta de raspa y gana de $rows por $cols casillas';
   @override
   String previouslyPlayed(DateTime d) =>
       'Este código ya fue jugado el ${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
@@ -165,6 +168,8 @@ class EnStrings extends GamificationStrings {
   String pointsWon(int points) => '+$points points';
   @override
   String rouletteLabel(int segments) => 'Roulette with $segments possible prizes';
+  @override
+  String scratchLabel(int rows, int cols) => 'Scratch card with $rows by $cols squares';
   @override
   String previouslyPlayed(DateTime d) =>
       'This code was already played on ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

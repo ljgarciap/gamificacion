@@ -30,9 +30,12 @@ Juegos: MVP = Ruleta + Raspa y Gana. Roadmap = Concéntrese, Dados.
 - Para flujo diario rápido usar `flutter run -d chrome` en el host; Docker es para reproducibilidad y despliegue.
 
 ## Estado
-T1 (monorepo), Docker local, T2 (core), T4 (tema + i18n), T5 (flujo común) y T6 (ruleta) completadas: 85 tests, ruleta validada en Chromium real con Playwright. Siguiente: T7 raspa; T3 (OpenAPI) en paralelo.
+T1 (monorepo), Docker local, T2 (core), T4 (tema + i18n), T5 (flujo común), T6 (ruleta) y T7 (raspa) completadas: 129 tests; ruleta y raspa validados en Chromium real con Playwright. MVP de juegos listo. Siguiente: T3 (contrato OpenAPI), T8 (SDK: HostBridge multi-canal), T9 (host con iframe), T10 (QA), T11 (seguridad).
 
 ## Notas de juegos
 - **Sonido:** `SystemFeedback` usa `HapticFeedback`/`SystemSound`. En web `SystemSound` NO suena (solo vibra en móvil). Sonido real en web = audio con assets (pendiente; Luis pidió sonido activado por defecto).
 - **Validación visual con Playwright (Flutter web):** el árbol de accesibilidad se activa con `focus()` + `Enter` sobre `flt-semantics-placeholder` (el clic de ratón falla: está fuera de pantalla); `getByRole('textbox').fill()` NO llega a Flutter, usar `click()` + `keyboard.type()`. Si no hay navegador de la revisión pedida, pasar `executablePath` al Chromium ya cacheado en `~/Library/Caches/ms-playwright`.
 - Ruleta: segmentos 4–12; `gameResult.segmentIndex` fuera de rango o config inválida → el juego muestra aviso y deja continuar al resultado (el premio ya está acreditado).
+- **Controladores de animación:** crearlos en `initState`, nunca como `late final X = AnimationController(...)` con inicializador: con config inválida nadie los toca y Flutter los crearía por primera vez dentro de `dispose()` (error). Pasaba en ruleta y raspa.
+- **Tests con temporizadores en cadena** (fundido -> pulso -> pausa): un único `pump(3 s)` no basta, los timers se crean recién cuando termina la animación anterior. Avanzar en pasos cortos (`pump(100 ms)` en bucle) o `pumpAndSettle` + `pump`.
+- Raspa: trazos y máscara en coordenadas normalizadas (el avance sobrevive a un redimensionado); `scratchSegment` interpola porque un barrido rápido genera eventos táctiles muy separados.

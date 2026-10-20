@@ -33,10 +33,11 @@ class RouletteGame extends StatefulWidget {
 class _RouletteGameState extends State<RouletteGame> with TickerProviderStateMixin {
   RouletteConfig? _config;
   late final GameFeedback _feedback;
-  late final AnimationController _spin = AnimationController(vsync: this);
-  late final AnimationController _bounce =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 140));
-  late final Animation<double> _eased = CurvedAnimation(parent: _spin, curve: Curves.easeOutCubic);
+  // Se crean en initState (no de forma perezosa): con una config inválida nadie los usa, y un
+  // `late final` con inicializador se crearía por primera vez dentro de dispose(), que Flutter rechaza.
+  late final AnimationController _spin;
+  late final AnimationController _bounce;
+  late final Animation<double> _eased;
 
   double _target = 0;
   bool _started = false;
@@ -48,6 +49,9 @@ class _RouletteGameState extends State<RouletteGame> with TickerProviderStateMix
   void initState() {
     super.initState();
     _feedback = widget.feedbackFactory(widget.session.preferences);
+    _spin = AnimationController(vsync: this);
+    _bounce = AnimationController(vsync: this, duration: const Duration(milliseconds: 140));
+    _eased = CurvedAnimation(parent: _spin, curve: Curves.easeOutCubic);
     try {
       _config = RouletteConfig.fromRedemption(widget.session.redemption);
       _spin.duration = _config!.duration;

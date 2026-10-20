@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:game_roulette/game_roulette.dart';
+import 'package:game_scratch/game_scratch.dart';
 import 'package:gamification_core/gamification_core.dart';
 import 'package:gamification_sdk/gamification_sdk.dart';
 
@@ -15,7 +16,9 @@ class GamificationApp extends StatefulWidget {
 
 class _GamificationAppState extends State<GamificationApp> {
   late final _repository = MockRepository(latency: const Duration(milliseconds: 400));
-  late final _registry = GameRegistry()..register(RouletteModule());
+  late final _registry = GameRegistry()
+    ..register(RouletteModule())
+    ..register(ScratchModule());
   final _events = GamificationEvents();
 
   @override
