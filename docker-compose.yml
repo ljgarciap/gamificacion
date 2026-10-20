@@ -46,7 +46,54 @@ services:
       - dart-tool:/app/.dart_tool
       - dart-tool-app:/app/apps/standalone/.dart_tool
 
+  # --- Backend de premios (SPEC-002) ---
+  #   docker compose up -d db backend          -> API en http://localhost:8000 (GET /up = salud)
+  #   docker compose run --rm backend php artisan migrate
+  #   docker compose run --rm backend php artisan test
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gamification
+      POSTGRES_USER: gamification
+      # Solo desarrollo local; el servicio no se publica fuera de la red de compose.
+      POSTGRES_PASSWORD: gamification
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./docker/postgres/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gamification -d gamification"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: gamification
+      DB_USERNAME: gamification
+      DB_PASSWORD: gamification
+      # Vectores de prueba del verificador independiente (SPEC-002 §4): el motor debe reproducirlos byte a byte.
+      VERIFIER_DIR: /verifier
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor
+      - ./verifier:/verifier:ro
+
 volumes:
+  db-data:
+  backend-vendor:
   pub-cache:
   dart-tool:
   dart-tool-app:

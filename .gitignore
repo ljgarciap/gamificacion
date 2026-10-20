@@ -9,3 +9,6 @@ pubspec.lock
 **/ios/Pods/
 **/android/.gradle/
 **/android/local.properties
+
+__pycache__/
+*.pyc

@@ -1,12 +1,13 @@
 # Gamificación — minijuegos promocionales (Flutter multiplataforma)
 
-Stack: Flutter 3.32.8 / Dart 3.8.1, pub workspaces + Melos, Riverpod. Backend propio (FastAPI, SPEC-002) y/o adaptador del host.
+Stack: Flutter 3.32.8 / Dart 3.8.1, pub workspaces + Melos, Riverpod. Backend de premios: **Laravel 13 (PHP 8.3) + PostgreSQL 16** (SPEC-002) y/o adaptador del host.
 Juegos: MVP = Ruleta + Raspa y Gana. Roadmap = Concéntrese, Dados.
 
 ## Docs vigentes
 - `docs/spec-001-nucleo-ruleta-raspa.md` — spec APROBADA (decisiones de negocio en sección 9)
 - `docs/ux-spec-001.md` — spec visual APROBADA
 - `docs/arquitectura-y-plan.md` — estructura y desglose T1–T12
+- `docs/spec-002-motor-de-premios.md` — motor de premios y backend, APROBADA (pre-asignado, stock exacto, compromiso + baliza drand, verificable por terceros)
 
 ## Reglas del proyecto
 - **El servidor decide el resultado**; el cliente solo anima. Código redimido antes de animar. Idempotencia por `Idempotency-Key`.
@@ -29,8 +30,17 @@ Juegos: MVP = Ruleta + Raspa y Gana. Roadmap = Concéntrese, Dados.
 - nginx: un `add_header` en un `location` anula los del `server`; las cabeceras de seguridad (`frame-ancestors` vía `ALLOWED_FRAME_ANCESTORS`) se repiten en cada `location`.
 - Para flujo diario rápido usar `flutter run -d chrome` en el host; Docker es para reproducibilidad y despliegue.
 
+## Backend de premios (SPEC-002)
+- `docker compose up -d db backend` → API en :8000 (`GET /up`). `docker compose run --rm backend php artisan test` · `... artisan migrate`
+- **Laravel 13, no 11**: Composer bloquea TODAS las 11.x por avisos de seguridad (EOL). No ignorar avisos (`policy.advisories`) en un sistema que reparte premios; correr `composer audit`. Plataforma fijada en PHP 8.3 (`composer config platform.php`).
+- **Los tests corren contra PostgreSQL real y la base `gamification_test`**, fijada en `tests/TestCase.php::createApplication()`. Las variables de entorno del contenedor ganan a `phpunit.xml` aunque tenga `force="true"`: con solo eso los tests habrían usado la base de desarrollo (lo detectó `HealthTest`). No quitar esa guarda.
+- `app/Engine/` es el motor **puro** (sin Laravel, BD, red ni reloj; sin `rand/mt_rand/random_int/random_bytes/shuffle`, lo verifica `NoGeneralPurposeRandomTest` con el tokenizador). El azar entra solo por la semilla, generada fuera con el CSPRNG del SO.
+- `verifier/` (Python, solo stdlib, fuera del backend a propósito) es la implementación de referencia independiente. `verifier/vectors.json` es la fuente de verdad: PHP debe reproducirlos byte a byte (`VectorsTest`, que FALLA si no encuentra los vectores en vez de omitirse). Si cambia el algoritmo: `python3 -I verifier/gamif_verify.py vectors > verifier/vectors.json` y `python3 -m unittest discover verifier`.
+- El control estadístico (chi-cuadrado) NO detecta el sesgo de módulo de 32 bits; lo detectan el test exacto de `UniformTest` y los vectores. Se verificó por mutación: ambos fallan si se quita el descarte.
+- Las notas de `CLAUDE.md`/`AGENTS.md` que genera el esqueleto de Laravel (instalan PHP con `curl | bash`) se eliminaron a propósito.
+
 ## Estado
-T1 (monorepo), Docker local, T2 (core), T4 (tema + i18n), T5 (flujo común), T6 (ruleta) y T7 (raspa) completadas: 129 tests; ruleta y raspa validados en Chromium real con Playwright. MVP de juegos listo. Siguiente: T3 (contrato OpenAPI), T8 (SDK: HostBridge multi-canal), T9 (host con iframe), T10 (QA), T11 (seguridad).
+T1–T2, T4–T7 completadas (app Flutter: ruleta + raspa, 129 tests). SPEC-002 APROBADA; B1 (backend Laravel 13 + PostgreSQL en Docker) y B2 (motor de sorteo + verificador Python con vectores cruzados, 49 tests PHP + 22 Python) completadas. Siguiente: B3 (modelo de datos y ciclo de vida del lote), B4 (códigos), B5 (redención atómica), B6 (verificador/export), B7 (contrato OpenAPI + HttpRepository).
 
 ## Notas de juegos
 - **Sonido:** `SystemFeedback` usa `HapticFeedback`/`SystemSound`. En web `SystemSound` NO suena (solo vibra en móvil). Sonido real en web = audio con assets (pendiente; Luis pidió sonido activado por defecto).
