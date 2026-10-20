@@ -20,7 +20,7 @@ Juegos: MVP = Ruleta + Raspa y Gana. Roadmap = Concéntrese, Dados.
 - Validación visual en navegador real con Playwright CLI (no Claude in Chrome).
 
 ## Comandos
-- `flutter pub get` (raíz) · `melos run analyze` · `melos run test` · `dart format .`
+- `flutter pub get` (raíz) · `melos run analyze` · `melos run test` · `dart format .` (ancho 120 fijado en el `analysis_options.yaml` de cada paquete: `formatter: page_width: 120`)
 
 ## Docker (local)
 - `docker compose up -d --build web` → build de producción en http://localhost:8080

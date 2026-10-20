@@ -17,27 +17,32 @@ Future<void> _pump(WidgetTester t, {Future<Map<String, String>> Function()? load
   t.view.physicalSize = const Size(800, 1600);
   t.view.devicePixelRatio = 2;
   addTearDown(t.view.reset);
-  await t.pumpWidget(MaterialApp(
-    home: Scaffold(
-      body: GamificationFlow(
-        repository: MockRepository(),
-        registry: GameRegistry()..register(_Game()),
-        events: GamificationEvents(),
-        demoCodesLoader: loader,
-        demoCodes: fixed,
+  await t.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: GamificationFlow(
+          repository: MockRepository(),
+          registry: GameRegistry()..register(_Game()),
+          events: GamificationEvents(),
+          demoCodesLoader: loader,
+          demoCodes: fixed,
+        ),
       ),
     ),
-  ));
+  );
   await t.pumpAndSettle();
 }
 
 void main() {
   testWidgets('carga los códigos al aparecer la pantalla y los muestra', (t) async {
     var calls = 0;
-    await _pump(t, loader: () async {
-      calls++;
-      return {'RULETA-AAAA-BBBB-CCC': 'Ruleta: \$ 50.000'};
-    });
+    await _pump(
+      t,
+      loader: () async {
+        calls++;
+        return {'RULETA-AAAA-BBBB-CCC': 'Ruleta: \$ 50.000'};
+      },
+    );
     expect(calls, 1);
     await t.tap(find.text('Códigos de prueba'));
     await t.pumpAndSettle();
@@ -47,10 +52,13 @@ void main() {
 
   testWidgets('se vuelven a pedir al regresar de un resultado (los ya usados desaparecen)', (t) async {
     var calls = 0;
-    await _pump(t, loader: () async {
-      calls++;
-      return calls == 1 ? {'RULETA-50K': 'uno', 'RULETA-NADA': 'dos'} : {'RULETA-NADA': 'dos'};
-    });
+    await _pump(
+      t,
+      loader: () async {
+        calls++;
+        return calls == 1 ? {'RULETA-50K': 'uno', 'RULETA-NADA': 'dos'} : {'RULETA-NADA': 'dos'};
+      },
+    );
     await t.tap(find.text('Códigos de prueba'));
     await t.pumpAndSettle();
     expect(find.text('RULETA-50K'), findsOneWidget);

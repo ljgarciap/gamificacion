@@ -7,7 +7,8 @@ import 'package:gamification_http/gamification_http.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-const _okBody = '{"redemptionId":"r1","alreadyPlayed":false,"playedAt":"2026-10-20T12:00:00.000000Z",'
+const _okBody =
+    '{"redemptionId":"r1","alreadyPlayed":false,"playedAt":"2026-10-20T12:00:00.000000Z",'
     '"campaign":{"id":"c","name":"N","gameType":"roulette","usedCodeBehavior":"rejectOnly","title":null,"theme":{},"gameConfig":{}},'
     '"outcome":{"prize":{"id":"p","type":"money","label":"x","amount":5},"extraSpins":0,"gameResult":{}}}';
 
@@ -40,7 +41,11 @@ void main() {
   late _Tokens tokens;
   late List<http.Request> sent;
 
-  HttpRepository repo(Future<http.Response> Function(http.Request r) handler, {String baseUrl = 'http://api.test:8000', Duration? timeout}) {
+  HttpRepository repo(
+    Future<http.Response> Function(http.Request r) handler, {
+    String baseUrl = 'http://api.test:8000',
+    Duration? timeout,
+  }) {
     sent = [];
     return HttpRepository(
       baseUrl: baseUrl,
@@ -98,7 +103,11 @@ void main() {
 
     test('rechaza una URL que no es absoluta', () {
       for (final bad in ['', 'localhost:8000', '/v1', 'api.test']) {
-        expect(() => HttpRepository(baseUrl: bad, tokenProvider: tokens), throwsArgumentError, reason: bad);
+        expect(
+          () => HttpRepository(baseUrl: bad, tokenProvider: tokens),
+          throwsArgumentError,
+          reason: bad,
+        );
       }
     });
   });
@@ -130,7 +139,9 @@ void main() {
     });
 
     test('si el cuerpo no lo trae, usa la cabecera Retry-After', () async {
-      final r = repo((_) async => _json(429, '{"error":{"code":"rateLimited","message":"m"}}', headers: {'retry-after': '45'}));
+      final r = repo(
+        (_) async => _json(429, '{"error":{"code":"rateLimited","message":"m"}}', headers: {'retry-after': '45'}),
+      );
       final e = await _fails(() => r.redeem('X', idempotencyKey: 'clave-0000001'));
       expect(e.retryAfter, const Duration(seconds: 45));
     });
@@ -152,7 +163,9 @@ void main() {
     };
     byStatus.forEach((status, reason) {
       test('HTTP $status con una página HTML -> ${reason.name}', () async {
-        final r = repo((_) async => http.Response('<html>Bad gateway</html>', status, headers: {'content-type': 'text/html'}));
+        final r = repo(
+          (_) async => http.Response('<html>Bad gateway</html>', status, headers: {'content-type': 'text/html'}),
+        );
         expect((await _fails(() => r.redeem('X', idempotencyKey: 'clave-0000001'))).reason, reason);
       });
     });
@@ -175,13 +188,17 @@ void main() {
   group('autenticación', () {
     test('ante un 401 pide un token NUEVO y reintenta una vez con la misma clave de idempotencia', () async {
       var n = 0;
-      final r = repo((_) async => ++n == 1 ? _json(401, '{"error":{"code":"unauthenticated","message":"m"}}') : _json(200, _okBody));
+      final r = repo(
+        (_) async => ++n == 1 ? _json(401, '{"error":{"code":"unauthenticated","message":"m"}}') : _json(200, _okBody),
+      );
       final result = await r.redeem('X', idempotencyKey: 'clave-0000001');
 
       expect(result.redemptionId, 'r1');
       expect(tokens.calls, [false, true], reason: 'la segunda vez fuerza la renovación');
       expect(sent.map((s) => s.headers['Authorization']), ['Bearer token-0', 'Bearer token-1']);
-      expect(sent.map((s) => s.headers['Idempotency-Key']).toSet(), {'clave-0000001'}, reason: 'misma clave: el servidor nunca juega dos veces');
+      expect(sent.map((s) => s.headers['Idempotency-Key']).toSet(), {
+        'clave-0000001',
+      }, reason: 'misma clave: el servidor nunca juega dos veces');
     });
 
     test('si el segundo intento también da 401: unauthorized, sin bucle (2 peticiones exactas)', () async {
@@ -239,7 +256,9 @@ void main() {
 
     test('peticiones simultáneas son independientes', () async {
       final r = repo((req) async => _json(200, _okBody.replaceFirst('"r1"', '"${jsonDecode(req.body)['code']}"')));
-      final results = await Future.wait([for (var i = 0; i < 10; i++) r.redeem('C$i', idempotencyKey: 'clave-000000$i')]);
+      final results = await Future.wait([
+        for (var i = 0; i < 10; i++) r.redeem('C$i', idempotencyKey: 'clave-000000$i'),
+      ]);
       expect(results.map((e) => e.redemptionId).toSet(), {for (var i = 0; i < 10; i++) 'C$i'});
     });
   });
@@ -254,10 +273,21 @@ void main() {
     });
 
     test('errores', () async {
-      expect((await _fails(() => repo((_) async => _json(401, '{"error":{"code":"unauthenticated","message":"m"}}')).getBalance())).reason, FailureReason.unauthorized);
-      expect((await _fails(() => repo((_) async => throw http.ClientException('x')).getBalance())).reason, FailureReason.network);
+      expect(
+        (await _fails(
+          () => repo((_) async => _json(401, '{"error":{"code":"unauthenticated","message":"m"}}')).getBalance(),
+        )).reason,
+        FailureReason.unauthorized,
+      );
+      expect(
+        (await _fails(() => repo((_) async => throw http.ClientException('x')).getBalance())).reason,
+        FailureReason.network,
+      );
       expect((await _fails(() => repo((_) async => _json(200, 'roto')).getBalance())).reason, FailureReason.unknown);
-      expect((await _fails(() => repo((_) async => _json(200, '{"currency":"COP"}')).getBalance())).reason, FailureReason.unknown);
+      expect(
+        (await _fails(() => repo((_) async => _json(200, '{"currency":"COP"}')).getBalance())).reason,
+        FailureReason.unknown,
+      );
     });
   });
 

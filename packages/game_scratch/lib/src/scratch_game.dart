@@ -222,10 +222,7 @@ class _ScratchGameState extends State<ScratchGame> with SingleTickerProviderStat
                 ),
                 const SizedBox(height: 12),
                 // Alternativa sin gestos finos (accesibilidad, RNF-05).
-                OutlinedButton(
-                  onPressed: _revealing ? null : _reveal,
-                  child: Text(s.revealAll),
-                ),
+                OutlinedButton(onPressed: _revealing ? null : _reveal, child: Text(s.revealAll)),
               ],
             ),
           ),
@@ -234,8 +231,7 @@ class _ScratchGameState extends State<ScratchGame> with SingleTickerProviderStat
     );
   }
 
-  Widget _grid(ScratchConfig config, Prize prize, Set<int> winners, GamificationTheme theme,
-      GamificationStrings s) {
+  Widget _grid(ScratchConfig config, Prize prize, Set<int> winners, GamificationTheme theme, GamificationStrings s) {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
@@ -261,8 +257,14 @@ class _ScratchGameState extends State<ScratchGame> with SingleTickerProviderStat
     );
   }
 
-  Widget _cell(ScratchConfig config, int index, Prize prize, Set<int> winners,
-      GamificationTheme theme, GamificationStrings s) {
+  Widget _cell(
+    ScratchConfig config,
+    int index,
+    Prize prize,
+    Set<int> winners,
+    GamificationTheme theme,
+    GamificationStrings s,
+  ) {
     final isWinner = _done && winners.contains(index);
     return AnimatedScale(
       scale: isWinner && _pulse ? 1.08 : 1,

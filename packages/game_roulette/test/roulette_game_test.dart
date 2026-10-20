@@ -31,35 +31,34 @@ Future<void> _pump(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
-  await tester.pumpWidget(MaterialApp(
-    home: MediaQuery(
-      data: MediaQueryData(disableAnimations: reduceMotion, size: size),
-      child: Scaffold(
-        body: GamificationScope(
-          theme: const GamificationTheme(),
-          strings: const EsStrings(),
-          preferences: const GamePreferences(),
-          child: RouletteGame(
-            session: GameSession(
-              redemption: redemption,
-              preferences: const GamePreferences(),
-              onStarted: () => h.started++,
-              onFinished: () => h.finished++,
+  await tester.pumpWidget(
+    MaterialApp(
+      home: MediaQuery(
+        data: MediaQueryData(disableAnimations: reduceMotion, size: size),
+        child: Scaffold(
+          body: GamificationScope(
+            theme: const GamificationTheme(),
+            strings: const EsStrings(),
+            preferences: const GamePreferences(),
+            child: RouletteGame(
+              session: GameSession(
+                redemption: redemption,
+                preferences: const GamePreferences(),
+                onStarted: () => h.started++,
+                onFinished: () => h.finished++,
+              ),
+              feedbackFactory: (_) => h.feedback,
+              random: Random(1),
             ),
-            feedbackFactory: (_) => h.feedback,
-            random: Random(1),
           ),
         ),
       ),
     ),
-  ));
+  );
 }
 
-RoulettePainter _painter(WidgetTester t) => t
-    .widgetList<CustomPaint>(find.byType(CustomPaint))
-    .map((c) => c.painter)
-    .whereType<RoulettePainter>()
-    .single;
+RoulettePainter _painter(WidgetTester t) =>
+    t.widgetList<CustomPaint>(find.byType(CustomPaint)).map((c) => c.painter).whereType<RoulettePainter>().single;
 
 /// Gira a 60 fps (frames de 16 ms) como en un dispositivo real. `pumpAndSettle` avanza de a
 /// 100 ms y saltaría divisorias, falseando el conteo de tics.
@@ -72,8 +71,7 @@ Future<void> _spinAtSixtyFps(WidgetTester t) async {
   await t.pump(const Duration(seconds: 1));
 }
 
-Future<Redemption> _redeem(String code) =>
-    MockRepository().redeem(code, idempotencyKey: 'k-$code');
+Future<Redemption> _redeem(String code) => MockRepository().redeem(code, idempotencyKey: 'k-$code');
 
 void main() {
   testWidgets('antes de girar: botón GIRAR visible, sin resaltar, nada notificado', (t) async {
@@ -103,8 +101,7 @@ void main() {
       await t.pumpAndSettle();
 
       final painter = _painter(t);
-      expect(RouletteMath.segmentAt(painter.rotation, painter.segments.length), entry.value,
-          reason: entry.key);
+      expect(RouletteMath.segmentAt(painter.rotation, painter.segments.length), entry.value, reason: entry.key);
       expect(painter.highlight, entry.value, reason: entry.key);
       await t.pump(const Duration(seconds: 1));
       await t.pumpWidget(const SizedBox());
@@ -230,7 +227,9 @@ void main() {
       final bad = Redemption(
         redemptionId: 'r',
         campaign: const Campaign(id: 'c', name: 'n', gameType: 'roulette'),
-        outcome: const Outcome(prize: Prize(id: 'x', type: PrizeType.money, label: 'x', amount: 1)),
+        outcome: const Outcome(
+          prize: Prize(id: 'x', type: PrizeType.money, label: 'x', amount: 1),
+        ),
       );
       await _pump(t, bad, h);
       expect(find.text('Este juego no está disponible en esta versión.'), findsOneWidget);
@@ -245,14 +244,21 @@ void main() {
         final h = _Harness();
         final r = Redemption(
           redemptionId: 'r$n',
-          campaign: Campaign(id: 'c', name: 'n', gameType: 'roulette', gameConfig: {
-            'segments': [
-              for (var i = 0; i < n; i++)
-                Prize(id: 'p$i', type: PrizeType.values[i % 4], label: 'Premio largo $i', amount: 5).toJson()
-            ],
-          }),
+          campaign: Campaign(
+            id: 'c',
+            name: 'n',
+            gameType: 'roulette',
+            gameConfig: {
+              'segments': [
+                for (var i = 0; i < n; i++)
+                  Prize(id: 'p$i', type: PrizeType.values[i % 4], label: 'Premio largo $i', amount: 5).toJson(),
+              ],
+            },
+          ),
           outcome: const Outcome(
-              prize: Prize(id: 'x', type: PrizeType.none, label: 'x'), gameResult: {'segmentIndex': 0}),
+            prize: Prize(id: 'x', type: PrizeType.none, label: 'x'),
+            gameResult: {'segmentIndex': 0},
+          ),
         );
         await _pump(t, r, h, size: const Size(320, 480));
         await t.tap(find.text('GIRAR'));

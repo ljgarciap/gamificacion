@@ -10,8 +10,8 @@ import 'token_provider.dart';
 /// pueda autenticar y mostrar códigos de prueba sin una app host.
 class DevClient {
   DevClient({required String baseUrl, http.Client? client, this.timeout = const Duration(seconds: 10)})
-      : _base = Uri.parse(baseUrl.trim()),
-        _client = client ?? http.Client();
+    : _base = Uri.parse(baseUrl.trim()),
+      _client = client ?? http.Client();
 
   final Uri _base;
   final http.Client _client;
@@ -24,11 +24,13 @@ class DevClient {
 
   /// Pide un token para [userId].
   Future<DevToken> requestToken(String userId) async {
-    final response = await _call(() => _client.post(
-          _url('/v1/dev/token'),
-          headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-          body: jsonEncode({'userId': userId}),
-        ));
+    final response = await _call(
+      () => _client.post(
+        _url('/v1/dev/token'),
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: jsonEncode({'userId': userId}),
+      ),
+    );
     if (response.statusCode != 200) throw const GamificationException(FailureReason.unauthorized);
     try {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -45,7 +47,9 @@ class DevClient {
   /// Códigos de demostración que todavía se pueden canjear: código -> descripción. Si falla, devuelve un mapa vacío (es solo una ayuda).
   Future<Map<String, String>> demoCodes() async {
     try {
-      final response = await _call(() => _client.get(_url('/v1/dev/demo-codes'), headers: {'Accept': 'application/json'}));
+      final response = await _call(
+        () => _client.get(_url('/v1/dev/demo-codes'), headers: {'Accept': 'application/json'}),
+      );
       if (response.statusCode != 200) return const {};
       final list = (jsonDecode(response.body) as Map<String, dynamic>)['codes'] as List;
       return {for (final c in list) (c as Map)['code'] as String: c['description'] as String};

@@ -5,8 +5,7 @@ enum UsedCodeBehavior {
   showPrevious,
   rejectOnly;
 
-  static UsedCodeBehavior parse(String? raw) =>
-      raw == 'showPrevious' ? showPrevious : rejectOnly;
+  static UsedCodeBehavior parse(String? raw) => raw == 'showPrevious' ? showPrevious : rejectOnly;
 }
 
 class Campaign {
@@ -22,16 +21,15 @@ class Campaign {
   });
 
   factory Campaign.fromJson(Map<String, dynamic> json) => Campaign(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        gameType: json['gameType'] as String,
-        theme: GamificationTheme.fromJson(
-            (json['theme'] as Map?)?.cast<String, dynamic>() ?? const {}),
-        usedCodeBehavior: UsedCodeBehavior.parse(json['usedCodeBehavior'] as String?),
-        title: json['title'] as String?,
-        helpText: json['helpText'] as String?,
-        gameConfig: (json['gameConfig'] as Map?)?.cast<String, dynamic>() ?? const {},
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    gameType: json['gameType'] as String,
+    theme: GamificationTheme.fromJson((json['theme'] as Map?)?.cast<String, dynamic>() ?? const {}),
+    usedCodeBehavior: UsedCodeBehavior.parse(json['usedCodeBehavior'] as String?),
+    title: json['title'] as String?,
+    helpText: json['helpText'] as String?,
+    gameConfig: (json['gameConfig'] as Map?)?.cast<String, dynamic>() ?? const {},
+  );
 
   final String id;
   final String name;

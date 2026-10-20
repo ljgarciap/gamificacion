@@ -9,9 +9,9 @@ import 'dart:ui' show Offset;
 /// celdas marcadas es mucho más barato que medir píxeles y basta para decidir el umbral de revelado.
 class ScratchMask {
   ScratchMask({required this.aspect, this.columns = 48})
-      : assert(aspect > 0),
-        assert(columns > 0),
-        rows = max(1, (columns * aspect).round()) {
+    : assert(aspect > 0),
+      assert(columns > 0),
+      rows = max(1, (columns * aspect).round()) {
     _cells = List<bool>.filled(columns * rows, false);
   }
 

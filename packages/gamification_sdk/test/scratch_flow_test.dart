@@ -23,11 +23,13 @@ Future<void> _pump(WidgetTester t, MockRepository repo, GamificationEvents event
   t.view.physicalSize = const Size(800, 1600);
   t.view.devicePixelRatio = 2;
   addTearDown(t.view.reset);
-  await t.pumpWidget(MaterialApp(
-    home: Scaffold(
-      body: GamificationFlow(repository: repo, registry: _registry(), events: events),
+  await t.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: GamificationFlow(repository: repo, registry: _registry(), events: events),
+      ),
     ),
-  ));
+  );
   await t.pumpAndSettle();
 }
 
@@ -103,16 +105,18 @@ void main() {
     t.view.physicalSize = const Size(800, 1600);
     t.view.devicePixelRatio = 2;
     addTearDown(t.view.reset);
-    await t.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: GamificationFlow(
-          repository: MockRepository(),
-          registry: _registry(),
-          events: GamificationEvents(),
-          onClose: () {},
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GamificationFlow(
+            repository: MockRepository(),
+            registry: _registry(),
+            events: GamificationEvents(),
+            onClose: () {},
+          ),
         ),
       ),
-    ));
+    );
     await t.pumpAndSettle();
     await _validate(t, 'RASPA-GANA');
     expect(find.byTooltip('Cerrar'), findsOneWidget);

@@ -6,12 +6,7 @@ import 'confetti.dart';
 
 /// Pantalla 3 (ux-spec-001): premio o "sin premio", con acciones configuradas por el host.
 class ResultScreen extends StatefulWidget {
-  const ResultScreen({
-    super.key,
-    required this.redemption,
-    required this.onContinue,
-    required this.onBackHome,
-  });
+  const ResultScreen({super.key, required this.redemption, required this.onContinue, required this.onBackHome});
 
   final Redemption redemption;
   final VoidCallback onContinue;
@@ -25,13 +20,13 @@ class _ResultScreenState extends State<ResultScreen> {
   bool _copied = false;
 
   static IconData _icon(PrizeType t) => switch (t) {
-        PrizeType.money => Icons.payments_rounded,
-        PrizeType.coupon => Icons.local_activity_rounded,
-        PrizeType.points => Icons.stars_rounded,
-        PrizeType.extraSpin => Icons.replay_rounded,
-        PrizeType.none => Icons.sentiment_satisfied_rounded,
-        PrizeType.unknown => Icons.card_giftcard_rounded,
-      };
+    PrizeType.money => Icons.payments_rounded,
+    PrizeType.coupon => Icons.local_activity_rounded,
+    PrizeType.points => Icons.stars_rounded,
+    PrizeType.extraSpin => Icons.replay_rounded,
+    PrizeType.none => Icons.sentiment_satisfied_rounded,
+    PrizeType.unknown => Icons.card_giftcard_rounded,
+  };
 
   Future<void> _copy(String code) async {
     try {
@@ -72,8 +67,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     color: theme.info.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(s.previouslyPlayed(redemption.playedAt!.toLocal()),
-                      textAlign: TextAlign.center),
+                  child: Text(s.previouslyPlayed(redemption.playedAt!.toLocal()), textAlign: TextAlign.center),
                 ),
               // El lector de pantalla anuncia el resultado al aparecer la pantalla.
               Semantics(
@@ -92,21 +86,22 @@ class _ResultScreenState extends State<ResultScreen> {
                             children: [
                               Icon(_icon(prize.type), size: 64, color: accent),
                               const SizedBox(height: 12),
-                              Text(headline,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontSize: 22, fontWeight: FontWeight.w700, color: theme.navy)),
+                              Text(
+                                headline,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: theme.navy),
+                              ),
                               if (description != null) ...[
                                 const SizedBox(height: 8),
-                                Text(description,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                        fontSize: 34, fontWeight: FontWeight.w800, color: theme.navy)),
+                                Text(
+                                  description,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: theme.navy),
+                                ),
                               ],
                               if (won && prize.type == PrizeType.money) ...[
                                 const SizedBox(height: 8),
-                                Text(s.creditedToBalance,
-                                    style: TextStyle(color: theme.navy.withValues(alpha: 0.7))),
+                                Text(s.creditedToBalance, style: TextStyle(color: theme.navy.withValues(alpha: 0.7))),
                               ],
                             ],
                           ),
@@ -133,9 +128,7 @@ class _ResultScreenState extends State<ResultScreen> {
           ),
         ),
         if (celebrate)
-          Positioned.fill(
-            child: ConfettiBurst(colors: [theme.accent, theme.primary, theme.info, theme.success]),
-          ),
+          Positioned.fill(child: ConfettiBurst(colors: [theme.accent, theme.primary, theme.info, theme.success])),
       ],
     );
   }

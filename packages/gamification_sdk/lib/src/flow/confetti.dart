@@ -14,8 +14,8 @@ class ConfettiBurst extends StatefulWidget {
 }
 
 class _ConfettiBurstState extends State<ConfettiBurst> with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))..forward();
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))
+    ..forward();
 
   @override
   void dispose() {
@@ -29,10 +29,8 @@ class _ConfettiBurstState extends State<ConfettiBurst> with SingleTickerProvider
       child: ExcludeSemantics(
         child: AnimatedBuilder(
           animation: _c,
-          builder: (_, __) => CustomPaint(
-            size: Size.infinite,
-            painter: _ConfettiPainter(_c.value, widget.colors, widget.particles),
-          ),
+          builder: (_, __) =>
+              CustomPaint(size: Size.infinite, painter: _ConfettiPainter(_c.value, widget.colors, widget.particles)),
         ),
       ),
     );

@@ -13,8 +13,7 @@ final eventsProvider = Provider<GamificationEvents>((ref) => throw Unimplemented
 /// Generador de Idempotency-Key. Inyectable para tests.
 final idempotencyKeyProvider = Provider<String Function()>((ref) => _randomKey);
 
-final flowControllerProvider =
-    NotifierProvider<FlowController, FlowState>(FlowController.new);
+final flowControllerProvider = NotifierProvider<FlowController, FlowState>(FlowController.new);
 
 /// Mayúsculas y sin espacios: el código se compara así en cliente y servidor.
 String normalizeCode(String raw) => raw.replaceAll(RegExp(r'\s+'), '').toUpperCase();
@@ -62,10 +61,7 @@ class FlowController extends Notifier<FlowState> {
       final redemption = await _repo.redeem(code, idempotencyKey: _pendingKey!);
       _pendingKey = null;
       _pendingCode = null;
-      _events.emit(CodeValidatedEvent(
-        redemptionId: redemption.redemptionId,
-        gameType: redemption.gameType,
-      ));
+      _events.emit(CodeValidatedEvent(redemptionId: redemption.redemptionId, gameType: redemption.gameType));
 
       if (!ref.read(registryProvider).has(redemption.gameType)) {
         _events.emit(const ErrorEvent(FailureReason.unknown));

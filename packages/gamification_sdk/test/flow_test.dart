@@ -13,12 +13,12 @@ class _TestGame implements GameModule {
 
   @override
   Widget build(BuildContext context, GameSession session) => Column(
-        children: [
-          Text('JUEGO:$id:${session.redemption.outcome.gameResult}'),
-          ElevatedButton(onPressed: session.onStarted, child: const Text('empezar')),
-          ElevatedButton(onPressed: session.onFinished, child: const Text('terminar')),
-        ],
-      );
+    children: [
+      Text('JUEGO:$id:${session.redemption.outcome.gameResult}'),
+      ElevatedButton(onPressed: session.onStarted, child: const Text('empezar')),
+      ElevatedButton(onPressed: session.onFinished, child: const Text('terminar')),
+    ],
+  );
 }
 
 /// Repositorio que falla con red una vez y registra las claves de idempotencia recibidas.
@@ -62,22 +62,24 @@ Future<void> _pump(
   tester.view.physicalSize = const Size(800, 1600);
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(
-    home: MediaQuery(
-      data: MediaQueryData(disableAnimations: disableAnimations),
-      child: Scaffold(
-        body: GamificationFlow(
-          repository: repo,
-          registry: registry ?? _registry(),
-          events: events ?? GamificationEvents(),
-          locale: locale,
-          onClose: onClose,
-          demoCodes: demoCodes,
-          helpText: helpText,
+  await tester.pumpWidget(
+    MaterialApp(
+      home: MediaQuery(
+        data: MediaQueryData(disableAnimations: disableAnimations),
+        child: Scaffold(
+          body: GamificationFlow(
+            repository: repo,
+            registry: registry ?? _registry(),
+            events: events ?? GamificationEvents(),
+            locale: locale,
+            onClose: onClose,
+            demoCodes: demoCodes,
+            helpText: helpText,
+          ),
         ),
       ),
     ),
-  ));
+  );
   await tester.pumpAndSettle();
 }
 

@@ -10,27 +10,26 @@ Redemption redemption({
   required List<Prize> segments,
   Object? segmentIndex = 0,
   Map<String, dynamic> extraConfig = const {},
-}) =>
-    Redemption(
-      redemptionId: 'r',
-      campaign: Campaign(
-        id: 'c',
-        name: 'n',
-        gameType: 'roulette',
-        gameConfig: {
-          'segments': [for (final p in segments) p.toJson()],
-          ...extraConfig,
-        },
-      ),
-      outcome: Outcome(
-        prize: const Prize(id: 'x', type: PrizeType.none, label: 'x'),
-        gameResult: {'segmentIndex': segmentIndex},
-      ),
-    );
+}) => Redemption(
+  redemptionId: 'r',
+  campaign: Campaign(
+    id: 'c',
+    name: 'n',
+    gameType: 'roulette',
+    gameConfig: {
+      'segments': [for (final p in segments) p.toJson()],
+      ...extraConfig,
+    },
+  ),
+  outcome: Outcome(
+    prize: const Prize(id: 'x', type: PrizeType.none, label: 'x'),
+    gameResult: {'segmentIndex': segmentIndex},
+  ),
+);
 
 List<Prize> prizes(int n) => [
-      for (var i = 0; i < n; i++) Prize(id: 'p$i', type: PrizeType.money, label: '$i', amount: 1000)
-    ];
+  for (var i = 0; i < n; i++) Prize(id: 'p$i', type: PrizeType.money, label: '$i', amount: 1000),
+];
 
 void main() {
   group('RouletteMath', () {
@@ -43,8 +42,7 @@ void main() {
       for (var n = RouletteConfig.minSegments; n <= RouletteConfig.maxSegments; n++) {
         for (var i = 0; i < n; i++) {
           for (final off in [-0.45, -0.35, -0.1, 0.0, 0.1, 0.35, 0.45]) {
-            final rotation = RouletteMath.finalRotation(
-                index: i, segments: n, fullTurns: 5, offsetFraction: off);
+            final rotation = RouletteMath.finalRotation(index: i, segments: n, fullTurns: 5, offsetFraction: off);
             expect(RouletteMath.segmentAt(rotation, n), i, reason: 'n=$n i=$i offset=$off');
           }
         }
@@ -95,25 +93,21 @@ void main() {
     });
 
     test('duración y vueltas salen de la campaña', () {
-      final c = RouletteConfig.fromRedemption(redemption(
-        segments: prizes(6),
-        extraConfig: {'durationMs': 3000, 'fullTurns': 3},
-      ));
+      final c = RouletteConfig.fromRedemption(
+        redemption(segments: prizes(6), extraConfig: {'durationMs': 3000, 'fullTurns': 3}),
+      );
       expect(c.duration, const Duration(seconds: 3));
       expect(c.fullTurns, 3);
     });
 
     test('el offset nunca llega a la divisoria (máx. 0.45)', () {
-      final c = RouletteConfig.fromRedemption(
-          redemption(segments: prizes(6), extraConfig: {'offsetSpread': 0.9}));
+      final c = RouletteConfig.fromRedemption(redemption(segments: prizes(6), extraConfig: {'offsetSpread': 0.9}));
       expect(c.offsetSpread, 0.45);
     });
 
     test('RF-03: rechaza menos de 4 y más de 12 segmentos', () {
-      expect(() => RouletteConfig.fromRedemption(redemption(segments: prizes(3))),
-          throwsFormatException);
-      expect(() => RouletteConfig.fromRedemption(redemption(segments: prizes(13))),
-          throwsFormatException);
+      expect(() => RouletteConfig.fromRedemption(redemption(segments: prizes(3))), throwsFormatException);
+      expect(() => RouletteConfig.fromRedemption(redemption(segments: prizes(13))), throwsFormatException);
       expect(RouletteConfig.fromRedemption(redemption(segments: prizes(4))).segments, hasLength(4));
       expect(RouletteConfig.fromRedemption(redemption(segments: prizes(12))).segments, hasLength(12));
     });
@@ -132,7 +126,9 @@ void main() {
       final r = Redemption(
         redemptionId: 'r',
         campaign: const Campaign(id: 'c', name: 'n', gameType: 'roulette'),
-        outcome: const Outcome(prize: Prize(id: 'x', type: PrizeType.none, label: 'x')),
+        outcome: const Outcome(
+          prize: Prize(id: 'x', type: PrizeType.none, label: 'x'),
+        ),
       );
       expect(() => RouletteConfig.fromRedemption(r), throwsFormatException);
     });

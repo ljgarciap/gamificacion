@@ -18,20 +18,21 @@ void main() {
     });
 
     test('rateLimited incluye los segundos', () {
-      expect(const EsStrings().failure(FailureReason.rateLimited, retryAfter: const Duration(seconds: 30)),
-          contains('30 s'));
-      expect(const EnStrings().failure(FailureReason.rateLimited, retryAfter: const Duration(seconds: 7)),
-          contains('7 s'));
+      expect(
+        const EsStrings().failure(FailureReason.rateLimited, retryAfter: const Duration(seconds: 30)),
+        contains('30 s'),
+      );
+      expect(
+        const EnStrings().failure(FailureReason.rateLimited, retryAfter: const Duration(seconds: 7)),
+        contains('7 s'),
+      );
     });
 
     test('descripción del premio: dinero en COP, puntos y etiqueta', () {
       const s = EsStrings();
-      expect(s.prizeDescription(const Prize(id: 'a', type: PrizeType.money, label: 'x', amount: 50000)),
-          r'$ 50.000');
-      expect(s.prizeDescription(const Prize(id: 'b', type: PrizeType.points, label: 'x', amount: 250)),
-          '+250 puntos');
-      expect(s.prizeDescription(const Prize(id: 'c', type: PrizeType.coupon, label: 'Cupón 20%')),
-          'Cupón 20%');
+      expect(s.prizeDescription(const Prize(id: 'a', type: PrizeType.money, label: 'x', amount: 50000)), r'$ 50.000');
+      expect(s.prizeDescription(const Prize(id: 'b', type: PrizeType.points, label: 'x', amount: 250)), '+250 puntos');
+      expect(s.prizeDescription(const Prize(id: 'c', type: PrizeType.coupon, label: 'Cupón 20%')), 'Cupón 20%');
     });
 
     test('fecha de juego previo con formato local', () {
@@ -42,25 +43,29 @@ void main() {
 
   group('GamificationScope', () {
     Widget host({required Widget child, bool disableAnimations = false}) => MaterialApp(
-          home: MediaQuery(
-            data: MediaQueryData(disableAnimations: disableAnimations),
-            child: child,
-          ),
-        );
+      home: MediaQuery(
+        data: MediaQueryData(disableAnimations: disableAnimations),
+        child: child,
+      ),
+    );
 
     testWidgets('entrega tema y textos a los descendientes', (t) async {
       late GamificationScope found;
-      await t.pumpWidget(host(
-        child: GamificationScope(
-          theme: const GamificationTheme(),
-          strings: const EnStrings(),
-          preferences: const GamePreferences(),
-          child: Builder(builder: (c) {
-            found = GamificationScope.of(c);
-            return const SizedBox();
-          }),
+      await t.pumpWidget(
+        host(
+          child: GamificationScope(
+            theme: const GamificationTheme(),
+            strings: const EnStrings(),
+            preferences: const GamePreferences(),
+            child: Builder(
+              builder: (c) {
+                found = GamificationScope.of(c);
+                return const SizedBox();
+              },
+            ),
+          ),
         ),
-      ));
+      );
       expect(found.strings, isA<EnStrings>());
       expect(found.theme, const GamificationTheme());
     });
@@ -68,18 +73,22 @@ void main() {
     testWidgets('reduceMotion: sistema o preferencia del host', (t) async {
       Future<bool> read({required bool system, required bool pref}) async {
         late bool result;
-        await t.pumpWidget(host(
-          disableAnimations: system,
-          child: GamificationScope(
-            theme: const GamificationTheme(),
-            strings: const EsStrings(),
-            preferences: GamePreferences(reduceMotion: pref),
-            child: Builder(builder: (c) {
-              result = GamificationScope.reduceMotion(c);
-              return const SizedBox();
-            }),
+        await t.pumpWidget(
+          host(
+            disableAnimations: system,
+            child: GamificationScope(
+              theme: const GamificationTheme(),
+              strings: const EsStrings(),
+              preferences: GamePreferences(reduceMotion: pref),
+              child: Builder(
+                builder: (c) {
+                  result = GamificationScope.reduceMotion(c);
+                  return const SizedBox();
+                },
+              ),
+            ),
           ),
-        ));
+        );
         return result;
       }
 

@@ -19,8 +19,7 @@ class GameRegistry {
 
   bool has(String gameType) => _modules.containsKey(gameType);
 
-  GameModule resolve(String gameType) =>
-      _modules[gameType] ?? (throw UnknownGameException(gameType));
+  GameModule resolve(String gameType) => _modules[gameType] ?? (throw UnknownGameException(gameType));
 
   Iterable<String> get ids => _modules.keys;
 }

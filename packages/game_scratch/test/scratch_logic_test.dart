@@ -8,12 +8,11 @@ Redemption redemption({
   Map<String, dynamic> config = const {},
   Object? grid,
   Prize prize = const Prize(id: 'p10k', type: PrizeType.money, label: r'$ 10.000', amount: 10000),
-}) =>
-    Redemption(
-      redemptionId: 'r',
-      campaign: Campaign(id: 'c', name: 'n', gameType: 'scratch', gameConfig: config),
-      outcome: Outcome(prize: prize, gameResult: {'grid': grid}),
-    );
+}) => Redemption(
+  redemptionId: 'r',
+  campaign: Campaign(id: 'c', name: 'n', gameType: 'scratch', gameConfig: config),
+  outcome: Outcome(prize: prize, gameResult: {'grid': grid}),
+);
 
 List<String> grid9([String s = 'star']) => List.filled(9, s);
 
@@ -108,10 +107,12 @@ void main() {
     });
 
     test('tamaño, umbral y pincel salen de la campaña', () {
-      final c = ScratchConfig.fromRedemption(redemption(
-        config: {'rows': 2, 'cols': 4, 'revealThreshold': 0.5, 'brushWidth': 40},
-        grid: List.filled(8, 'sun'),
-      ));
+      final c = ScratchConfig.fromRedemption(
+        redemption(
+          config: {'rows': 2, 'cols': 4, 'revealThreshold': 0.5, 'brushWidth': 40},
+          grid: List.filled(8, 'sun'),
+        ),
+      );
       expect(c.rows, 2);
       expect(c.cols, 4);
       expect(c.revealThreshold, 0.5);
@@ -120,10 +121,9 @@ void main() {
     });
 
     test('umbral y pincel se acotan a valores usables', () {
-      final c = ScratchConfig.fromRedemption(redemption(
-        config: {'revealThreshold': 5, 'brushWidth': 1},
-        grid: grid9(),
-      ));
+      final c = ScratchConfig.fromRedemption(
+        redemption(config: {'revealThreshold': 5, 'brushWidth': 1}, grid: grid9()),
+      );
       expect(c.revealThreshold, 0.95);
       expect(c.brushWidth, 12);
     });
@@ -139,9 +139,15 @@ void main() {
     });
 
     test('rechaza grid ausente, de otro largo o con valores inválidos', () {
-      for (final bad in <Object?>[null, 'x', List.filled(8, 'a'), List.filled(10, 'a'), [...grid9().take(8), 3], [...grid9().take(8), '']]) {
-        expect(() => ScratchConfig.fromRedemption(redemption(grid: bad)), throwsFormatException,
-            reason: '$bad');
+      for (final bad in <Object?>[
+        null,
+        'x',
+        List.filled(8, 'a'),
+        List.filled(10, 'a'),
+        [...grid9().take(8), 3],
+        [...grid9().take(8), ''],
+      ]) {
+        expect(() => ScratchConfig.fromRedemption(redemption(grid: bad)), throwsFormatException, reason: '$bad');
       }
     });
 

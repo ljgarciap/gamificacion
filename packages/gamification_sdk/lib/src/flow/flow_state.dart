@@ -38,13 +38,13 @@ class FlowState {
   bool get isBlocked => blockedUntil != null && DateTime.now().isBefore(blockedUntil!);
 
   FlowState copyWith({Balance? balance, bool? animating}) => FlowState(
-        stage: stage,
-        redemption: redemption,
-        failure: failure,
-        retryAfter: retryAfter,
-        blockedUntil: blockedUntil,
-        unsupportedGame: unsupportedGame,
-        animating: animating ?? this.animating,
-        balance: balance ?? this.balance,
-      );
+    stage: stage,
+    redemption: redemption,
+    failure: failure,
+    retryAfter: retryAfter,
+    blockedUntil: blockedUntil,
+    unsupportedGame: unsupportedGame,
+    animating: animating ?? this.animating,
+    balance: balance ?? this.balance,
+  );
 }

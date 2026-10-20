@@ -7,7 +7,8 @@ import 'package:gamification_http/gamification_http.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-http.Response _json(int status, Object body) => http.Response(jsonEncode(body), status, headers: {'content-type': 'application/json'});
+http.Response _json(int status, Object body) =>
+    http.Response(jsonEncode(body), status, headers: {'content-type': 'application/json'});
 
 void main() {
   group('DevClient', () {
@@ -25,7 +26,11 @@ void main() {
       expect(seen.method, 'POST');
       expect(seen.url.toString(), 'http://api.test:8000/v1/dev/token');
       expect(jsonDecode(seen.body), {'userId': 'maria'});
-      expect(seen.headers.containsKey('Authorization'), isFalse, reason: 'este endpoint no usa token: es el que lo emite');
+      expect(
+        seen.headers.containsKey('Authorization'),
+        isFalse,
+        reason: 'este endpoint no usa token: es el que lo emite',
+      );
       expect((t.token, t.expiresIn, t.userId), ('jwt', const Duration(seconds: 300), 'standalone-dev:maria'));
     });
 
@@ -43,7 +48,10 @@ void main() {
       expect((await fails(() => _json(200, {'sin': 'token'}))).reason, FailureReason.unknown);
       expect((await fails(() => http.Response('basura', 200))).reason, FailureReason.unknown);
       try {
-        await DevClient(baseUrl: 'http://a.test', client: MockClient((_) async => throw http.ClientException('x'))).requestToken('x');
+        await DevClient(
+          baseUrl: 'http://a.test',
+          client: MockClient((_) async => throw http.ClientException('x')),
+        ).requestToken('x');
         fail('debía fallar');
       } on GamificationException catch (e) {
         expect(e.reason, FailureReason.network);
@@ -51,27 +59,54 @@ void main() {
     });
 
     test('el tiempo de espera agotado es network', () async {
-      final client = DevClient(baseUrl: 'http://a.test', timeout: const Duration(milliseconds: 40), client: MockClient((_) => Completer<http.Response>().future));
-      expect(client.requestToken('x'), throwsA(isA<GamificationException>().having((e) => e.reason, 'reason', FailureReason.network)));
+      final client = DevClient(
+        baseUrl: 'http://a.test',
+        timeout: const Duration(milliseconds: 40),
+        client: MockClient((_) => Completer<http.Response>().future),
+      );
+      expect(
+        client.requestToken('x'),
+        throwsA(isA<GamificationException>().having((e) => e.reason, 'reason', FailureReason.network)),
+      );
     });
 
     test('demoCodes: código -> descripción', () async {
       final client = DevClient(
         baseUrl: 'http://a.test',
-        client: MockClient((_) async => _json(200, {
-              'codes': [
-                {'code': 'RULETA-AAAA-BBBB-CCC', 'game': 'roulette', 'description': 'Ruleta: \$ 50.000'},
-                {'code': 'RASPA-DDDD-EEEE-FFF', 'game': 'scratch', 'description': 'Raspa: Sin premio'},
-              ],
-            })),
+        client: MockClient(
+          (_) async => _json(200, {
+            'codes': [
+              {'code': 'RULETA-AAAA-BBBB-CCC', 'game': 'roulette', 'description': 'Ruleta: \$ 50.000'},
+              {'code': 'RASPA-DDDD-EEEE-FFF', 'game': 'scratch', 'description': 'Raspa: Sin premio'},
+            ],
+          }),
+        ),
       );
-      expect(await client.demoCodes(), {'RULETA-AAAA-BBBB-CCC': 'Ruleta: \$ 50.000', 'RASPA-DDDD-EEEE-FFF': 'Raspa: Sin premio'});
+      expect(await client.demoCodes(), {
+        'RULETA-AAAA-BBBB-CCC': 'Ruleta: \$ 50.000',
+        'RASPA-DDDD-EEEE-FFF': 'Raspa: Sin premio',
+      });
     });
 
     test('demoCodes nunca falla: es solo una ayuda (producción: 404; sin red; basura)', () async {
-      expect(await DevClient(baseUrl: 'http://a.test', client: MockClient((_) async => http.Response('', 404))).demoCodes(), isEmpty);
-      expect(await DevClient(baseUrl: 'http://a.test', client: MockClient((_) async => throw http.ClientException('x'))).demoCodes(), isEmpty);
-      expect(await DevClient(baseUrl: 'http://a.test', client: MockClient((_) async => http.Response('[]', 200))).demoCodes(), isEmpty);
+      expect(
+        await DevClient(baseUrl: 'http://a.test', client: MockClient((_) async => http.Response('', 404))).demoCodes(),
+        isEmpty,
+      );
+      expect(
+        await DevClient(
+          baseUrl: 'http://a.test',
+          client: MockClient((_) async => throw http.ClientException('x')),
+        ).demoCodes(),
+        isEmpty,
+      );
+      expect(
+        await DevClient(
+          baseUrl: 'http://a.test',
+          client: MockClient((_) async => http.Response('[]', 200)),
+        ).demoCodes(),
+        isEmpty,
+      );
     });
   });
 
@@ -88,7 +123,11 @@ void main() {
           baseUrl: 'http://a.test',
           client: MockClient((_) async {
             requests++;
-            return _json(200, {'token': 'jwt-$requests', 'expiresIn': expires.inSeconds, 'userId': 'standalone-dev:maria'});
+            return _json(200, {
+              'token': 'jwt-$requests',
+              'expiresIn': expires.inSeconds,
+              'userId': 'standalone-dev:maria',
+            });
           }),
         ),
       );
@@ -131,7 +170,9 @@ void main() {
         clock: () => now,
         client: DevClient(
           baseUrl: 'http://a.test',
-          client: MockClient((_) async => fail ? http.Response('', 503) : _json(200, {'token': 't', 'expiresIn': 300, 'userId': 'u'})),
+          client: MockClient(
+            (_) async => fail ? http.Response('', 503) : _json(200, {'token': 't', 'expiresIn': 300, 'userId': 'u'}),
+          ),
         ),
       );
       await expectLater(p.token(), throwsA(isA<GamificationException>()));

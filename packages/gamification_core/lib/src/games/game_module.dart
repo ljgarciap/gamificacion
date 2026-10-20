@@ -4,11 +4,7 @@ import '../models/redemption.dart';
 
 /// Preferencias de presentación que decide el host.
 class GamePreferences {
-  const GamePreferences({
-    this.sound = true,
-    this.haptics = true,
-    this.reduceMotion = false,
-  });
+  const GamePreferences({this.sound = true, this.haptics = true, this.reduceMotion = false});
 
   final bool sound;
   final bool haptics;

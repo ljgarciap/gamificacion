@@ -12,12 +12,9 @@ import 'repository.dart';
 ///
 /// Códigos de prueba: ver [demoCodes].
 class MockRepository implements GamificationRepository {
-  MockRepository({
-    int initialBalance = 120000,
-    this.latency = Duration.zero,
-    DateTime Function()? clock,
-  })  : _balance = initialBalance,
-        _clock = clock ?? DateTime.now;
+  MockRepository({int initialBalance = 120000, this.latency = Duration.zero, DateTime Function()? clock})
+    : _balance = initialBalance,
+      _clock = clock ?? DateTime.now;
 
   final Duration latency;
   final DateTime Function() _clock;
@@ -76,8 +73,7 @@ class MockRepository implements GamificationRepository {
       case 'INACTIVA':
         throw const GamificationException(FailureReason.campaignInactive);
       case 'LIMITE':
-        throw const GamificationException(FailureReason.rateLimited,
-            retryAfter: Duration(seconds: 30));
+        throw const GamificationException(FailureReason.rateLimited, retryAfter: Duration(seconds: 30));
     }
 
     final previous = _byCode[normalized];
@@ -126,9 +122,7 @@ class MockRepository implements GamificationRepository {
         theme: const GamificationTheme(),
         title: 'Gira y Gana',
         helpText: 'Tu código está en el comprobante de tu transacción.',
-        usedCodeBehavior: code == 'RULETA-REPITE'
-            ? UsedCodeBehavior.showPrevious
-            : UsedCodeBehavior.rejectOnly,
+        usedCodeBehavior: code == 'RULETA-REPITE' ? UsedCodeBehavior.showPrevious : UsedCodeBehavior.rejectOnly,
         gameConfig: {
           'durationMs': 4600,
           'fullTurns': 5,
@@ -161,10 +155,7 @@ class MockRepository implements GamificationRepository {
       final grid = win
           ? ['p10k', 'star', 'p10k', 'moon', 'p10k', 'sun', 'star', 'moon', 'sun']
           : ['star', 'moon', 'sun', 'coin', 'gem', 'star', 'moon', 'sun', 'coin'];
-      return (
-        campaign: campaign,
-        outcome: Outcome(prize: win ? prize10k : noPrize, gameResult: {'grid': grid}),
-      );
+      return (campaign: campaign, outcome: Outcome(prize: win ? prize10k : noPrize, gameResult: {'grid': grid}));
     }
     return null;
   }

@@ -17,12 +17,7 @@ void main() => runApp(const GamificationApp());
 /// App independiente y host de demostración. Con [apiUrl] vacío usa el backend simulado; con una URL, el backend real:
 /// el token lo pide al endpoint de desarrollo y los códigos de prueba salen del servidor (los que aún no se han canjeado).
 class GamificationApp extends StatefulWidget {
-  const GamificationApp({
-    super.key,
-    this.apiUrl = _apiUrlFromEnv,
-    this.devUser = _devUserFromEnv,
-    this.httpClient,
-  });
+  const GamificationApp({super.key, this.apiUrl = _apiUrlFromEnv, this.devUser = _devUserFromEnv, this.httpClient});
 
   final String apiUrl;
   final String devUser;
@@ -85,7 +80,11 @@ class _GamificationAppState extends State<GamificationApp> {
                 demoCodesLoader: _demoCodesLoader,
               ),
             ),
-            _ModeFooter(widget.usesBackend ? 'Backend: ${widget.apiUrl} · usuario ${widget.devUser}' : 'Modo demostración (backend simulado)'),
+            _ModeFooter(
+              widget.usesBackend
+                  ? 'Backend: ${widget.apiUrl} · usuario ${widget.devUser}'
+                  : 'Modo demostración (backend simulado)',
+            ),
           ],
         ),
       ),

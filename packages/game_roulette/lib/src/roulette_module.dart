@@ -16,9 +16,6 @@ class RouletteModule implements GameModule {
   String get id => 'roulette';
 
   @override
-  Widget build(BuildContext context, GameSession session) => RouletteGame(
-        session: session,
-        feedbackFactory: feedbackFactory,
-        random: random,
-      );
+  Widget build(BuildContext context, GameSession session) =>
+      RouletteGame(session: session, feedbackFactory: feedbackFactory, random: random);
 }

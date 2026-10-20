@@ -15,7 +15,8 @@ String _example(String name) {
   fail('No se encuentra el ejemplo $name');
 }
 
-http.Response _json(int status, String body) => http.Response.bytes(utf8.encode(body), status, headers: {'content-type': 'application/json'});
+http.Response _json(int status, String body) =>
+    http.Response.bytes(utf8.encode(body), status, headers: {'content-type': 'application/json'});
 
 void main() {
   testWidgets('sin URL de backend usa el simulado y lo indica', (tester) async {
@@ -71,9 +72,14 @@ void main() {
     });
 
     testWidgets('el panel de códigos de prueba sale del servidor, no del simulador', (t) async {
-      await pump(t, server(demoCodes: [
-        {'code': 'RULETA-AAAA-BBBB-CCC', 'game': 'roulette', 'description': 'Ruleta: \$ 50.000'},
-      ]));
+      await pump(
+        t,
+        server(
+          demoCodes: [
+            {'code': 'RULETA-AAAA-BBBB-CCC', 'game': 'roulette', 'description': 'Ruleta: \$ 50.000'},
+          ],
+        ),
+      );
       await t.tap(find.text('Códigos de prueba'));
       await t.pumpAndSettle();
       expect(find.text('RULETA-AAAA-BBBB-CCC'), findsOneWidget);

@@ -3,17 +3,13 @@ import 'prize.dart';
 
 /// Resultado ya decidido por el servidor.
 class Outcome {
-  const Outcome({
-    required this.prize,
-    this.extraSpins = 0,
-    this.gameResult = const {},
-  });
+  const Outcome({required this.prize, this.extraSpins = 0, this.gameResult = const {}});
 
   factory Outcome.fromJson(Map<String, dynamic> json) => Outcome(
-        prize: Prize.fromJson((json['prize'] as Map).cast<String, dynamic>()),
-        extraSpins: (json['extraSpins'] as num?)?.toInt() ?? 0,
-        gameResult: (json['gameResult'] as Map?)?.cast<String, dynamic>() ?? const {},
-      );
+    prize: Prize.fromJson((json['prize'] as Map).cast<String, dynamic>()),
+    extraSpins: (json['extraSpins'] as num?)?.toInt() ?? 0,
+    gameResult: (json['gameResult'] as Map?)?.cast<String, dynamic>() ?? const {},
+  );
 
   final Prize prize;
 
@@ -35,12 +31,12 @@ class Redemption {
   });
 
   factory Redemption.fromJson(Map<String, dynamic> json) => Redemption(
-        redemptionId: json['redemptionId'] as String,
-        campaign: Campaign.fromJson((json['campaign'] as Map).cast<String, dynamic>()),
-        outcome: Outcome.fromJson((json['outcome'] as Map).cast<String, dynamic>()),
-        alreadyPlayed: json['alreadyPlayed'] as bool? ?? false,
-        playedAt: json['playedAt'] == null ? null : DateTime.parse(json['playedAt'] as String),
-      );
+    redemptionId: json['redemptionId'] as String,
+    campaign: Campaign.fromJson((json['campaign'] as Map).cast<String, dynamic>()),
+    outcome: Outcome.fromJson((json['outcome'] as Map).cast<String, dynamic>()),
+    alreadyPlayed: json['alreadyPlayed'] as bool? ?? false,
+    playedAt: json['playedAt'] == null ? null : DateTime.parse(json['playedAt'] as String),
+  );
 
   final String redemptionId;
   final Campaign campaign;

@@ -19,7 +19,9 @@ Directory _dir() {
     final d = Directory(candidate);
     if (d.existsSync()) return d;
   }
-  fail('No se encuentran los ejemplos del contrato (docs/contract/examples). Corra la prueba desde el directorio del paquete.');
+  fail(
+    'No se encuentran los ejemplos del contrato (docs/contract/examples). Corra la prueba desde el directorio del paquete.',
+  );
 }
 
 String _read(String name) => File('${_dir().path}/$name.json').readAsStringSync();
@@ -32,10 +34,12 @@ class _Token implements TokenProvider {
 }
 
 HttpRepository _repoReturning(int status, String body) => HttpRepository(
-      baseUrl: 'http://api.test',
-      tokenProvider: _Token(),
-      client: MockClient((_) async => http.Response.bytes(utf8.encode(body), status, headers: {'content-type': 'application/json'})),
-    );
+  baseUrl: 'http://api.test',
+  tokenProvider: _Token(),
+  client: MockClient(
+    (_) async => http.Response.bytes(utf8.encode(body), status, headers: {'content-type': 'application/json'}),
+  ),
+);
 
 void main() {
   const redemptionExamples = [
@@ -61,7 +65,11 @@ void main() {
   };
 
   test('hay un test para cada ejemplo del contrato (si el backend agrega uno, hay que cubrirlo aquí)', () {
-    final onDisk = _dir().listSync().whereType<File>().map((f) => f.uri.pathSegments.last.replaceAll('.json', '')).toSet();
+    final onDisk = _dir()
+        .listSync()
+        .whereType<File>()
+        .map((f) => f.uri.pathSegments.last.replaceAll('.json', ''))
+        .toSet();
     expect(onDisk, {...redemptionExamples, ...errorExamples.keys, 'balance'});
   });
 
@@ -76,7 +84,11 @@ void main() {
         expect(viaModel.playedAt, isNotNull, reason: 'playedAt es una fecha ISO 8601 válida');
         expect(viaModel.campaign.gameType, anyOf('roulette', 'scratch'));
         expect(viaModel.outcome.prize.label, isNotEmpty);
-        expect(viaModel.outcome.prize.type, isNot(PrizeType.unknown), reason: 'el servidor solo emite tipos que el cliente conoce');
+        expect(
+          viaModel.outcome.prize.type,
+          isNot(PrizeType.unknown),
+          reason: 'el servidor solo emite tipos que el cliente conoce',
+        );
       });
     }
 
@@ -118,8 +130,16 @@ void main() {
         final config = RouletteConfig.fromRedemption(r); // lanza si la configuración o el resultado no sirven
 
         expect(config.segments.length, inInclusiveRange(RouletteConfig.minSegments, RouletteConfig.maxSegments));
-        expect(config.segments[config.targetIndex].id, r.outcome.prize.id, reason: 'el segmento del resultado es el del premio');
-        expect(config.segments.every((s) => s.type != PrizeType.unknown), isTrue, reason: 'ningún segmento trae un tipo de premio que el cliente no conozca');
+        expect(
+          config.segments[config.targetIndex].id,
+          r.outcome.prize.id,
+          reason: 'el segmento del resultado es el del premio',
+        );
+        expect(
+          config.segments.every((s) => s.type != PrizeType.unknown),
+          isTrue,
+          reason: 'ningún segmento trae un tipo de premio que el cliente no conozca',
+        );
         expect(config.duration.inMilliseconds, greaterThan(0));
       });
     }

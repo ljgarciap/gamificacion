@@ -63,19 +63,25 @@ Future<void> _pump(WidgetTester t, _Server server, {TokenProvider? tokens, VoidC
   t.view.physicalSize = const Size(800, 1600);
   t.view.devicePixelRatio = 2;
   addTearDown(t.view.reset);
-  final repo = HttpRepository(baseUrl: 'http://api.test:8000', tokenProvider: tokens ?? _Tokens(), client: MockClient(server.handle));
-  await t.pumpWidget(MaterialApp(
-    home: Scaffold(
-      body: GamificationFlow(
-        repository: repo,
-        registry: GameRegistry()
-          ..register(RouletteModule(feedbackFactory: (_) => _Silent()))
-          ..register(ScratchModule(feedbackFactory: (_) => _Silent())),
-        events: GamificationEvents(),
-        onClose: onClose,
+  final repo = HttpRepository(
+    baseUrl: 'http://api.test:8000',
+    tokenProvider: tokens ?? _Tokens(),
+    client: MockClient(server.handle),
+  );
+  await t.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: GamificationFlow(
+          repository: repo,
+          registry: GameRegistry()
+            ..register(RouletteModule(feedbackFactory: (_) => _Silent()))
+            ..register(ScratchModule(feedbackFactory: (_) => _Silent())),
+          events: GamificationEvents(),
+          onClose: onClose,
+        ),
       ),
     ),
-  ));
+  );
   await t.pumpAndSettle();
 }
 
@@ -106,7 +112,11 @@ void main() {
 
       expect(find.text('¡Ganaste!'), findsOneWidget);
       expect(find.text(r'$ 50.000'), findsWidgets);
-      expect(find.text(r'$ 170.000'), findsOneWidget, reason: 'tras ganar dinero, el saldo se vuelve a pedir al servidor');
+      expect(
+        find.text(r'$ 170.000'),
+        findsOneWidget,
+        reason: 'tras ganar dinero, el saldo se vuelve a pedir al servidor',
+      );
       expect(server.balanceCalls, 2);
     });
 
@@ -137,7 +147,9 @@ void main() {
       expect(find.textContaining('GIRA20'), findsOneWidget);
     });
 
-    testWidgets('un código ya jugado (showPrevious) va directo al resultado, con el aviso, sin volver a jugar', (t) async {
+    testWidgets('un código ya jugado (showPrevious) va directo al resultado, con el aviso, sin volver a jugar', (
+      t,
+    ) async {
       await _pump(t, _Server((_) => _json(200, _example('redemption-scratch-already-played'))));
       await _submit(t, 'RASPA-AAAA-BBBB-CCC');
       expect(find.byKey(const ValueKey('scratch-card')), findsNothing);
@@ -157,7 +169,13 @@ void main() {
     };
     cases.forEach((example, expected) {
       testWidgets('$example -> «${expected.$2}»', (t) async {
-        final server = _Server((_) => _json(expected.$1, _example(example), headers: example == 'error-unauthenticated' ? {'www-authenticate': 'Bearer'} : {}));
+        final server = _Server(
+          (_) => _json(
+            expected.$1,
+            _example(example),
+            headers: example == 'error-unauthenticated' ? {'www-authenticate': 'Bearer'} : {},
+          ),
+        );
         await _pump(t, server);
         await _submit(t);
         expect(find.textContaining(expected.$2), findsOneWidget);
@@ -192,8 +210,17 @@ void main() {
 
       final keys = server.redeems.map((r) => r.headers['Idempotency-Key']).toList();
       expect(keys, hasLength(2));
-      expect(keys[0], keys[1], reason: 'si el primer intento sí llegó al servidor, este reintento devuelve el mismo resultado sin jugar dos veces');
-      expect(keys[0], matches(RegExp(r'^[0-9a-f]{32}$')), reason: 'el formato que acepta el servidor (8-128 de [A-Za-z0-9._-:])');
+      expect(
+        keys[0],
+        keys[1],
+        reason:
+            'si el primer intento sí llegó al servidor, este reintento devuelve el mismo resultado sin jugar dos veces',
+      );
+      expect(
+        keys[0],
+        matches(RegExp(r'^[0-9a-f]{32}$')),
+        reason: 'el formato que acepta el servidor (8-128 de [A-Za-z0-9._-:])',
+      );
     });
 
     testWidgets('un código NUEVO usa una clave NUEVA', (t) async {
@@ -223,7 +250,11 @@ void main() {
 
       expect(find.text('GIRAR'), findsOneWidget, reason: 'el usuario no vio ningún error');
       expect(tokens.calls.contains(true), isTrue, reason: 'se pidió un token nuevo');
-      expect(server.redeems.map((r) => r.headers['Idempotency-Key']).toSet(), hasLength(1), reason: 'con la misma clave');
+      expect(
+        server.redeems.map((r) => r.headers['Idempotency-Key']).toSet(),
+        hasLength(1),
+        reason: 'con la misma clave',
+      );
     });
 
     testWidgets('todas las peticiones llevan el token en Authorization', (t) async {

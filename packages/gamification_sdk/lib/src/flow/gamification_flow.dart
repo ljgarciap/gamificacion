@@ -206,16 +206,19 @@ class _Header extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(scope.strings.balanceLabel,
-                          style: TextStyle(fontSize: 12, color: theme.navy.withValues(alpha: 0.7))),
+                      Text(
+                        scope.strings.balanceLabel,
+                        style: TextStyle(fontSize: 12, color: theme.navy.withValues(alpha: 0.7)),
+                      ),
                       // El saldo hace count-up cuando cambia (premio en dinero).
                       TweenAnimationBuilder<int>(
                         tween: IntTween(end: balance!.amount),
                         duration: reduce ? Duration.zero : const Duration(milliseconds: 900),
                         curve: Curves.easeOut,
-                        builder: (_, value, __) => Text(formatCop(value),
-                            style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.w800, color: theme.navy)),
+                        builder: (_, value, __) => Text(
+                          formatCop(value),
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: theme.navy),
+                        ),
                       ),
                     ],
                   ),
@@ -226,9 +229,11 @@ class _Header extends StatelessWidget {
             const Spacer(),
           if (note != null)
             Flexible(
-              child: Text(note!,
-                  textAlign: TextAlign.end,
-                  style: TextStyle(fontSize: 12, color: theme.navy.withValues(alpha: 0.7))),
+              child: Text(
+                note!,
+                textAlign: TextAlign.end,
+                style: TextStyle(fontSize: 12, color: theme.navy.withValues(alpha: 0.7)),
+              ),
             ),
           if (onClose != null)
             IconButton(

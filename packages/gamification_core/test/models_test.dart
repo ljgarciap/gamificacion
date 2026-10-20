@@ -57,12 +57,7 @@ void main() {
         'redemptionId': 'r1',
         'alreadyPlayed': true,
         'playedAt': '2026-10-20T10:00:00Z',
-        'campaign': {
-          'id': 'c',
-          'name': 'N',
-          'gameType': 'roulette',
-          'usedCodeBehavior': 'showPrevious',
-        },
+        'campaign': {'id': 'c', 'name': 'N', 'gameType': 'roulette', 'usedCodeBehavior': 'showPrevious'},
         'outcome': {
           'prize': {'id': 'p', 'type': 'points', 'label': '10', 'amount': 10},
           'gameResult': {'segmentIndex': 3},

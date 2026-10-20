@@ -10,30 +10,22 @@ import 'roulette_math.dart';
 List<Color> segmentFills(List<Color> palette, int count) {
   final fills = [for (var i = 0; i < count; i++) palette[i % palette.length]];
   if (count > 1 && fills.last == fills.first) {
-    fills[count - 1] = palette.firstWhere(
-      (c) => c != fills.first && c != fills[count - 2],
-      orElse: () => fills.last,
-    );
+    fills[count - 1] = palette.firstWhere((c) => c != fills.first && c != fills[count - 2], orElse: () => fills.last);
   }
   return fills;
 }
 
 IconData _iconFor(PrizeType type) => switch (type) {
-      PrizeType.money => Icons.payments_rounded,
-      PrizeType.coupon => Icons.local_activity_rounded,
-      PrizeType.points => Icons.stars_rounded,
-      PrizeType.extraSpin => Icons.replay_rounded,
-      PrizeType.none => Icons.sentiment_neutral_rounded,
-      PrizeType.unknown => Icons.card_giftcard_rounded,
-    };
+  PrizeType.money => Icons.payments_rounded,
+  PrizeType.coupon => Icons.local_activity_rounded,
+  PrizeType.points => Icons.stars_rounded,
+  PrizeType.extraSpin => Icons.replay_rounded,
+  PrizeType.none => Icons.sentiment_neutral_rounded,
+  PrizeType.unknown => Icons.card_giftcard_rounded,
+};
 
 class RoulettePainter extends CustomPainter {
-  RoulettePainter({
-    required this.segments,
-    required this.theme,
-    required this.rotation,
-    this.highlight,
-  });
+  RoulettePainter({required this.segments, required this.theme, required this.rotation, this.highlight});
 
   final List<Prize> segments;
   final GamificationTheme theme;
@@ -103,14 +95,7 @@ class RoulettePainter extends CustomPainter {
     );
   }
 
-  void _paintSegmentContent(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    double angle,
-    Prize prize,
-    Color background,
-  ) {
+  void _paintSegmentContent(Canvas canvas, Offset center, double radius, double angle, Prize prize, Color background) {
     final onColor = background.computeLuminance() > 0.5 ? theme.navy : Colors.white;
 
     canvas
@@ -156,8 +141,5 @@ class RoulettePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(RoulettePainter old) =>
-      old.rotation != rotation ||
-      old.highlight != highlight ||
-      old.theme != theme ||
-      old.segments != segments;
+      old.rotation != rotation || old.highlight != highlight || old.theme != theme || old.segments != segments;
 }

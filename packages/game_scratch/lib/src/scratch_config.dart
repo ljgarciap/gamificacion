@@ -56,6 +56,6 @@ class ScratchConfig {
       ? const []
       : [
           for (var i = 0; i < grid.length; i++)
-            if (grid[i] == prize.id) i
+            if (grid[i] == prize.id) i,
         ];
 }

@@ -15,13 +15,13 @@ const _decorative = <String, IconData>{
 };
 
 IconData _prizeIcon(PrizeType type) => switch (type) {
-      PrizeType.money => Icons.payments_rounded,
-      PrizeType.coupon => Icons.local_activity_rounded,
-      PrizeType.points => Icons.stars_rounded,
-      PrizeType.extraSpin => Icons.replay_rounded,
-      PrizeType.none => Icons.sentiment_neutral_rounded,
-      PrizeType.unknown => Icons.card_giftcard_rounded,
-    };
+  PrizeType.money => Icons.payments_rounded,
+  PrizeType.coupon => Icons.local_activity_rounded,
+  PrizeType.points => Icons.stars_rounded,
+  PrizeType.extraSpin => Icons.replay_rounded,
+  PrizeType.none => Icons.sentiment_neutral_rounded,
+  PrizeType.unknown => Icons.card_giftcard_rounded,
+};
 
 /// Contenido de una casilla. Si el símbolo es el id del premio, muestra el icono y el valor del premio.
 class ScratchSymbol extends StatelessWidget {

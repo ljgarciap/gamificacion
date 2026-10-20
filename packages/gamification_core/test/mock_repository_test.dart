@@ -34,8 +34,7 @@ void main() {
 
   test('vencido, inactiva y límite devuelven su razón', () async {
     expect(await failureOf(repo.redeem('VENCIDO', idempotencyKey: 'a')), FailureReason.expired);
-    expect(await failureOf(repo.redeem('INACTIVA', idempotencyKey: 'b')),
-        FailureReason.campaignInactive);
+    expect(await failureOf(repo.redeem('INACTIVA', idempotencyKey: 'b')), FailureReason.campaignInactive);
     try {
       await repo.redeem('LIMITE', idempotencyKey: 'c');
       fail('debía lanzar');
@@ -48,8 +47,7 @@ void main() {
   group('un uso por código', () {
     test('rejectOnly: segundo intento con otra clave -> alreadyUsed', () async {
       await repo.redeem('RULETA-50K', idempotencyKey: 'k1');
-      expect(await failureOf(repo.redeem('RULETA-50K', idempotencyKey: 'k2')),
-          FailureReason.alreadyUsed);
+      expect(await failureOf(repo.redeem('RULETA-50K', idempotencyKey: 'k2')), FailureReason.alreadyUsed);
     });
 
     test('showPrevious: devuelve el resultado anterior marcado alreadyPlayed', () async {

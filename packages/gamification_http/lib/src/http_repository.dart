@@ -19,8 +19,8 @@ class HttpRepository implements GamificationRepository {
     required this.tokenProvider,
     http.Client? client,
     this.timeout = const Duration(seconds: 15),
-  })  : _base = _normalize(baseUrl),
-        _client = client ?? http.Client();
+  }) : _base = _normalize(baseUrl),
+       _client = client ?? http.Client();
 
   final Uri _base;
   final TokenProvider tokenProvider;
@@ -142,12 +142,12 @@ class HttpRepository implements GamificationRepository {
       // idempotencyKeyReuse / idempotencyKeyRequired / serverError: errores de uso o internos, no accionables por el usuario.
       String() => FailureReason.unknown,
       null => switch (status) {
-          401 => FailureReason.unauthorized,
-          429 => FailureReason.rateLimited,
-          // Puerta de enlace caída o saturada: es transitorio, igual que una caída de red.
-          502 || 503 || 504 => FailureReason.network,
-          _ => FailureReason.unknown,
-        },
+        401 => FailureReason.unauthorized,
+        429 => FailureReason.rateLimited,
+        // Puerta de enlace caída o saturada: es transitorio, igual que una caída de red.
+        502 || 503 || 504 => FailureReason.network,
+        _ => FailureReason.unknown,
+      },
     };
     return GamificationException(
       reason,

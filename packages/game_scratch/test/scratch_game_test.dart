@@ -246,7 +246,9 @@ void main() {
       final bad = Redemption(
         redemptionId: 'r',
         campaign: const Campaign(id: 'c', name: 'n', gameType: 'scratch'),
-        outcome: const Outcome(prize: Prize(id: 'x', type: PrizeType.money, label: 'x', amount: 1)),
+        outcome: const Outcome(
+          prize: Prize(id: 'x', type: PrizeType.money, label: 'x', amount: 1),
+        ),
       );
       await _pump(t, bad, h);
       expect(find.text('Este juego no está disponible en esta versión.'), findsOneWidget);

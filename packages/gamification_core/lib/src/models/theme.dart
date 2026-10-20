@@ -62,8 +62,8 @@ class GamificationTheme {
       other.logoUrl == logoUrl;
 
   @override
-  int get hashCode => Object.hash(
-      primary, navy, accent, info, background, surface, error, success, fontFamily, logoUrl);
+  int get hashCode =>
+      Object.hash(primary, navy, accent, info, background, surface, error, success, fontFamily, logoUrl);
 
   static Color? _parseHex(String? hex) {
     if (hex == null) return null;

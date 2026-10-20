@@ -18,15 +18,17 @@ Future<void> _pump(WidgetTester t, MockRepository repo, GamificationEvents event
   t.view.physicalSize = const Size(800, 1600);
   t.view.devicePixelRatio = 2;
   addTearDown(t.view.reset);
-  await t.pumpWidget(MaterialApp(
-    home: Scaffold(
-      body: GamificationFlow(
-        repository: repo,
-        registry: GameRegistry()..register(RouletteModule(feedbackFactory: (_) => _Silent())),
-        events: events,
+  await t.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: GamificationFlow(
+          repository: repo,
+          registry: GameRegistry()..register(RouletteModule(feedbackFactory: (_) => _Silent())),
+          events: events,
+        ),
       ),
     ),
-  ));
+  );
   await t.pumpAndSettle();
 }
 
@@ -80,11 +82,7 @@ void main() {
   });
 
   testWidgets('cada tipo de premio de la ruleta llega al resultado correcto', (t) async {
-    const cases = {
-      'RULETA-PUNTOS': '+250 puntos',
-      'RULETA-CUPON': 'Cupón 20%',
-      'RULETA-EXTRA': 'Gira de nuevo',
-    };
+    const cases = {'RULETA-PUNTOS': '+250 puntos', 'RULETA-CUPON': 'Cupón 20%', 'RULETA-EXTRA': 'Gira de nuevo'};
     for (final entry in cases.entries) {
       await _pump(t, MockRepository(), GamificationEvents());
       await _play(t, entry.key);
@@ -98,16 +96,18 @@ void main() {
     t.view.physicalSize = const Size(800, 1600);
     t.view.devicePixelRatio = 2;
     addTearDown(t.view.reset);
-    await t.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: GamificationFlow(
-          repository: MockRepository(),
-          registry: GameRegistry()..register(RouletteModule(feedbackFactory: (_) => _Silent())),
-          events: GamificationEvents(),
-          onClose: () => closed++,
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GamificationFlow(
+            repository: MockRepository(),
+            registry: GameRegistry()..register(RouletteModule(feedbackFactory: (_) => _Silent())),
+            events: GamificationEvents(),
+            onClose: () => closed++,
+          ),
         ),
       ),
-    ));
+    );
     await t.pumpAndSettle();
     await t.enterText(find.byType(TextField), 'RULETA-50K');
     await t.pump();

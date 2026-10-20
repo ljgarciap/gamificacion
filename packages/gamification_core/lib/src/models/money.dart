@@ -12,8 +12,7 @@ String formatCop(int amount) {
 /// Saldo disponible del usuario. La moneda es siempre COP.
 class Balance {
   const Balance(this.amount);
-  factory Balance.fromJson(Map<String, dynamic> json) =>
-      Balance((json['amount'] as num).toInt());
+  factory Balance.fromJson(Map<String, dynamic> json) => Balance((json['amount'] as num).toInt());
 
   final int amount;
 

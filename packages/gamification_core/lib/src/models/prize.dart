@@ -17,23 +17,16 @@ enum PrizeType {
 }
 
 class Prize {
-  const Prize({
-    required this.id,
-    required this.type,
-    required this.label,
-    this.amount,
-    this.couponCode,
-    this.iconKey,
-  });
+  const Prize({required this.id, required this.type, required this.label, this.amount, this.couponCode, this.iconKey});
 
   factory Prize.fromJson(Map<String, dynamic> json) => Prize(
-        id: json['id'] as String,
-        type: PrizeType.parse(json['type'] as String?),
-        label: json['label'] as String,
-        amount: (json['amount'] as num?)?.toInt(),
-        couponCode: json['couponCode'] as String?,
-        iconKey: json['iconKey'] as String?,
-      );
+    id: json['id'] as String,
+    type: PrizeType.parse(json['type'] as String?),
+    label: json['label'] as String,
+    amount: (json['amount'] as num?)?.toInt(),
+    couponCode: json['couponCode'] as String?,
+    iconKey: json['iconKey'] as String?,
+  );
 
   final String id;
   final PrizeType type;
@@ -49,11 +42,11 @@ class Prize {
   bool get isWin => type != PrizeType.none;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'type': type.name,
-        'label': label,
-        if (amount != null) 'amount': amount,
-        if (couponCode != null) 'couponCode': couponCode,
-        if (iconKey != null) 'iconKey': iconKey,
-      };
+    'id': id,
+    'type': type.name,
+    'label': label,
+    if (amount != null) 'amount': amount,
+    if (couponCode != null) 'couponCode': couponCode,
+    if (iconKey != null) 'iconKey': iconKey,
+  };
 }

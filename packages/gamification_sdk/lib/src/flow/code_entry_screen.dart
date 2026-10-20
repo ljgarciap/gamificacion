@@ -10,13 +10,7 @@ import 'flow_state.dart';
 
 /// Pantalla 1 (ux-spec-001): ingreso y validación del código.
 class CodeEntryScreen extends ConsumerStatefulWidget {
-  const CodeEntryScreen({
-    super.key,
-    required this.title,
-    this.helpText,
-    this.demoCodes,
-    this.demoCodesLoader,
-  });
+  const CodeEntryScreen({super.key, required this.title, this.helpText, this.demoCodes, this.demoCodesLoader});
 
   final String title;
 
@@ -100,8 +94,8 @@ class _CodeEntryScreenState extends ConsumerState<CodeEntryScreen> {
     final errorText = state.unsupportedGame
         ? s.unsupportedGame
         : state.failure == null
-            ? null
-            : s.failure(state.failure!, retryAfter: blocked ? remaining : null);
+        ? null
+        : s.failure(state.failure!, retryAfter: blocked ? remaining : null);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
@@ -140,9 +134,7 @@ class _CodeEntryScreenState extends ConsumerState<CodeEntryScreen> {
                     textInputAction: TextInputAction.done,
                     inputFormatters: [
                       FilteringTextInputFormatter.deny(RegExp(r'\s')),
-                      TextInputFormatter.withFunction(
-                        (old, value) => value.copyWith(text: value.text.toUpperCase()),
-                      ),
+                      TextInputFormatter.withFunction((old, value) => value.copyWith(text: value.text.toUpperCase())),
                     ],
                     onSubmitted: (_) {
                       if (canSubmit) _submit();
@@ -171,10 +163,7 @@ class _CodeEntryScreenState extends ConsumerState<CodeEntryScreen> {
             ),
           ),
           if (widget.helpText != null)
-            TextButton(
-              onPressed: () => _showHelp(context, widget.helpText!),
-              child: Text(s.helpLink),
-            ),
+            TextButton(onPressed: () => _showHelp(context, widget.helpText!), child: Text(s.helpLink)),
           if ((_loadedDemoCodes ?? widget.demoCodes)?.isNotEmpty ?? false) _demoPanel(s, theme),
         ],
       ),
@@ -192,8 +181,10 @@ class _CodeEntryScreenState extends ConsumerState<CodeEntryScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(scope.strings.helpLink,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: scope.theme.navy)),
+            Text(
+              scope.strings.helpLink,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: scope.theme.navy),
+            ),
             const SizedBox(height: 12),
             Text(text),
             const SizedBox(height: 16),

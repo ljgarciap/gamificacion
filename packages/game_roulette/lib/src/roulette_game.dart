@@ -158,7 +158,9 @@ class _RouletteGameState extends State<RouletteGame> with TickerProviderStateMix
                   ),
                   Positioned(
                     top: -side * 0.015,
-                    child: ExcludeSemantics(child: _Pointer(bounce: _bounce, size: side * 0.11, theme: theme)),
+                    child: ExcludeSemantics(
+                      child: _Pointer(bounce: _bounce, size: side * 0.11, theme: theme),
+                    ),
                   ),
                   SizedBox.square(
                     dimension: hub,
@@ -203,11 +205,8 @@ class _Pointer extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: bounce,
-      builder: (_, child) => Transform.rotate(
-        angle: -sin(bounce.value * pi) * 0.45,
-        alignment: Alignment.topCenter,
-        child: child,
-      ),
+      builder: (_, child) =>
+          Transform.rotate(angle: -sin(bounce.value * pi) * 0.45, alignment: Alignment.topCenter, child: child),
       child: CustomPaint(size: Size(size, size * 1.2), painter: _PointerPainter(theme)),
     );
   }

@@ -29,12 +29,9 @@ class RouletteConfig {
     final cfg = redemption.campaign.gameConfig;
     final raw = cfg['segments'];
     if (raw is! List) throw const FormatException('gameConfig.segments ausente');
-    final segments = [
-      for (final s in raw) Prize.fromJson((s as Map).cast<String, dynamic>()),
-    ];
+    final segments = [for (final s in raw) Prize.fromJson((s as Map).cast<String, dynamic>())];
     if (segments.length < minSegments || segments.length > maxSegments) {
-      throw FormatException(
-          'la ruleta admite $minSegments a $maxSegments segmentos, llegaron ${segments.length}');
+      throw FormatException('la ruleta admite $minSegments a $maxSegments segmentos, llegaron ${segments.length}');
     }
 
     final index = redemption.outcome.gameResult['segmentIndex'];

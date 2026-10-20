@@ -11,8 +11,7 @@ abstract class GamificationStrings {
 
   static const supported = [Locale('es'), Locale('en')];
 
-  static GamificationStrings of(Locale locale) =>
-      locale.languageCode == 'en' ? const EnStrings() : const EsStrings();
+  static GamificationStrings of(Locale locale) => locale.languageCode == 'en' ? const EnStrings() : const EsStrings();
 
   String get defaultTitle;
   String get invitation;
@@ -44,10 +43,10 @@ abstract class GamificationStrings {
 
   /// Texto del premio para pantalla y lectores de pantalla.
   String prizeDescription(Prize prize) => switch (prize.type) {
-        PrizeType.money => formatCop(prize.amount ?? 0),
-        PrizeType.points => pointsWon(prize.amount ?? 0),
-        _ => prize.label,
-      };
+    PrizeType.money => formatCop(prize.amount ?? 0),
+    PrizeType.points => pointsWon(prize.amount ?? 0),
+    _ => prize.label,
+  };
 }
 
 class EsStrings extends GamificationStrings {
@@ -107,17 +106,18 @@ class EsStrings extends GamificationStrings {
 
   @override
   String failure(FailureReason reason, {Duration? retryAfter}) => switch (reason) {
-        FailureReason.invalidCode => 'El código no es válido. Revísalo e inténtalo de nuevo.',
-        FailureReason.alreadyUsed => 'Este código ya fue utilizado.',
-        FailureReason.expired => 'Este código está vencido.',
-        FailureReason.campaignInactive => 'Esta promoción no está activa.',
-        FailureReason.rateLimited => retryAfter == null
-            ? 'Demasiados intentos. Espera un momento.'
-            : 'Demasiados intentos. Reintenta en ${retryAfter.inSeconds} s.',
-        FailureReason.network => 'Sin conexión. Verifica tu internet e inténtalo de nuevo.',
-        FailureReason.unauthorized => 'Tu sesión no es válida. Vuelve a abrir la aplicación e inténtalo de nuevo.',
-        FailureReason.unknown => 'Ocurrió un error inesperado. Inténtalo de nuevo.',
-      };
+    FailureReason.invalidCode => 'El código no es válido. Revísalo e inténtalo de nuevo.',
+    FailureReason.alreadyUsed => 'Este código ya fue utilizado.',
+    FailureReason.expired => 'Este código está vencido.',
+    FailureReason.campaignInactive => 'Esta promoción no está activa.',
+    FailureReason.rateLimited =>
+      retryAfter == null
+          ? 'Demasiados intentos. Espera un momento.'
+          : 'Demasiados intentos. Reintenta en ${retryAfter.inSeconds} s.',
+    FailureReason.network => 'Sin conexión. Verifica tu internet e inténtalo de nuevo.',
+    FailureReason.unauthorized => 'Tu sesión no es válida. Vuelve a abrir la aplicación e inténtalo de nuevo.',
+    FailureReason.unknown => 'Ocurrió un error inesperado. Inténtalo de nuevo.',
+  };
 }
 
 class EnStrings extends GamificationStrings {
@@ -177,15 +177,16 @@ class EnStrings extends GamificationStrings {
 
   @override
   String failure(FailureReason reason, {Duration? retryAfter}) => switch (reason) {
-        FailureReason.invalidCode => 'The code is not valid. Check it and try again.',
-        FailureReason.alreadyUsed => 'This code has already been used.',
-        FailureReason.expired => 'This code has expired.',
-        FailureReason.campaignInactive => 'This promotion is not active.',
-        FailureReason.rateLimited => retryAfter == null
-            ? 'Too many attempts. Please wait a moment.'
-            : 'Too many attempts. Try again in ${retryAfter.inSeconds} s.',
-        FailureReason.network => 'No connection. Check your internet and try again.',
-        FailureReason.unauthorized => 'Your session is not valid. Please reopen the app and try again.',
-        FailureReason.unknown => 'An unexpected error occurred. Please try again.',
-      };
+    FailureReason.invalidCode => 'The code is not valid. Check it and try again.',
+    FailureReason.alreadyUsed => 'This code has already been used.',
+    FailureReason.expired => 'This code has expired.',
+    FailureReason.campaignInactive => 'This promotion is not active.',
+    FailureReason.rateLimited =>
+      retryAfter == null
+          ? 'Too many attempts. Please wait a moment.'
+          : 'Too many attempts. Try again in ${retryAfter.inSeconds} s.',
+    FailureReason.network => 'No connection. Check your internet and try again.',
+    FailureReason.unauthorized => 'Your session is not valid. Please reopen the app and try again.',
+    FailureReason.unknown => 'An unexpected error occurred. Please try again.',
+  };
 }
