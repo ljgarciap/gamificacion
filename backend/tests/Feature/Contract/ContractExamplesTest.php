@@ -164,6 +164,20 @@ final class ContractExamplesTest extends DbTestCase
         $this->check('redemption-scratch-already-played', $again);
     }
 
+    public function test_ejemplos_de_concentrese(): void
+    {
+        $b = $this->rf->activeBatch(Fixtures::pool(none: 6, p10k: 3, p50k: 1), 'memory', 'showPrevious');
+        $this->check('redemption-memory-win', $this->redeem(array_search('p10k', $b['prizeOf'], true))->assertOk());
+        $this->check('redemption-memory-none', $this->redeem(array_search('none', $b['prizeOf'], true), $this->headers('beto', 'clave-0000002'))->assertOk());
+    }
+
+    public function test_ejemplos_de_dados(): void
+    {
+        $b = $this->rf->activeBatch(Fixtures::pool(none: 6, p10k: 3, p50k: 1), 'dice', 'showPrevious');
+        $this->check('redemption-dice-win', $this->redeem(array_search('p50k', $b['prizeOf'], true))->assertOk());
+        $this->check('redemption-dice-none', $this->redeem(array_search('none', $b['prizeOf'], true), $this->headers('beto', 'clave-0000002'))->assertOk());
+    }
+
     public function test_ejemplo_de_saldo(): void
     {
         config(['gamification.demo.initial_balance' => 120000]);

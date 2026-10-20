@@ -242,7 +242,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        gameType: { type: string, enum: [roulette, scratch] }
+        gameType: { type: string, enum: [roulette, scratch, memory, dice] }
         usedCodeBehavior: { type: string, enum: [rejectOnly, showPrevious] }
         title: { type: [string, 'null'] }
         theme:
@@ -253,6 +253,8 @@ components:
           oneOf:
             - { $ref: '#/components/schemas/RouletteConfig' }
             - { $ref: '#/components/schemas/ScratchConfig' }
+            - { $ref: '#/components/schemas/MemoryConfig' }
+            - { $ref: '#/components/schemas/DiceConfig' }
 
     RouletteConfig:
       type: object
@@ -276,6 +278,37 @@ components:
         revealThreshold: { type: number }
         brushWidth: { type: number }
 
+    MemoryConfig:
+      type: object
+      required: [pairs, columns, flipBackMs]
+      properties:
+        pairs: { type: integer, minimum: 3, maximum: 8, description: Parejas del tablero; las cartas son el doble. }
+        columns: { type: integer, minimum: 2, maximum: 6 }
+        flipBackMs: { type: integer, minimum: 300, maximum: 3000, description: Cuánto tiempo se ven dos cartas distintas antes de taparse. }
+
+    DiceConfig:
+      type: object
+      required: [diceCount, rollDurationMs, legend]
+      properties:
+        diceCount: { type: integer, const: 2 }
+        rollDurationMs: { type: integer, minimum: 500, maximum: 5000 }
+        legend:
+          type: array
+          description: Tabla de premios para mostrar en pantalla. Cada combinación pertenece a un solo premio.
+          items:
+            type: object
+            required: [prize, rolls]
+            properties:
+              prize: { $ref: '#/components/schemas/Prize' }
+              rolls:
+                type: array
+                items:
+                  type: array
+                  minItems: 2
+                  maxItems: 2
+                  items: { type: integer, minimum: 1, maximum: 6 }
+                description: Combinaciones `[a, b]` con `a ≤ b`; el orden en que caen los dados no importa.
+
     Outcome:
       type: object
       required: [prize, extraSpins, gameResult]
@@ -286,12 +319,36 @@ components:
           oneOf:
             - { $ref: '#/components/schemas/RouletteResult' }
             - { $ref: '#/components/schemas/ScratchResult' }
+            - { $ref: '#/components/schemas/MemoryResult' }
+            - { $ref: '#/components/schemas/DiceResult' }
 
     RouletteResult:
       type: object
       required: [segmentIndex]
       properties:
         segmentIndex: { type: integer, minimum: 0, description: "Segmento (de `gameConfig.segments`) donde se detiene la ruleta." }
+
+    MemoryResult:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          items: { type: string }
+          description: |
+            Símbolo de cada carta, fila por fila (`gameConfig.columns` por fila). Cada símbolo aparece exactamente dos veces.
+            Premio = una pareja cuyo símbolo es el `prize.id`; sin premio no hay ninguna. Un símbolo desconocido se muestra como texto.
+
+    DiceResult:
+      type: object
+      required: [dice]
+      properties:
+        dice:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: { type: integer, minimum: 1, maximum: 6 }
+          description: Cara de cada dado. La combinación (sin importar el orden) pertenece al premio de la redención según `gameConfig.legend`.
 
     ScratchResult:
       type: object

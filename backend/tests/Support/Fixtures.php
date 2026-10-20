@@ -31,8 +31,23 @@ final class Fixtures
         return match ($gameType) {
             'roulette' => ['segments' => ['p50k', 'none', 'p10k', 'p100k', 'none', 'p10k', 'none', 'p50k']],
             'scratch' => ['rows' => 3, 'cols' => 3],
+            'memory' => ['pairs' => 6, 'columns' => 4],
+            'dice' => ['rolls' => self::diceRolls()],
             default => [],
         };
+    }
+
+    /** Dobles pagan (1-1 → p50k, 6-6 → p100k, 2-2…5-5 → p10k); el resto, sin premio. Cubre las 21 combinaciones distintas. */
+    public static function diceRolls(): array
+    {
+        $none = [];
+        for ($a = 1; $a <= 6; $a++) {
+            for ($b = $a + 1; $b <= 6; $b++) {
+                $none[] = [$a, $b];
+            }
+        }
+
+        return ['none' => $none, 'p10k' => [[2, 2], [3, 3], [4, 4], [5, 5]], 'p50k' => [[1, 1]], 'p100k' => [[6, 6]]];
     }
 
     /** Campaña con cuatro premios: none, p10k, p50k y p100k. */

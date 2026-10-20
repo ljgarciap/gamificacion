@@ -1,0 +1,157 @@
+{
+    "redemptionId": "00000000-0000-4000-8000-000000000001",
+    "alreadyPlayed": false,
+    "playedAt": "2026-10-20T12:00:00.000000Z",
+    "campaign": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "name": "Campaña de prueba",
+        "gameType": "dice",
+        "usedCodeBehavior": "showPrevious",
+        "title": "Gira y Gana",
+        "theme": {},
+        "gameConfig": {
+            "diceCount": 2,
+            "rollDurationMs": 1800,
+            "legend": [
+                {
+                    "prize": {
+                        "id": "none",
+                        "type": "none",
+                        "label": "Sin premio"
+                    },
+                    "rolls": [
+                        [
+                            1,
+                            2
+                        ],
+                        [
+                            1,
+                            3
+                        ],
+                        [
+                            1,
+                            4
+                        ],
+                        [
+                            1,
+                            5
+                        ],
+                        [
+                            1,
+                            6
+                        ],
+                        [
+                            2,
+                            3
+                        ],
+                        [
+                            2,
+                            4
+                        ],
+                        [
+                            2,
+                            5
+                        ],
+                        [
+                            2,
+                            6
+                        ],
+                        [
+                            3,
+                            4
+                        ],
+                        [
+                            3,
+                            5
+                        ],
+                        [
+                            3,
+                            6
+                        ],
+                        [
+                            4,
+                            5
+                        ],
+                        [
+                            4,
+                            6
+                        ],
+                        [
+                            5,
+                            6
+                        ]
+                    ]
+                },
+                {
+                    "prize": {
+                        "id": "p10k",
+                        "type": "money",
+                        "label": "$ 10.000",
+                        "amount": 10000
+                    },
+                    "rolls": [
+                        [
+                            2,
+                            2
+                        ],
+                        [
+                            3,
+                            3
+                        ],
+                        [
+                            4,
+                            4
+                        ],
+                        [
+                            5,
+                            5
+                        ]
+                    ]
+                },
+                {
+                    "prize": {
+                        "id": "p50k",
+                        "type": "money",
+                        "label": "$ 50.000",
+                        "amount": 50000
+                    },
+                    "rolls": [
+                        [
+                            1,
+                            1
+                        ]
+                    ]
+                },
+                {
+                    "prize": {
+                        "id": "p100k",
+                        "type": "money",
+                        "label": "$ 100.000",
+                        "amount": 100000
+                    },
+                    "rolls": [
+                        [
+                            6,
+                            6
+                        ]
+                    ]
+                }
+            ]
+        }
+    },
+    "outcome": {
+        "prize": {
+            "id": "p50k",
+            "type": "money",
+            "label": "$ 50.000",
+            "amount": 50000
+        },
+        "extraSpins": 0,
+        "gameResult": {
+            "dice": [
+                1,
+                1
+            ]
+        }
+    }
+}

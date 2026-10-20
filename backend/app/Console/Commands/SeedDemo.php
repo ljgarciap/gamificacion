@@ -22,9 +22,14 @@ use Illuminate\Support\Str;
  */
 class SeedDemo extends Command
 {
-    protected $signature = 'gamification:demo:seed {--actor=demo : Quién lo ejecuta, para la bitácora}';
+    /** Juegos de la demo, con su nombre visible en la descripción de cada código. */
+    private const GAMES = ['roulette' => 'Ruleta', 'scratch' => 'Raspa', 'memory' => 'Concéntrese', 'dice' => 'Dados'];
 
-    protected $description = 'Crea campañas de demostración (ruleta y raspa) con códigos reales, solo en desarrollo local';
+    protected $signature = 'gamification:demo:seed
+        {--actor=demo : Quién lo ejecuta, para la bitácora}
+        {--only= : Solo estos juegos, separados por comas (roulette, scratch, memory, dice); por defecto todos}';
+
+    protected $description = 'Crea campañas de demostración (ruleta, raspa, Concéntrese y dados) con códigos reales, solo en desarrollo local';
 
     public function handle(): int
     {
@@ -39,8 +44,20 @@ class SeedDemo extends Command
         $generator = $this->laravel->make(CodeGenerator::class);
         $actor = (string) $this->option('actor');
 
+        $only = $this->option('only') === null || $this->option('only') === ''
+            ? array_keys(self::GAMES)
+            : array_values(array_filter(array_map('trim', explode(',', (string) $this->option('only')))));
+        $unknown = array_values(array_diff($only, array_keys(self::GAMES)));
+        if ($unknown !== []) {
+            $this->error('Juego desconocido: '.implode(', ', $unknown).'. Use: '.implode(', ', array_keys(self::GAMES)).'.');
+
+            return self::INVALID;
+        }
+
         $entries = DemoCodes::load();
-        $entries = array_merge($entries, $this->roulette($lifecycle, $generator, $actor), $this->scratch($lifecycle, $generator, $actor));
+        foreach ($only as $game) {
+            $entries = array_merge($entries, $this->{$game}($lifecycle, $generator, $actor));
+        }
         DemoCodes::save($entries);
 
         $this->info(count($entries).' códigos de demostración disponibles en '.DemoCodes::path());
@@ -82,6 +99,48 @@ class SeedDemo extends Command
 
         return $this->batch($lifecycle, $generator, $actor, $campaign, 'scratch', 'RASPA', [
             ['prize_id' => 'rnone', 'quantity' => 30], ['prize_id' => 'r10k', 'quantity' => 8], ['prize_id' => 'r50k', 'quantity' => 2],
+        ]);
+    }
+
+    /** @return list<array{code: string, game: string, description: string, batch_id: string}> */
+    private function memory(BatchLifecycle $lifecycle, CodeGenerator $generator, string $actor): array
+    {
+        $campaign = $this->campaign('Concéntrese', 'memory', 'showPrevious', ['pairs' => 6, 'columns' => 4], [
+            ['mnone', 'none', 'Sin premio', null, []],
+            ['m10k', 'money', '$ 10.000', 10000, []],
+            ['mpts', 'points', '250 puntos', 250, []],
+            ['m50k', 'money', '$ 50.000', 50000, []],
+        ]);
+
+        return $this->batch($lifecycle, $generator, $actor, $campaign, 'memory', 'CONCENTRESE', [
+            ['prize_id' => 'mnone', 'quantity' => 18], ['prize_id' => 'm10k', 'quantity' => 7],
+            ['prize_id' => 'mpts', 'quantity' => 4], ['prize_id' => 'm50k', 'quantity' => 1],
+        ]);
+    }
+
+    /**
+     * Dados: los dobles pagan (1-1 y 6-6 = $ 50.000; 2-2 a 5-5 = $ 10.000) y el resto de combinaciones es "Sin premio".
+     *
+     * @return list<array{code: string, game: string, description: string, batch_id: string}>
+     */
+    private function dice(BatchLifecycle $lifecycle, CodeGenerator $generator, string $actor): array
+    {
+        $none = [];
+        for ($a = 1; $a <= 6; $a++) {
+            for ($b = $a + 1; $b <= 6; $b++) {
+                $none[] = [$a, $b];
+            }
+        }
+        $campaign = $this->campaign('Dados de la suerte', 'dice', 'showPrevious', [
+            'rolls' => ['dnone' => $none, 'd10k' => [[2, 2], [3, 3], [4, 4], [5, 5]], 'd50k' => [[1, 1], [6, 6]]],
+        ], [
+            ['dnone', 'none', 'Sin premio', null, []],
+            ['d10k', 'money', '$ 10.000', 10000, []],
+            ['d50k', 'money', '$ 50.000', 50000, []],
+        ]);
+
+        return $this->batch($lifecycle, $generator, $actor, $campaign, 'dice', 'DADOS', [
+            ['prize_id' => 'dnone', 'quantity' => 20], ['prize_id' => 'd10k', 'quantity' => 8], ['prize_id' => 'd50k', 'quantity' => 2],
         ]);
     }
 
@@ -136,7 +195,7 @@ class SeedDemo extends Command
             $prize = $vault->decryptPrize($batch, (int) $row->idx, hex2bin($row->p));
             $entries[] = [
                 'code' => $code, 'game' => $game, 'batch_id' => $batch,
-                'description' => ($game === 'roulette' ? 'Ruleta' : 'Raspa').': '.($labels[$prize] ?? $prize),
+                'description' => self::GAMES[$game].': '.($labels[$prize] ?? $prize),
             ];
         }
         $this->info("Lote $prefix activo con ".count($codes).' códigos.');

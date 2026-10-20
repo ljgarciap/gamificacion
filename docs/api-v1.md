@@ -26,7 +26,7 @@ El código se normaliza: minúsculas, espacios, guiones, el prefijo (decorativo)
   "alreadyPlayed": false,
   "playedAt": "2026-10-20T12:00:00.123456Z",
   "campaign": {
-    "id": "uuid", "name": "…", "gameType": "roulette|scratch", "usedCodeBehavior": "rejectOnly|showPrevious",
+    "id": "uuid", "name": "…", "gameType": "roulette|scratch|memory|dice", "usedCodeBehavior": "rejectOnly|showPrevious",
     "title": "Gira y Gana", "theme": {},
     "gameConfig": { "segments": [ {"id":"p50k","type":"money","label":"$ 50.000","amount":50000}, … ] }
   },
@@ -38,6 +38,8 @@ El código se normaliza: minúsculas, espacios, guiones, el prefijo (decorativo)
 }
 ```
 - Ruleta: `gameResult.segmentIndex`. Raspa: `gameResult.grid` (lista de símbolos; premio = 3 símbolos iguales al `prize.id`) y `gameConfig.rows/cols`.
+- Concéntrese (`memory`): `gameResult.cards` (símbolo de cada carta, fila por fila; cada símbolo aparece exactamente dos veces; premio = una pareja cuyo símbolo es el `prize.id`, sin premio no hay ninguna) y `gameConfig.pairs/columns/flipBackMs`.
+- Dados (`dice`): `gameResult.dice` (`[a, b]`, caras de 1 a 6; la combinación pertenece al premio según `gameConfig.legend`) y `gameConfig.diceCount/rollDurationMs/legend`.
 - **Idempotencia:** el mismo usuario con la misma `Idempotency-Key` recibe **el mismo cuerpo, byte a byte**, sin jugar ni acreditar de nuevo. La misma clave con **otro código** → 422 `idempotencyKeyReuse`.
 - Un intento fallido **no consume** la clave.
 - `showPrevious`: el mismo usuario que vuelve a canjear su código (con otra clave) recibe su resultado anterior con `alreadyPlayed: true`. Nunca se muestra el resultado de **otra** persona.

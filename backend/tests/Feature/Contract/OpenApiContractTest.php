@@ -111,7 +111,7 @@ final class OpenApiContractTest extends TestCase
     {
         $prizeProps = array_keys($this->schema('Prize')['properties']);
         $campaignProps = array_keys($this->schema('Campaign')['properties']);
-        foreach (['redemption-roulette-win', 'redemption-roulette-coupon', 'redemption-roulette-points', 'redemption-roulette-extra-spin', 'redemption-scratch-win', 'redemption-scratch-already-played'] as $name) {
+        foreach (['redemption-roulette-win', 'redemption-roulette-coupon', 'redemption-roulette-points', 'redemption-roulette-extra-spin', 'redemption-scratch-win', 'redemption-scratch-already-played', 'redemption-memory-win', 'redemption-memory-none', 'redemption-dice-win', 'redemption-dice-none'] as $name) {
             $r = $this->example($name);
             $this->assertSame([], array_diff(array_keys($r['campaign']), $campaignProps), "$name: campaign");
             $this->assertSame([], array_diff(array_keys($r['outcome']['prize']), $prizeProps), "$name: prize");
@@ -132,6 +132,20 @@ final class OpenApiContractTest extends TestCase
         $this->assertSame($this->sorted($this->schema('ScratchResult')['required']), $this->sorted(array_keys($scratch['outcome']['gameResult'])));
         $this->assertSame($this->sorted($this->schema('ScratchConfig')['required']), $this->sorted(array_intersect(array_keys($scratch['campaign']['gameConfig']), $this->schema('ScratchConfig')['required'])));
         $this->assertCount($scratch['campaign']['gameConfig']['rows'] * $scratch['campaign']['gameConfig']['cols'], $scratch['outcome']['gameResult']['grid']);
+
+        $memory = $this->example('redemption-memory-win');
+        $this->assertSame($this->sorted($this->schema('MemoryResult')['required']), $this->sorted(array_keys($memory['outcome']['gameResult'])));
+        $this->assertSame($this->sorted($this->schema('MemoryConfig')['required']), $this->sorted(array_keys($memory['campaign']['gameConfig'])));
+        $this->assertCount($memory['campaign']['gameConfig']['pairs'] * 2, $memory['outcome']['gameResult']['cards']);
+        $this->assertSame(2, array_count_values($memory['outcome']['gameResult']['cards'])[$memory['outcome']['prize']['id']], 'la pareja premio');
+
+        $dice = $this->example('redemption-dice-win');
+        $this->assertSame($this->sorted($this->schema('DiceResult')['required']), $this->sorted(array_keys($dice['outcome']['gameResult'])));
+        $this->assertSame($this->sorted($this->schema('DiceConfig')['required']), $this->sorted(array_keys($dice['campaign']['gameConfig'])));
+        $rolls = array_values(array_filter($dice['campaign']['gameConfig']['legend'], fn ($l) => $l['prize']['id'] === $dice['outcome']['prize']['id']))[0]['rolls'];
+        $shown = $dice['outcome']['gameResult']['dice'];
+        sort($shown);
+        $this->assertContains($shown, $rolls, 'los dados mostrados son una combinación del premio');
     }
 
     public function test_el_patron_de_la_idempotency_key_coincide_con_el_del_controlador(): void
