@@ -9,6 +9,8 @@ use App\Domain\Crypto\CodeHasher;
 use App\Domain\Redemption\Presentation;
 use App\Domain\Redemption\RedeemService;
 use App\Domain\Redemption\RedeemThrottle;
+use App\Domain\Redemption\RedemptionWriter;
+use App\Domain\Redemption\SpinService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -25,7 +27,7 @@ final class RedeemFixtures
     /**
      * @param  list<array{prize_id: string, quantity: int}>|null  $pool
      * @return array{batch: string, campaign: string, codes: list<string>, prizeOf: array<string, string>}
-     *                                                                                                         codes: como los imprimiría el operador (PREFIJO-XXXX-XXXX-XXX); prizeOf: código => id de premio
+     *                                                                                                     codes: como los imprimiría el operador (PREFIJO-XXXX-XXXX-XXX); prizeOf: código => id de premio
      */
     public function activeBatch(
         ?array $pool = null,
@@ -36,6 +38,26 @@ final class RedeemFixtures
         $pool ??= Fixtures::pool();
         $campaign = $this->f->campaign($gameType, $usedCodeBehavior);
         $batch = $this->f->lifecycle()->createDraft($campaign, 'Lote real', $pool, 'tester', $redeemableUntil);
+
+        $codes = $this->generateCodes($batch);
+        $this->f->lifecycle()->commit($batch, 'tester');
+        $this->f->activate($batch);
+
+        return ['batch' => $batch, 'campaign' => $campaign, 'codes' => $codes, 'prizeOf' => $this->prizeMap($batch, $codes)];
+    }
+
+    /**
+     * Lote activo CON reserva, en una campaña con el premio «giro extra» (`extra`). Los códigos se generan con el generador real.
+     *
+     * @param  list<array{prize_id: string, quantity: int}>  $pool  N + R posiciones
+     * @return array{batch: string, campaign: string, codes: list<string>, prizeOf: array<string, string>}
+     */
+    public function activeReserveBatch(array $pool, int $reserve, int $extraSpins = 1, string $usedCodeBehavior = 'rejectOnly', ?Carbon $redeemableUntil = null): array
+    {
+        $campaign = $this->f->campaign('roulette', $usedCodeBehavior);
+        DB::table('prizes')->insert(['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'extraSpin', 'label' => 'Gira de nuevo', 'amount' => null, 'meta' => json_encode(['extra_spins' => $extraSpins])]);
+        DB::table('campaigns')->where('id', $campaign)->update(['game_config' => json_encode(['segments' => ['p50k', 'none', 'p10k', 'extra', 'none', 'p10k', 'none', 'p50k']])]);
+        $batch = $this->f->lifecycle()->createDraft($campaign, 'Lote con reserva', $pool, 'tester', $redeemableUntil, $reserve);
 
         $codes = $this->generateCodes($batch);
         $this->f->lifecycle()->commit($batch, 'tester');
@@ -78,6 +100,13 @@ final class RedeemFixtures
     {
         return new RedeemService(
             $this->f->vault, new CodeHasher, new AuditLog, $throttle ?? new RedeemThrottle, $presentation ?? new Presentation,
+        );
+    }
+
+    public function spinService(?RedeemThrottle $throttle = null): SpinService
+    {
+        return new SpinService(
+            $this->f->vault, $throttle ?? new RedeemThrottle, new RedemptionWriter(new AuditLog, new Presentation),
         );
     }
 

@@ -7,11 +7,9 @@ use App\Domain\Codes\CodeFormat;
 use App\Domain\Codes\InvalidCodeFormat;
 use App\Domain\Crypto\CodeHasher;
 use App\Domain\Crypto\PrizeVault;
-use App\Domain\Crypto\Secrets;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Redención de un código (SPEC-002 §5, RF-24).
@@ -113,61 +111,8 @@ final class RedeemService
         }
 
         $prizeId = $this->vault->decryptPrize($row->batch_id, (int) $row->idx, hex2bin($row->prize_enc));
-        $prizeDefs = $this->prizeDefs($row->campaign_id);
-        $prize = $prizeDefs[$prizeId] ?? throw new \LogicException("El premio $prizeId no está definido en la campaña {$row->campaign_id}.");
-        // La presentación trabaja con el JSON del premio tal como lo entiende el cliente.
-        $built = $this->presentation->build(
-            $row->game_type, json_decode($row->game_config, true), array_map(static fn (array $d): array => $d['json'], $prizeDefs), $prizeId,
-        );
 
-        $id = (string) Str::uuid();
-        // La hora sale del reloj de la BASE (el mismo con el que se marca el cierre del lote), no del de la aplicación: con relojes
-        // distintos no se podría afirmar que una redención fue anterior al cierre.
-        $playedAt = Carbon::parse(DB::selectOne('SELECT clock_timestamp() AS t')->t)->utc();
-        $json = json_encode([
-            'redemptionId' => $id,
-            'alreadyPlayed' => false,
-            'playedAt' => $playedAt->format('Y-m-d\TH:i:s.u\Z'),
-            'campaign' => [
-                'id' => $row->campaign_id,
-                'name' => $row->campaign_name,
-                'gameType' => $row->game_type,
-                'usedCodeBehavior' => $row->used_code_behavior,
-                'title' => $row->title,
-                'theme' => json_decode($row->theme), // objeto (stdClass), no arreglo: {} sigue siendo {}
-                'gameConfig' => (object) $built['gameConfig'],
-            ],
-            'outcome' => [
-                'prize' => $prize['json'],
-                'extraSpins' => $prize['extraSpins'],
-                'gameResult' => (object) $built['gameResult'],
-            ],
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-
-        DB::insert(
-            'INSERT INTO redemptions (id, code_id, batch_id, user_id, idempotency_key, prize_id, response, created_at, spins_granted)
-             VALUES (?, ?, ?, ?, ?, ?, ?::json, ?::timestamptz, ?)',
-            [$id, $row->code_id, $row->batch_id, $userId, $key, $prizeId, $json, $playedAt->format('Y-m-d H:i:s.uP'), $prize['extraSpins']],
-        );
-
-        // Aviso de acreditación en la MISMA transacción: o existen redención y aviso, o ninguno. Un "sin premio" no acredita nada.
-        if ($prize['json']['type'] !== 'none') {
-            DB::insert(
-                'INSERT INTO prize_outbox (redemption_id, payload) VALUES (?, ?::jsonb)',
-                [$id, json_encode([
-                    'redemption_id' => $id, 'user_id' => $userId, 'campaign_id' => $row->campaign_id, 'batch_id' => $row->batch_id,
-                    'prize' => $prize['json'], 'redeemed_at' => $playedAt->format('Y-m-d\TH:i:s.u\Z'),
-                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)],
-            );
-        }
-
-        // Al final: el candado de la bitácora se mantiene el menor tiempo posible. No lleva datos personales en claro.
-        $ref = $this->userRef($userId);
-        $this->audit->append('user:'.$ref, 'code.redeemed', 'redemption', $id, [
-            'batch_id' => $row->batch_id, 'prize_id' => $prizeId, 'user_ref' => $ref,
-        ]);
-
-        return new RedemptionResult($json, $id, replayed: false);
+        return (new RedemptionWriter($this->audit, $this->presentation))->write($row, $userId, $key, $prizeId, ['code_id' => $row->code_id]);
     }
 
     /** El código ya estaba reclamado. Según quién y la regla de la campaña: repetir, o rechazar. */
@@ -207,7 +152,7 @@ final class RedeemService
     {
         return DB::selectOne(
             "SELECT r.id, r.user_id, r.response::text AS response, encode(c.code_hash, 'hex') AS code_hash
-             FROM redemptions r JOIN codes c ON c.id = r.code_id WHERE r.user_id = ? AND r.idempotency_key = ?",
+             FROM redemptions r LEFT JOIN codes c ON c.id = r.code_id WHERE r.user_id = ? AND r.idempotency_key = ?",
             [$userId, $key]);
     }
 
@@ -244,39 +189,6 @@ final class RedeemService
             $redemption->id,
             replayed: true,
         );
-    }
-
-    /**
-     * @return array<string, array{json: array<string, mixed>, extraSpins: int}> premios de la campaña por id; `json` es la forma
-     *                                                                           que entiende el cliente (Prize.fromJson).
-     */
-    private function prizeDefs(string $campaignId): array
-    {
-        $out = [];
-        foreach (DB::select('SELECT prize_id, type, label, amount, meta::text AS meta FROM prizes WHERE campaign_id = ?', [$campaignId]) as $p) {
-            $meta = json_decode($p->meta, true) ?: [];
-            $json = ['id' => (string) $p->prize_id, 'type' => $p->type, 'label' => $p->label];
-            if ($p->amount !== null) {
-                $json['amount'] = (int) $p->amount;
-            }
-            if (isset($meta['coupon_code']) && is_string($meta['coupon_code'])) {
-                $json['couponCode'] = $meta['coupon_code'];
-            }
-            if (isset($meta['icon_key']) && is_string($meta['icon_key'])) {
-                $json['iconKey'] = $meta['icon_key'];
-            }
-            $out[(string) $p->prize_id] = [
-                'json' => $json,
-                'extraSpins' => $p->type === 'extraSpin' ? (int) ($meta['extra_spins'] ?? 1) : 0,
-            ];
-        }
-
-        return $out;
-    }
-
-    private function userRef(string $userId): string
-    {
-        return substr(hash_hmac('sha256', 'gamif/v1/user'.$userId, Secrets::key('code_pepper')), 0, 16);
     }
 
     private function fail(string $userId, ?string $ip, string $reason): never

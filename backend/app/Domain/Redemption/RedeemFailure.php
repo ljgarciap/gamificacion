@@ -20,6 +20,13 @@ class RedeemFailure extends \RuntimeException
 
     public const KEY_REUSE = 'idempotencyKeyReuse';
 
+    /** Giros hijos (SPEC-003 P6c). */
+    public const SPIN_NOT_FOUND = 'spinNotFound';
+
+    public const NO_SPINS_LEFT = 'noSpinsLeft';
+
+    public const RESERVE_EXHAUSTED = 'spinReserveExhausted';
+
     /**
      * @param  bool  $countsAsFailure  el servicio lo cuenta contra el límite de intentos DESPUÉS de terminar la transacción
      *                                 (contarlo dentro se perdería cuando la transacción se revierte: la caché de base de datos
@@ -37,7 +44,8 @@ class RedeemFailure extends \RuntimeException
     {
         return match ($this->reason) {
             self::INVALID, self::KEY_REUSE => 422,
-            self::ALREADY_USED => 409,
+            self::ALREADY_USED, self::NO_SPINS_LEFT, self::RESERVE_EXHAUSTED => 409,
+            self::SPIN_NOT_FOUND => 404,
             self::EXPIRED => 410,
             self::CAMPAIGN_INACTIVE => 403,
             self::RATE_LIMITED => 429,
@@ -54,6 +62,9 @@ class RedeemFailure extends \RuntimeException
             self::CAMPAIGN_INACTIVE => 'Esta promoción no está activa.',
             self::RATE_LIMITED => 'Demasiados intentos. Intenta de nuevo más tarde.',
             self::KEY_REUSE => 'La Idempotency-Key ya se usó con otro código.',
+            self::SPIN_NOT_FOUND => 'No hay un giro para jugar con esa redención.',
+            self::NO_SPINS_LEFT => 'Esa redención no tiene más giros por jugar.',
+            self::RESERVE_EXHAUSTED => 'Los giros extra de esta promoción se agotaron.',
             default => 'Error.',
         };
     }

@@ -70,6 +70,57 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /v1/spins:
+    post:
+      tags: [Redención]
+      summary: Juega un giro hijo de una redención con giro extra
+      description: |
+        Una redención cuyo premio es «giro extra» concede `extraSpins` giros (campo `outcome.extraSpins`). Cada llamada juega UNO: el servidor
+        consume la siguiente casilla de la reserva del lote y devuelve el resultado, con la misma forma que una redención más `parentRedemptionId`
+        y `spinNo`. El servidor decide el resultado; el cliente solo lo anima. Un giro hijo puede conceder, a su vez, más giros.
+
+        Idempotente: la misma `Idempotency-Key` con el mismo padre devuelve EXACTAMENTE la misma respuesta sin consumir otra casilla. La clave debe
+        ser estable por giro (por ejemplo, el id del padre y el número de giro): una clave nueva es un giro nuevo. Los giros pendientes
+        caducan cuando el lote se cierra o vence su ventana de redención.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 128
+            pattern: '^[A-Za-z0-9._\-:]{8,128}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [parentRedemptionId]
+              properties:
+                parentRedemptionId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Resultado del giro (o su repetición idéntica).
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Redemption' }
+        '400': { $ref: '#/components/responses/IdempotencyKeyRequired' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: No hay un giro para jugar con esa redención (código `spinNotFound`). Idéntica para un padre ajeno, inexistente o mal formado.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '409':
+          description: '`noSpinsLeft` (la redención no tiene más giros por jugar) o `spinReserveExhausted` (la reserva del lote se agotó; nunca se inventa un premio).'
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '410': { $ref: '#/components/responses/Expired' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /v1/balance:
     get:
       tags: [Saldo]
@@ -207,6 +258,9 @@ components:
         - idempotencyKeyRequired
         - unauthenticated
         - serverError
+        - spinNotFound
+        - noSpinsLeft
+        - spinReserveExhausted
 
     Balance:
       type: object
@@ -241,6 +295,14 @@ components:
         playedAt: { type: string, format: date-time }
         campaign: { $ref: '#/components/schemas/Campaign' }
         outcome: { $ref: '#/components/schemas/Outcome' }
+        parentRedemptionId:
+          type: string
+          format: uuid
+          description: 'Solo en un giro hijo (`/v1/spins`): la redención que concedió el giro.'
+        spinNo:
+          type: integer
+          minimum: 1
+          description: 'Solo en un giro hijo: número de giro dentro de su padre.'
 
     Campaign:
       type: object

@@ -61,6 +61,17 @@ El código se normaliza: minúsculas, espacios, guiones, el prefijo (decorativo)
 
 **Bloqueo por intentos fallidos** (R1): al superar el máximo de fallos en la ventana (por usuario y, con un umbral mayor, por IP) el usuario queda bloqueado, y cada reincidencia **duplica** el tiempo hasta un tope. Cuentan los códigos inválidos y probar códigos ya usados por **otros**. Un canje exitoso reinicia el contador del usuario (no el de la IP). Parámetros en `config/gamification.php` (administración desde panel: SPEC-003).
 
+## `POST /v1/spins` (giro extra)
+
+Cuando una redención trae `outcome.extraSpins > 0`, cada giro se juega con `POST /v1/spins` `{ "parentRedemptionId": "<uuid>" }` y su propia `Idempotency-Key`.
+El servidor consume la **siguiente casilla de la reserva** del lote y responde con la forma de una redención más `parentRedemptionId` y `spinNo`; un giro hijo
+puede conceder más giros. El cliente nunca decide el resultado.
+
+- **Clave estable por giro** (por ejemplo `<padre>:<n>`): reintentar con la misma clave devuelve la misma respuesta sin consumir otra casilla; una clave nueva es un giro nuevo.
+- `404 spinNotFound` (padre ajeno, inexistente o mal formado: idéntico), `409 noSpinsLeft`, `409 spinReserveExhausted` (nunca se inventa un premio), `410 expired`.
+- **Los giros pendientes caducan** cuando el lote se cierra o vence su ventana de redención.
+- Mismo límite de intentos que el canje: un padre ajeno cuenta como fallo.
+
 ## `GET /v1/balance`
 `200 {"amount": 120000, "currency": "COP"}`. En el modo independiente es un saldo de demostración (inicial + premios en dinero ganados); en una app host, la billetera es del host (SPEC-002 D2).
 
