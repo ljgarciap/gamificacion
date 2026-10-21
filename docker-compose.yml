@@ -102,6 +102,22 @@ services:
       # Contrato (OpenAPI y ejemplos): las pruebas lo comparan con el código y, con UPDATE_CONTRACT_EXAMPLES=1, regeneran los ejemplos.
       - ./docs:/docs
 
+  # --- Host simulador (SPEC-003 RF-53): SOLO desarrollo. Implementa docs/contrato-host.md con una billetera de juguete. ---
+  #   docker compose up -d host-sim        -> http://localhost:8095  (estado: GET /__sim/state; fallos: POST /__sim/mode)
+  #   En el backend (APP_ENV=local): GAMIF_FULFILLMENT=http GAMIF_BALANCE=http y registrar el host en el panel con
+  #   callbackUrl http://host-sim:8095/callback y balanceUrl http://host-sim:8095/balance (http solo se admite en `local`).
+  host-sim:
+    image: php:8.3-cli-alpine
+    command: php -S 0.0.0.0:8095 -t /sim /sim/index.php
+    environment:
+      PHP_CLI_SERVER_WORKERS: "4"
+      # El primero firma las respuestas; todos verifican (para ensayar una rotación pon dos separados por coma).
+      HOST_SIM_SECRETS: ${HOST_SIM_SECRETS:-secreto-del-simulador-solo-desarrollo}
+    ports:
+      - "8095:8095"
+    volumes:
+      - ./host-sim:/sim:ro
+
 volumes:
   db-data:
   backend-vendor:

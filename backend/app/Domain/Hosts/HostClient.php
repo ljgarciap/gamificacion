@@ -106,9 +106,16 @@ final class HostClient
             'http_errors' => false,
             'timeout' => Settings::int('host.timeout_seconds'),
             'connect_timeout' => Settings::int('host.connect_timeout_seconds'),
-            'stream' => true,
+            // NO `stream => true`: Guzzle elegiría el manejador de flujos PHP, que ignora las opciones de cURL (la fijación de IP) y las rechaza.
+            // El tope de tamaño se aplica DURANTE la descarga: se aborta en cuanto lo que llega lo supera, sin esperar a tenerlo entero.
+            'progress' => static function (int $dlTotal, int $dlNow): void {
+                if ($dlNow > self::MAX_BODY || $dlTotal > self::MAX_BODY) {
+                    throw new \RuntimeException('respuesta demasiado grande');
+                }
+            },
             'verify' => true,
-            'curl' => [CURLOPT_RESOLVE => [$target['host'].':'.$target['port'].':'.$target['ips'][0]], CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS],
+            'protocols' => [$target['scheme']], // solo el esquema validado, también si hubiera una redirección
+            'curl' => [CURLOPT_RESOLVE => [$target['host'].':'.$target['port'].':'.$target['ips'][0]]],
         ];
         $headers = [
             'Accept' => 'application/json', 'User-Agent' => 'gamification-callback/1',

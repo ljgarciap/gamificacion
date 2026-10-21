@@ -15,6 +15,8 @@ use App\Domain\Hosts\HostService;
 use App\Domain\Hosts\HostUnavailable;
 use App\Domain\Hosts\HostUrlGuard;
 use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Handler\CurlFactory;
+use GuzzleHttp\Handler\EasyHandle;
 use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
@@ -116,6 +118,19 @@ final class HostCallsTest extends DbTestCase
         $this->assertGreaterThan(0, $opts['timeout']);
         $this->assertGreaterThan(0, $opts['connect_timeout']);
         $this->assertTrue($opts['verify']);
+        $this->assertSame(['https'], $opts['protocols']);
+        $this->assertArrayNotHasKey('stream', $opts, 'con `stream` Guzzle usa el manejador de flujos, que ignora la fijación de IP');
+    }
+
+    public function test_guzzle_acepta_de_verdad_las_opciones_de_curl_que_enviamos(): void
+    {
+        // El transporte falso de las demás pruebas NO valida opciones: una opción que Guzzle rechaza (p. ej. CURLOPT_PROTOCOLS, o `stream` junto a
+        // `curl`) rompería TODAS las llamadas reales sin que ninguna prueba lo notara. Aquí se construye el manejador real de cURL (sin enviar).
+        (new HttpPrizeFulfillment($this->client()))->deliver($this->payload());
+        $seen = $this->seen[0];
+        $handle = (new CurlFactory(1))->create($seen['request'], $seen['options']);
+        $this->assertInstanceOf(EasyHandle::class, $handle);
+        $this->assertNotNull($handle->handle);
     }
 
     public function test_tras_rotar_firma_el_secreto_nuevo(): void
