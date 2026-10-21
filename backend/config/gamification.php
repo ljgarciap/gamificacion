@@ -13,6 +13,12 @@ return [
     'code_pepper' => env('GAMIF_CODE_PEPPER'),
 
     /*
+    | admin_key: cifra en reposo los secretos del panel (secreto TOTP y, después, secretos de host). Perderla invalida el 2FA de todos los
+    | administradores (se recupera por consola, ver docs/diseno-spec-003.md §5).
+    */
+    'admin_key' => env('GAMIF_ADMIN_KEY'),
+
+    /*
     | Apps host autorizadas a llamar a la API (SPEC-002 R9). JSON en GAMIF_HOSTS: {"emisor": {"alg": "HS256", "key": "<base64 de 32+ bytes>"}}
     | o {"emisor": {"alg": "RS256"|"ES256", "key": "<PEM de la clave PÚBLICA>"}}. El algoritmo y la clave los fija ESTA configuración por
     | emisor: nunca se confía en lo que declare el token (evita `alg: none` y confusión de algoritmos).
@@ -88,4 +94,28 @@ return [
         'margin_seconds' => (int) env('DRAND_MARGIN_SECONDS', 60),
         'timeout_seconds' => (int) env('DRAND_TIMEOUT_SECONDS', 5),
     ],
+
+    /*
+    | Panel de administración (SPEC-003). Valores iniciales: en P4 pasan a la tabla de parámetros (con rangos duros y control dual para los de
+    | seguridad). El inicio de sesión se bloquea por CUENTA y por IP, con espera creciente.
+    */
+    'admin' => [
+        'password_min_length' => (int) env('GAMIF_ADMIN_PASSWORD_MIN', 12),
+        'login' => [
+            'max_failures' => (int) env('GAMIF_ADMIN_MAX_FAILURES', 5),
+            'lockout_base_seconds' => (int) env('GAMIF_ADMIN_LOCKOUT_BASE', 60),
+            'lockout_max_seconds' => (int) env('GAMIF_ADMIN_LOCKOUT_MAX', 3600),
+            'ip_max_failures' => (int) env('GAMIF_ADMIN_IP_MAX_FAILURES', 20),
+            'ip_window_seconds' => (int) env('GAMIF_ADMIN_IP_WINDOW', 900),
+            'ip_lockout_seconds' => (int) env('GAMIF_ADMIN_IP_LOCKOUT', 900),
+        ],
+        // Entre la contraseña correcta y el segundo factor (y el cambio de contraseña inicial) no puede pasar más que esto.
+        'pending_ttl_seconds' => (int) env('GAMIF_ADMIN_PENDING_TTL', 600),
+        'session_idle_minutes' => (int) env('GAMIF_ADMIN_SESSION_IDLE', 30),
+        'session_absolute_hours' => (int) env('GAMIF_ADMIN_SESSION_MAX_HOURS', 12),
+        'totp_window' => (int) env('GAMIF_ADMIN_TOTP_WINDOW', 1),
+        'recovery_codes' => 10,
+        'issuer' => env('GAMIF_ADMIN_ISSUER', 'Gamificacion'),
+    ],
+
 ];

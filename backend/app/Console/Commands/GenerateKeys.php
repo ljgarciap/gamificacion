@@ -20,9 +20,9 @@ class GenerateKeys extends Command
         {--dev : Agrega también la configuración de desarrollo local (tokens de desarrollo, baliza local, CORS)}
         {--path= : Ruta del archivo .env (por defecto, el de la aplicación)}';
 
-    protected $description = 'Genera GAMIF_PRIZE_MAP_KEY y GAMIF_CODE_PEPPER (32 bytes aleatorios en base64) y, con --dev, la configuración local';
+    protected $description = 'Genera GAMIF_PRIZE_MAP_KEY, GAMIF_CODE_PEPPER y GAMIF_ADMIN_KEY (32 bytes aleatorios en base64) y, con --dev, la configuración local';
 
-    private const SECRETS = ['GAMIF_PRIZE_MAP_KEY', 'GAMIF_CODE_PEPPER'];
+    private const SECRETS = ['GAMIF_PRIZE_MAP_KEY', 'GAMIF_CODE_PEPPER', 'GAMIF_ADMIN_KEY'];
 
     /** Orígenes desde los que se sirve la web en desarrollo (docker compose: web en 8080, hot reload en 8081). */
     private const DEV_ORIGINS = 'http://localhost:8080,http://localhost:8081';

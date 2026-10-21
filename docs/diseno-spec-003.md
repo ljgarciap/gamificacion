@@ -13,17 +13,19 @@ Principio rector: **reutilizar lo que ya existe** (bitácora encadenada, cifrado
 
 ## 2. Superficie `/admin`: guardia propio
 - Prefijo **`/admin/api/v1`**, guardia de sesión propio (`admin`) con su provider; **sin relación** con el JWT de los hosts (`/v1`). Ningún middleware se comparte salvo el de errores JSON.
-- **Autenticación por sesión de Laravel (cookie `HttpOnly`, `Secure`, `SameSite=Lax`, driver `database`) + CSRF**, sin Sanctum: el panel Angular y la API cuelgan del mismo sitio (subdominios del mismo dominio), así que no hace falta un token en el navegador (nada que robar por XSS). CORS solo para el origen del panel, con credenciales.
+- **Autenticación por sesión de Laravel (cookie `HttpOnly`, `Secure`, `SameSite=Lax`, driver `database`) + CSRF** (middleware `AdminForgery`, que a diferencia del de Laravel **no se desactiva en pruebas**; iniciar sesión renueva el token), sin Sanctum: el panel Angular y la API cuelgan del mismo sitio (subdominios del mismo dominio), así que no hace falta un token en el navegador (nada que robar por XSS). CORS solo para el origen del panel, con credenciales.
 - La sesión guarda `admin_id` y `mfa_verified_at`; **una sesión sin `mfa_verified_at` no pasa de `/auth/*`**. Vencimiento por inactividad parametrizable; cambio de contraseña o de 2FA invalida las demás sesiones (se borran sus filas).
 - Errores de login **idénticos** para correo inexistente, contraseña errónea, cuenta bloqueada o desactivada (sin oráculo), con el mismo tiempo de respuesta (se hace `Hash::check` contra un hash señuelo si no existe el usuario).
 
 ## 3. Modelo de datos (migraciones con SQL explícito donde hay invariantes)
 | Tabla | Contenido y restricciones |
 |---|---|
-| `admin_users` | `id uuid`, `email` único (minúsculas), `name`, `role` CHECK en (`superadmin`,`operator`,`auditor`), `password_hash`, `totp_secret_enc` (cifrado con `SecretBox`), `totp_confirmed_at`, `totp_last_step` (anti-repetición), `recovery_codes` (solo huellas HMAC), `failed_attempts`, `locked_until`, `active`, `must_change_password`, `last_login_at` |
+| `admin_users` | `id bigserial` (numérico: la tabla de sesiones de Laravel guarda `user_id` y así se pueden cerrar las sesiones de un usuario), `email` único (minúsculas), `name`, `role` CHECK en (`superadmin`,`operator`,`auditor`), `password_hash`, `totp_secret_enc` (cifrado con `SecretBox`), `totp_confirmed_at`, `totp_last_step` (anti-repetición), `recovery_codes` (solo huellas HMAC), `failed_attempts`, `locked_until`, `active`, `must_change_password`, `last_login_at` |
 | `approvals` | `id`, `action` CHECK (`batch.activate`, `codes.generate`, `audit.export`, `setting.change`), `subject_type/id`, `params jsonb` (inmutable tras crear), `requested_by`, `expires_at`, `approved_by`, `approved_at`, `executed_at`, `status`. **CHECK `approved_by <> requested_by`** y trigger que impide cambiar `params`/`requested_by` y volver atrás un estado |
 | `settings` / `settings_history` | clave, valor `jsonb`, tipo; el historial es **solo de agregar** (mismo trigger que la bitácora) |
 | `hosts` | `issuer` único (el mismo de `GAMIF_HOSTS`), `callback_url`, `balance_url`, `secret_current_enc`, `secret_previous_enc`, `active` |
+
+Invariantes en la base (P1): rol en los tres valores, correo en minúsculas y único, TOTP confirmado implica secreto, y un **trigger impide dejar el sistema sin un superadmin activo** (desactivar, cambiar de rol o borrar al último). El bloqueo de cuenta usa el **reloj de la aplicación** para escribir y comparar (no el de la base): mezclarlos lo haría frágil.
 
 La **bitácora** (`audit_log`) se reutiliza tal cual: actor `admin:<uuid>`, acciones nuevas con prefijo `admin.`. El volumen del panel es bajo; el candado global no es un problema aquí (D7 solo afecta al canje).
 

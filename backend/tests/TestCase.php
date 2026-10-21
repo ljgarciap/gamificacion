@@ -15,6 +15,10 @@ abstract class TestCase extends BaseTestCase
 
     public const TEST_PEPPER = 'PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP';
 
+    public const TEST_ADMIN_KEY = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+
+    public const TEST_APP_KEY = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
+
     /**
      * Entorno de las pruebas, fijado ANTES de que arranque la aplicación.
      *
@@ -74,6 +78,9 @@ abstract class TestCase extends BaseTestCase
         // Los secretos de prueba no dependen del .env del desarrollador (ni de que exista).
         $app['config']->set('gamification.prize_map_key', base64_encode(self::TEST_PRIZE_KEY));
         $app['config']->set('gamification.code_pepper', base64_encode(self::TEST_PEPPER));
+        $app['config']->set('gamification.admin_key', base64_encode(self::TEST_ADMIN_KEY));
+        // La clave de la aplicación cifra las cookies (sesión del panel): fija, para no depender del .env de cada quien.
+        $app['config']->set('app.key', 'base64:'.base64_encode(self::TEST_APP_KEY));
 
         return $app;
     }

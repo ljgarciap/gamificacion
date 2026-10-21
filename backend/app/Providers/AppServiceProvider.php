@@ -54,6 +54,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Las únicas sesiones son las del panel: su vencimiento por inactividad es el de los administradores.
+        config(['session.lifetime' => (int) config('gamification.admin.session_idle_minutes')]);
+        // En producción la cookie de sesión del panel SOLO viaja por https y no la envían sitios ajenos.
+        if ($this->app->environment('production')) {
+            config(['session.secure' => true, 'session.http_only' => true, 'session.same_site' => 'lax']);
+        }
+
         // Tope general de peticiones de canje por usuario (o por IP si aún no hay usuario). Aparte del bloqueo por intentos FALLIDOS.
         RateLimiter::for('redeem', function (Request $request): Limit {
             /** @var HostUser|null $user */

@@ -35,20 +35,21 @@ final class GenerateKeysCommandTest extends TestCase
         $this->artisan('gamification:keys', ['--path' => $this->env])
             ->expectsOutputToContain('GAMIF_PRIZE_MAP_KEY=')
             ->expectsOutputToContain('GAMIF_CODE_PEPPER=')
+            ->expectsOutputToContain('GAMIF_ADMIN_KEY=')
             ->assertSuccessful();
         $this->assertSame('', (string) file_get_contents($this->env));
     }
 
-    public function test_con_write_agrega_dos_claves_validas_de_32_bytes(): void
+    public function test_con_write_agrega_tres_claves_validas_de_32_bytes(): void
     {
         $this->artisan('gamification:keys', ['--write' => true, '--path' => $this->env])->assertSuccessful();
 
-        foreach (['GAMIF_PRIZE_MAP_KEY', 'GAMIF_CODE_PEPPER'] as $name) {
+        foreach (['GAMIF_PRIZE_MAP_KEY', 'GAMIF_CODE_PEPPER', 'GAMIF_ADMIN_KEY'] as $name) {
             $decoded = base64_decode((string) $this->value($name), true);
             $this->assertNotFalse($decoded, $name);
             $this->assertSame(32, strlen($decoded), $name);
         }
-        $this->assertNotSame($this->value('GAMIF_PRIZE_MAP_KEY'), $this->value('GAMIF_CODE_PEPPER'));
+        $this->assertCount(3, array_unique([$this->value('GAMIF_PRIZE_MAP_KEY'), $this->value('GAMIF_CODE_PEPPER'), $this->value('GAMIF_ADMIN_KEY')]));
     }
 
     public function test_nunca_pisa_una_clave_existente(): void
