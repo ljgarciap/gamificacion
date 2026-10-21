@@ -5,6 +5,8 @@ namespace App\Domain\Approvals;
 use App\Domain\Admin\AdminAccounts;
 use App\Domain\Admin\AdminPermissions;
 use App\Domain\Admin\LoginFailed;
+use App\Domain\Audit\AuditAnchor;
+use App\Domain\Audit\AuditExporter;
 use App\Domain\Audit\AuditLog;
 use App\Domain\Batches\BatchLifecycle;
 use App\Domain\Batches\InvalidBatch;
@@ -27,6 +29,7 @@ final class ApprovalService
     private const ACTIONS = [
         'batch.activate' => ['permission' => AdminPermissions::BATCHES_MANAGE, 'subject' => 'batch'],
         'codes.generate' => ['permission' => AdminPermissions::BATCHES_MANAGE, 'subject' => 'batch'],
+        'audit.export' => ['permission' => AdminPermissions::AUDIT_EXPORT, 'subject' => 'batch'],
         'setting.change' => ['permission' => AdminPermissions::SETTINGS_MANAGE, 'subject' => 'setting'],
     ];
 
@@ -37,6 +40,8 @@ final class ApprovalService
         private readonly Settings $settings,
         private readonly CodeGenerator $generator,
         private readonly CodeExportStore $exports,
+        private readonly AuditExporter $auditExporter,
+        private readonly AuditAnchor $anchor,
     ) {}
 
     /** @return list<string> */
@@ -133,6 +138,7 @@ final class ApprovalService
                 'batch.activate' => $this->batches->activate((string) $params['batchId'], $actor),
                 'setting.change' => $this->settings->set((string) $params['key'], $params['value'], $actor),
                 'codes.generate' => $result = $this->generateCodes($id, $params, $actor, $path),
+                'audit.export' => $result = $this->exportAudit($id, $params, $actor, $path),
             };
 
             DB::update("UPDATE approvals SET status = 'executed', executed_at = ? WHERE id = ?", [Carbon::now()->format('Y-m-d H:i:s.uP'), $id]);
@@ -155,33 +161,71 @@ final class ApprovalService
      * Entrega ÚNICA de los códigos generados: solo el solicitante, solo mientras no caduque, y el archivo se reclama de forma atómica (renombrado),
      * así que dos descargas simultáneas no pueden ganar las dos. Se comprueba que el archivo sigue siendo el que se registró en la bitácora.
      *
-     * @return array{path: string, sha256: string}
+     * @return array{path: string, sha256: string, name: string, type: string}
      *
      * @throws ApprovalException
      */
-    public function claimCodes(object $user, int $id): array
+    public function claimExport(object $user, int $id): array
     {
         $row = $this->find($id);
-        if ($row->action !== 'codes.generate' || (int) $row->requested_by !== (int) $user->id) {
+        if (! in_array($row->action, ['codes.generate', 'audit.export'], true) || (int) $row->requested_by !== (int) $user->id) {
             throw new ApprovalException('notFound', 'No hay descarga para esta solicitud.', 404);
         }
-        $this->requirePermission($user, self::ACTIONS['codes.generate']['permission']);
+        $this->requirePermission($user, self::ACTIONS[$row->action]['permission']);
         $this->exports->purgeExpired();
         $until = Carbon::parse($row->executed_at ?? '1970-01-01')->addMinutes(Settings::int('admin.export_ttl_minutes'));
         if ($row->status !== 'executed' || $until->lte(Carbon::now())) {
             throw new ApprovalException('gone', 'La descarga ya no está disponible. Si se perdió, hay que recrear el lote.', 410);
         }
-        $path = $this->exports->claim($id) ?? throw new ApprovalException('gone', 'La descarga ya no está disponible. Si se perdió, hay que recrear el lote.', 410);
+        $kind = $row->action === 'audit.export' ? 'audit' : 'codes';
+        $path = $this->exports->claim($id, $kind) ?? throw new ApprovalException('gone', 'La descarga ya no está disponible. Si se perdió, hay que recrear el lote.', 410);
 
         $params = json_decode($row->params, true);
-        $expected = DB::selectOne("SELECT data->>'export_sha256' AS sha FROM audit_log WHERE action = 'batch.codes_generated' AND subject_id = ? ORDER BY id DESC LIMIT 1", [$params['batchId']])->sha ?? null;
+        $logged = $kind === 'audit' ? 'audit.exported' : 'batch.codes_generated';
+        $expected = DB::selectOne("SELECT data->>'export_sha256' AS sha FROM audit_log WHERE action = ? AND subject_id = ? ORDER BY id DESC LIMIT 1", [$logged, $params['batchId']])->sha ?? null;
         $actual = hash_file('sha256', $path);
         if ($expected === null || ! hash_equals($expected, $actual)) {
             throw new ApprovalException('exportTampered', 'El archivo no coincide con el registrado en la bitácora; no se entrega.', 500);
         }
-        $this->audit->append('admin:'.$user->id, 'codes.downloaded', 'approval', (string) $id, ['batch' => $params['batchId'], 'export_sha256' => $actual]);
+        $this->audit->append('admin:'.$user->id, $kind === 'audit' ? 'audit.downloaded' : 'codes.downloaded', 'approval', (string) $id, ['batch' => $params['batchId'], 'export_sha256' => $actual]);
 
-        return ['path' => $path, 'sha256' => $actual];
+        return [
+            'path' => $path, 'sha256' => $actual,
+            'name' => $kind === 'audit' ? "auditoria-$id.json" : "codigos-$id.csv",
+            'type' => $kind === 'audit' ? 'application/json' : 'text/csv; charset=utf-8',
+        ];
+    }
+
+    /**
+     * Escribe la exportación de auditoría (JSON, 0600) y el ancla actual. La exportación no lleva secretos pendientes (el lote ya está revelado),
+     * pero sí toda la bitácora: por eso se pide control dual y se entrega una sola vez, como los códigos.
+     *
+     * @param array<string, mixed> $params @return array<string, mixed>
+     */
+    private function exportAudit(int $approvalId, array $params, string $actor, ?string &$path): array
+    {
+        $this->exports->purgeExpired();
+        try {
+            $export = $this->auditExporter->export((string) $params['batchId']);
+        } catch (InvalidBatch $e) {
+            throw new ApprovalException('validationFailed', $e->getMessage(), 422);
+        }
+        $path = $this->exports->path($approvalId, 'audit');
+        $fh = @fopen($path, 'xb');
+        if ($fh === false) {
+            $path = null;
+            throw new ApprovalException('wrongState', 'Ya existe una exportación pendiente para esta solicitud.', 409);
+        }
+        chmod($path, 0600);
+        fwrite($fh, json_encode($export, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n");
+        fclose($fh);
+        $sha = hash_file('sha256', $path);
+        $this->audit->append($actor, 'audit.exported', 'batch', (string) $params['batchId'], ['export_sha256' => $sha, 'entries' => count($export['audit_log'])]);
+
+        return [
+            'sha256' => $sha, 'entries' => count($export['audit_log']), 'anchor' => $this->anchor->current(),
+            'downloadUntil' => Carbon::now()->addMinutes(Settings::int('admin.export_ttl_minutes'))->toIso8601String(),
+        ];
     }
 
     /** @param array<string, mixed> $params @return array<string, mixed> */
@@ -242,6 +286,22 @@ final class ApprovalService
             }
             if ($state !== 'committed') {
                 throw new ApprovalException('validationFailed', 'Solo se puede activar un lote comprometido.', 422);
+            }
+
+            return [$batchId, ['batchId' => $batchId]];
+        }
+
+        if ($action === 'audit.export') {
+            $batchId = $params['batchId'] ?? null;
+            if (! is_string($batchId) || ! preg_match('/^[0-9a-f-]{36}$/', $batchId)) {
+                throw new ApprovalException('validationFailed', 'Indica el lote («batchId»).', 422);
+            }
+            $state = DB::table('batches')->where('id', $batchId)->value('state');
+            if ($state === null) {
+                throw new ApprovalException('notFound', 'El lote no existe.', 404);
+            }
+            if ($state !== 'revealed') {
+                throw new ApprovalException('validationFailed', 'Solo se exporta la auditoría de un lote revelado.', 422);
             }
 
             return [$batchId, ['batchId' => $batchId]];

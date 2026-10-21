@@ -21,15 +21,16 @@ final class CodeExportStore
         return $dir;
     }
 
-    public function path(int $approvalId): string
+    /** @param string $kind `codes` (CSV de códigos) o `audit` (JSON de auditoría) */
+    public function path(int $approvalId, string $kind = 'codes'): string
     {
-        return $this->dir()."/codes-$approvalId.csv";
+        return $this->dir().($kind === 'audit' ? "/codes-audit-$approvalId.json" : "/codes-$approvalId.csv");
     }
 
     /** @return string|null ruta del archivo ya reclamado (solo de quien lo reclamó) o null si no hay */
-    public function claim(int $approvalId): ?string
+    public function claim(int $approvalId, string $kind = 'codes'): ?string
     {
-        $from = $this->path($approvalId);
+        $from = $this->path($approvalId, $kind);
         $to = $this->dir().'/codes-'.$approvalId.'.'.bin2hex(random_bytes(6)).'.served';
 
         return @rename($from, $to) ? $to : null;

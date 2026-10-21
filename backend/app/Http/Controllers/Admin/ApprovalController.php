@@ -64,10 +64,10 @@ final class ApprovalController
     public function download(Request $request, int $id): JsonResponse|Response
     {
         return $this->guard(function () use ($request, $id): Response {
-            $c = $this->approvals->claimCodes($request->attributes->get('admin_user'), $id);
+            $c = $this->approvals->claimExport($request->attributes->get('admin_user'), $id);
 
-            return response()->download($c['path'], "codigos-$id.csv", [
-                'Content-Type' => 'text/csv; charset=utf-8', 'Cache-Control' => 'no-store', 'X-Content-SHA256' => $c['sha256'],
+            return response()->download($c['path'], $c['name'], [
+                'Content-Type' => $c['type'], 'Cache-Control' => 'no-store', 'X-Content-SHA256' => $c['sha256'],
             ])->deleteFileAfterSend(true);
         });
     }
