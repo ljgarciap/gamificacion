@@ -49,6 +49,21 @@ Errores: `422 validationFailed`, `404 notFound`, `409 lastSuperadmin` (la base i
 Cada clave es la ruta de `config/gamification.php` y se declara en `SettingsRegistry` con **mínimo y máximo duros** (nunca 0 intentos, token de ≤ 1 h, contraseña de ≥ 12). Sin fila vale el default de config; un valor guardado fuera de rango se ignora (se usa el default y se registra). Lectura con caché de 60 s: un cambio aplica en menos de 1 minuto. El historial es de solo agregar (trigger) y cada cambio va a la bitácora.
 Errores: `422 validationFailed` (tipo o rango), `404 notFound`, `409 approvalRequired`: los parámetros de seguridad (`security: true`) exigen control dual (RF-43) y **no se cambian por esta ruta**: se piden con `POST /approvals` (acción `setting.change`).
 
+## Campañas y premios (leer: todos los roles, `campaigns.view`; escribir: superadmin y operador, `campaigns.manage`)
+| Ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `GET /campaigns` | — | `{campaigns: [{id, name, gameType, usedCodeBehavior, title, prizeCount, batchCount, frozen, createdAt, updatedAt}]}` |
+| `GET /campaigns/{id}` | — | campaña completa: `theme`, `gameConfig`, `frozen` y `prizes: [{prizeId, type, label, amount, meta}]` |
+| `POST /campaigns` | `{name, gameType, usedCodeBehavior?, title?, theme?, gameConfig?, prizes?: [{prizeId, type, label, amount?, meta?}]}` | `201 {id}` (todo o nada) |
+| `PATCH /campaigns/{id}` | cualquiera de `name, gameType, usedCodeBehavior, title, theme, gameConfig` | `204` |
+| `POST /campaigns/{id}/prizes` | `{prizeId, type, label, amount?, meta?}` | `201` |
+| `PATCH /campaigns/{id}/prizes/{prizeId}` | `{type?, label?, amount?, meta?}` | `204` |
+| `DELETE /campaigns/{id}/prizes/{prizeId}` | — | `204` |
+
+`gameType`: `roulette`, `scratch`, `memory`, `dice`. `type` de premio: `money`, `coupon`, `points`, `extraSpin`, `none` (dinero y puntos exigen `amount`, entero ≥ 0, COP sin decimales). `prizeId`: 1–64 caracteres `[A-Za-z0-9_-]`. Textos sin caracteres de control; `theme`/`gameConfig` son objetos de hasta 16 KB. La configuración del juego se valida a fondo al **comprometer** el lote, no aquí.
+**Congelación (la impone la base):** con un lote comprometido ya no cambian `gameType`, `usedCodeBehavior` ni `gameConfig`, ni los premios que ese lote usa → `409 campaignFrozen`. El título, el tema y los premios no usados siguen editables. Una campaña no se borra.
+Errores: `422 validationFailed`, `404 notFound`, `409 duplicate|campaignFrozen`, `403 forbidden`.
+
 ## Control dual (permisos `approvals.view|request|approve`)
 Flujo: **solicitar → otro usuario aprueba con un código TOTP nuevo → el solicitante ejecuta (una sola vez)**. Se ejecutan siempre los `params` guardados al solicitar (inmutables); caducan (`admin.approval_ttl_hours`, 24 h por defecto) y se comprueba al aprobar **y** al ejecutar.
 | Ruta | Cuerpo | Respuesta |

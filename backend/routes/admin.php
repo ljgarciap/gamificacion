@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ApprovalController;
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\CampaignController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Domain\Admin\AdminPermissions;
@@ -45,3 +46,16 @@ Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::APPROVALS_REQUES
     Route::post('/approvals/{id}/execute', [ApprovalController::class, 'execute'])->whereNumber('id');
 });
 Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::APPROVALS_APPROVE])->post('/approvals/{id}/approve', [ApprovalController::class, 'approve'])->whereNumber('id');
+
+// Campañas y premios (RF-35): leer todos los roles; escribir superadmin y operador. Una campaña con un lote comprometido queda congelada por la base.
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::CAMPAIGNS_VIEW])->group(function (): void {
+    Route::get('/campaigns', [CampaignController::class, 'index']);
+    Route::get('/campaigns/{id}', [CampaignController::class, 'show']);
+});
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::CAMPAIGNS_MANAGE])->group(function (): void {
+    Route::post('/campaigns', [CampaignController::class, 'store']);
+    Route::patch('/campaigns/{id}', [CampaignController::class, 'update']);
+    Route::post('/campaigns/{id}/prizes', [CampaignController::class, 'addPrize']);
+    Route::patch('/campaigns/{id}/prizes/{prizeId}', [CampaignController::class, 'updatePrize']);
+    Route::delete('/campaigns/{id}/prizes/{prizeId}', [CampaignController::class, 'deletePrize']);
+});
