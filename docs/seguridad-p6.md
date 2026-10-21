@@ -59,8 +59,8 @@ Un padre de otro usuario, uno inexistente y uno sin giros pendientes deben respo
 | Concurrencia (CA-39) | `K` procesos reales: exactamente `K` casillas distintas y consecutivas, nunca más de `R` |
 | Verificador | alterar un registro de casilla → detectado; vectores cruzados PHP↔Python para `R > 0` |
 
-## Decisiones que necesito de Luis
-1. **H6 (negocio):** giros pendientes al cerrar el lote — ¿caducan (propuesto) o hay gracia?
-2. **H5:** ¿error duro cuando la reserva no cubre el peor caso (propuesto), o solo advertencia como dice el RF-57?
+## Decisiones de Luis (2026-10-21)
+1. **H6:** los giros pendientes **caducan al cerrar** el lote; solo se gira con el lote `active` y dentro de `redeemable_until`.
+2. **H5:** **error duro** al comprometer si la reserva no cubre el peor caso (modifica el RF-57, que decía "advertir").
 
 Todo lo demás es técnico dentro del diseño y lo resuelvo yo. Orden de implementación propuesto: P6a motor + compromiso v2 + vectores + verificador (sin tocar la base) → P6b esquema y triggers → P6c servicio y endpoint `/v1/spins` con concurrencia real → P6d exportación/panel/cliente Flutter → Senior Review independiente.
