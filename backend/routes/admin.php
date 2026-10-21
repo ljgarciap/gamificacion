@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\ApprovalController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\BatchController;
 use App\Http\Controllers\Admin\CampaignController;
+use App\Http\Controllers\Admin\OperationsController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Domain\Admin\AdminPermissions;
@@ -75,3 +76,8 @@ Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::BATCHES_MANAGE])
     Route::post('/batches/{id}/close', [BatchController::class, 'close']);
     Route::post('/batches/{id}/reveal', [BatchController::class, 'reveal']);
 });
+
+// Resumen (RF-42) y outbox (RF-39): ver, todos los roles; reintentar un aviso agotado, superadmin y operador.
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::DASHBOARD_VIEW])->get('/dashboard', [OperationsController::class, 'dashboard']);
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::OUTBOX_VIEW])->get('/outbox', [OperationsController::class, 'outbox']);
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::OUTBOX_RETRY])->post('/outbox/{id}/retry', [OperationsController::class, 'retry'])->whereNumber('id');

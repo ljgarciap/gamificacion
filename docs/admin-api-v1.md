@@ -79,6 +79,14 @@ Leer y buscar: todos los roles. Crear, comprometer, cerrar y revelar: superadmin
 La búsqueda de código es POST para que el código no quede en registros de acceso; acepta el formato que escribe una persona (minúsculas, guiones, O/0, I/L/1). **Un código sin canjear nunca revela su premio** (`prizeId: null`): la baraja es secreta hasta revelar. Cada búsqueda queda en la bitácora (`code.lookup`, sin el código).
 Errores: `422 validationFailed|codeInvalid`, `404 notFound`, `409 wrongState|batchNotReady`, `503 beaconUnavailable`, `403 forbidden`. Los códigos se generan por control dual (`codes.generate`, ver abajo); la exportación de auditoría es la acción dual `audit.export`.
 
+## Resumen y outbox (permisos `dashboard.view`, `outbox.view`, `outbox.retry`)
+| Ruta | Respuesta |
+|---|---|
+| `GET /dashboard` (todos los roles) | conteos: `campaigns`, `batches` por estado, `activeCodes {total, redeemed}`, `redemptions {total, last24h}`, `outbox {pending, sent, failed, oldestPendingAt}`, `approvals {pending, awaitingExecution}`, `admins` |
+| `GET /outbox?status=&page=&perPage=` (todos los roles) | `{items: [{id, redemptionId, status, attempts, nextAttemptAt, lastError, userId, batchId, prizeId, prizeType, …}], total, counts, page, perPage}` |
+| `POST /outbox/{id}/retry` (superadmin, operador) | `204`; solo un aviso `failed` (agotado) vuelve a `pending` con 0 intentos → `409 wrongState` en otro caso, `404` si no existe |
+Un reintento puede reenviar un aviso que el host ya recibió sin confirmar: el host debe tratar `redemption_id` como clave de idempotencia. Queda en la bitácora (`outbox.retried`).
+
 ## Control dual (permisos `approvals.view|request|approve`)
 Flujo: **solicitar → otro usuario aprueba con un código TOTP nuevo → el solicitante ejecuta (una sola vez)**. Se ejecutan siempre los `params` guardados al solicitar (inmutables); caducan (`admin.approval_ttl_hours`, 24 h por defecto) y se comprueba al aprobar **y** al ejecutar.
 | Ruta | Cuerpo | Respuesta |
