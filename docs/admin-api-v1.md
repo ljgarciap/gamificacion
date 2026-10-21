@@ -87,6 +87,16 @@ Errores: `422 validationFailed|codeInvalid`, `404 notFound`, `409 wrongState|bat
 | `POST /outbox/{id}/retry` (superadmin, operador) | `204`; solo un aviso `failed` (agotado) vuelve a `pending` con 0 intentos → `409 wrongState` en otro caso, `404` si no existe |
 Un reintento puede reenviar un aviso que el host ya recibió sin confirmar: el host debe tratar `redemption_id` como clave de idempotencia. Queda en la bitácora (`outbox.retried`).
 
+## Hosts y secretos (permiso `hosts.manage`, solo superadmin)
+| Ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `GET /hosts` | — | `{hosts: [{id, issuer, callbackUrl, balanceUrl, active, hasPreviousSecret, …}]}` — **nunca** el secreto |
+| `POST /hosts` | `{issuer, callbackUrl, balanceUrl}` | `201 {id, secret}` — el secreto lo genera el servidor y se muestra **una sola vez** |
+| `PATCH /hosts/{id}` | `{callbackUrl?, balanceUrl?, active?}` | `204` |
+| `POST /hosts/{id}/rotate-secret` | — | `200 {secret}` (una vez); el actual pasa a «anterior», el anterior previo se descarta |
+| `POST /hosts/{id}/retire-previous-secret` | — | `204`; `409` si no hay anterior |
+`issuer` debe existir en `GAMIF_HOSTS` (el host ya autentica usuarios) y no cambia nunca; un host no se borra, se desactiva (la base lo impide). Las URL pasan por `HostUrlGuard` (SSRF): `https` obligatorio (`http` solo en `local`), sin usuario/contraseña ni fragmento, puerto 443 o uno de `GAMIF_HOST_PORTS`, dominio completo (no `localhost`, ni una etiqueta, ni IP disfrazada), y **toda** IP a la que resuelva debe ser pública (bucle, privadas, enlace local, metadatos, CGNAT, documentación, multicast y reservadas, en IPv4 e IPv6, incluidas `::ffff:`, NAT64 y 6to4). La misma comprobación se repite en cada llamada saliente (P5b), con la conexión fijada a la IP validada y sin seguir redirecciones. Los secretos se guardan cifrados (`SecretBox`, ligados a la fila). Errores: `422 validationFailed`, `409 duplicate|wrongState`, `404 notFound`.
+
 ## Control dual (permisos `approvals.view|request|approve`)
 Flujo: **solicitar → otro usuario aprueba con un código TOTP nuevo → el solicitante ejecuta (una sola vez)**. Se ejecutan siempre los `params` guardados al solicitar (inmutables); caducan (`admin.approval_ttl_hours`, 24 h por defecto) y se comprueba al aprobar **y** al ejecutar.
 | Ruta | Cuerpo | Respuesta |

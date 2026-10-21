@@ -45,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(HostTokenVerifier::class, fn (): HostTokenVerifier => HostTokenVerifier::fromConfig());
 
         // Adaptadores de desarrollo. Una app host real los reemplaza: su billetera y su canal de acreditación (SPEC-003).
+        $this->app->bind(\App\Domain\Hosts\HostUrlGuard::class, fn () => \App\Domain\Hosts\HostUrlGuard::fromConfig());
         $this->app->bind(BalanceProvider::class, StubBalanceProvider::class);
         $this->app->bind(PrizeFulfillment::class, StubFulfillment::class);
     }

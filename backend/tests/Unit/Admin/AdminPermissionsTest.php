@@ -16,6 +16,7 @@ final class AdminPermissionsTest extends TestCase
             P::ACCOUNT_SELF => [P::SUPERADMIN => true, P::OPERATOR => true, P::AUDITOR => true],
             P::USERS_MANAGE => [P::SUPERADMIN => true, P::OPERATOR => false, P::AUDITOR => false],
             P::SETTINGS_MANAGE => [P::SUPERADMIN => true, P::OPERATOR => false, P::AUDITOR => false],
+            P::HOSTS_MANAGE => [P::SUPERADMIN => true, P::OPERATOR => false, P::AUDITOR => false],
             P::BATCHES_MANAGE => [P::SUPERADMIN => true, P::OPERATOR => true, P::AUDITOR => false],
             P::AUDIT_EXPORT => [P::SUPERADMIN => true, P::OPERATOR => true, P::AUDITOR => false],
             P::DASHBOARD_VIEW => [P::SUPERADMIN => true, P::OPERATOR => true, P::AUDITOR => true],

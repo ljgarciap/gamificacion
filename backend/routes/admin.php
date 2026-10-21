@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\ApprovalController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\BatchController;
 use App\Http\Controllers\Admin\CampaignController;
+use App\Http\Controllers\Admin\HostController;
 use App\Http\Controllers\Admin\OperationsController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
@@ -81,3 +82,12 @@ Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::BATCHES_MANAGE])
 Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::DASHBOARD_VIEW])->get('/dashboard', [OperationsController::class, 'dashboard']);
 Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::OUTBOX_VIEW])->get('/outbox', [OperationsController::class, 'outbox']);
 Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::OUTBOX_RETRY])->post('/outbox/{id}/retry', [OperationsController::class, 'retry'])->whereNumber('id');
+
+// Apps host y secretos (RF-49): solo superadmin. Los secretos salen una vez, al crear o rotar.
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::HOSTS_MANAGE])->group(function (): void {
+    Route::get('/hosts', [HostController::class, 'index']);
+    Route::post('/hosts', [HostController::class, 'store']);
+    Route::patch('/hosts/{id}', [HostController::class, 'update'])->whereNumber('id');
+    Route::post('/hosts/{id}/rotate-secret', [HostController::class, 'rotate'])->whereNumber('id');
+    Route::post('/hosts/{id}/retire-previous-secret', [HostController::class, 'retirePrevious'])->whereNumber('id');
+});

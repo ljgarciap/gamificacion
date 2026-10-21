@@ -23,6 +23,8 @@ return [
     | o {"emisor": {"alg": "RS256"|"ES256", "key": "<PEM de la clave PÚBLICA>"}}. El algoritmo y la clave los fija ESTA configuración por
     | emisor: nunca se confía en lo que declare el token (evita `alg: none` y confusión de algoritmos).
     */
+    // Puertos permitidos (además del 443) para las URL de callback/saldo de un host. Ej.: GAMIF_HOST_PORTS=8443,9443
+    'host_ports' => array_filter(array_map('intval', explode(',', (string) env('GAMIF_HOST_PORTS', '')))),
     'hosts' => json_decode((string) env('GAMIF_HOSTS', '{}'), true) ?: [],
 
     'token' => [
