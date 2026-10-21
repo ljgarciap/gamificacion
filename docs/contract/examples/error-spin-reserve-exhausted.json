@@ -1,0 +1,6 @@
+{
+    "error": {
+        "code": "spinReserveExhausted",
+        "message": "Los giros extra de esta promoción se agotaron."
+    }
+}

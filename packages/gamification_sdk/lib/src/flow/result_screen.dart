@@ -6,9 +6,24 @@ import 'confetti.dart';
 
 /// Pantalla 3 (ux-spec-001): premio o "sin premio", con acciones configuradas por el host.
 class ResultScreen extends StatefulWidget {
-  const ResultScreen({super.key, required this.redemption, required this.onContinue, required this.onBackHome});
+  const ResultScreen({
+    super.key,
+    required this.redemption,
+    required this.onContinue,
+    required this.onBackHome,
+    this.pendingSpins = 0,
+    this.spinning = false,
+    this.spinFailure,
+    this.onSpin,
+  });
 
   final Redemption redemption;
+
+  /// Giros extra por jugar; si es mayor que 0 el botón principal es «Girar de nuevo».
+  final int pendingSpins;
+  final bool spinning;
+  final FailureReason? spinFailure;
+  final VoidCallback? onSpin;
   final VoidCallback onContinue;
   final VoidCallback onBackHome;
 
@@ -121,7 +136,29 @@ class _ResultScreenState extends State<ResultScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              FilledButton(onPressed: widget.onContinue, child: Text(s.continueLabel)),
+              if (widget.pendingSpins > 0 && widget.onSpin != null) ...[
+                if (widget.spinFailure != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        s.failure(widget.spinFailure!),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: theme.error),
+                      ),
+                    ),
+                  ),
+                FilledButton.icon(
+                  key: const ValueKey('spin-again'),
+                  onPressed: widget.spinning ? null : widget.onSpin,
+                  icon: const Icon(Icons.replay_rounded),
+                  label: Text(s.spinAgain(widget.pendingSpins)),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(onPressed: widget.spinning ? null : widget.onContinue, child: Text(s.continueLabel)),
+              ] else
+                FilledButton(onPressed: widget.onContinue, child: Text(s.continueLabel)),
               const SizedBox(height: 12),
               OutlinedButton(onPressed: widget.onBackHome, child: Text(s.backHome)),
             ],

@@ -60,6 +60,22 @@ class HttpRepository implements GamificationRepository {
   }
 
   @override
+  Future<Redemption> spin(String parentRedemptionId, {required String idempotencyKey}) async {
+    final response = await _send(
+      'POST',
+      '/v1/spins',
+      headers: {'Idempotency-Key': idempotencyKey, 'Content-Type': 'application/json'},
+      body: jsonEncode({'parentRedemptionId': parentRedemptionId}),
+    );
+    if (response.statusCode != 200) throw _failure(response);
+    try {
+      return Redemption.fromJson(_decodeObject(response.body));
+    } catch (_) {
+      throw const GamificationException(FailureReason.unknown);
+    }
+  }
+
+  @override
   Future<Balance> getBalance() async {
     final response = await _send('GET', '/v1/balance');
     if (response.statusCode != 200) throw _failure(response);
@@ -139,6 +155,9 @@ class HttpRepository implements GamificationRepository {
       'campaignInactive' => FailureReason.campaignInactive,
       'rateLimited' => FailureReason.rateLimited,
       'unauthenticated' => FailureReason.unauthorized,
+      // Para el usuario, un padre que no existe y uno sin giros son lo mismo: no hay giro que jugar.
+      'noSpinsLeft' || 'spinNotFound' => FailureReason.noSpinsLeft,
+      'spinReserveExhausted' => FailureReason.spinReserveExhausted,
       // La app host no responde: transitorio, se muestra igual que una caída de red.
       'hostUnavailable' => FailureReason.network,
       // idempotencyKeyReuse / idempotencyKeyRequired / serverError: errores de uso o internos, no accionables por el usuario.

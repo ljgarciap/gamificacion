@@ -6,6 +6,12 @@ enum FailureReason {
   rateLimited,
   network,
 
+  /// Giro extra (`POST /v1/spins`): la redención no tiene más giros por jugar, o ya caducaron (el lote se cerró).
+  noSpinsLeft,
+
+  /// Giro extra: la reserva de giros de la promoción se agotó. El servidor nunca inventa un premio.
+  spinReserveExhausted,
+
   /// El token del host no es válido o venció (HTTP 401). El cliente reintenta una vez pidiendo un token nuevo; si persiste, se muestra esto.
   unauthorized,
   unknown;

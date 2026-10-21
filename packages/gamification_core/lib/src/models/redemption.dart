@@ -28,6 +28,8 @@ class Redemption {
     required this.outcome,
     this.alreadyPlayed = false,
     this.playedAt,
+    this.parentRedemptionId,
+    this.spinNo,
   });
 
   factory Redemption.fromJson(Map<String, dynamic> json) => Redemption(
@@ -36,6 +38,8 @@ class Redemption {
     outcome: Outcome.fromJson((json['outcome'] as Map).cast<String, dynamic>()),
     alreadyPlayed: json['alreadyPlayed'] as bool? ?? false,
     playedAt: json['playedAt'] == null ? null : DateTime.parse(json['playedAt'] as String),
+    parentRedemptionId: json['parentRedemptionId'] as String?,
+    spinNo: (json['spinNo'] as num?)?.toInt(),
   );
 
   final String redemptionId;
@@ -45,6 +49,10 @@ class Redemption {
   /// true si el código ya se había jugado y la campaña usa [UsedCodeBehavior.showPrevious].
   final bool alreadyPlayed;
   final DateTime? playedAt;
+
+  /// Solo en un giro hijo del giro extra: la redención que concedió el giro y su número dentro de ella.
+  final String? parentRedemptionId;
+  final int? spinNo;
 
   String get gameType => campaign.gameType;
 }

@@ -163,6 +163,10 @@ class _FlowRootState extends ConsumerState<_FlowRoot> {
         return ResultScreen(
           key: ValueKey('result-${state.redemption!.redemptionId}'),
           redemption: state.redemption!,
+          pendingSpins: state.pendingSpins,
+          spinning: state.spinning,
+          spinFailure: state.spinFailure,
+          onSpin: controller.spinNext,
           onContinue: () {
             controller.reset();
             o.onContinue?.call();

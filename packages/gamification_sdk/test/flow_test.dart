@@ -39,7 +39,114 @@ class _FlakyRepo implements GamificationRepository {
   }
 
   @override
+  Future<Redemption> spin(String parentRedemptionId, {required String idempotencyKey}) =>
+      inner.spin(parentRedemptionId, idempotencyKey: idempotencyKey);
+
+  @override
   Future<Balance> getBalance() => inner.getBalance();
+}
+
+/// Repositorio que registra las claves de los giros y puede fallar con red en el primero.
+class _SpinRepo implements GamificationRepository {
+  _SpinRepo(this.inner, {this.failFirst = false, this.failWith});
+  final MockRepository inner;
+  final bool failFirst;
+  final FailureReason? failWith;
+  final spinKeys = <String>[];
+
+  @override
+  Future<Redemption> redeem(String code, {required String idempotencyKey}) =>
+      inner.redeem(code, idempotencyKey: idempotencyKey);
+
+  @override
+  Future<Redemption> spin(String parentRedemptionId, {required String idempotencyKey}) async {
+    spinKeys.add(idempotencyKey);
+    if (failWith != null) throw GamificationException(failWith!);
+    if (failFirst && spinKeys.length == 1) throw const GamificationException(FailureReason.network);
+    return inner.spin(parentRedemptionId, idempotencyKey: idempotencyKey);
+  }
+
+  @override
+  Future<Balance> getBalance() => inner.getBalance();
+}
+
+/// Repositorio cuyo canje concede `granted` giros (los hijos no conceden más) o devuelve un resultado ya jugado.
+class _GrantRepo implements GamificationRepository {
+  _GrantRepo(this.inner, {required this.granted, this.alreadyPlayed = false});
+  final MockRepository inner;
+  final int granted;
+  final bool alreadyPlayed;
+  final spinKeys = <String>[];
+  Redemption? _parent;
+
+  @override
+  Future<Redemption> redeem(String code, {required String idempotencyKey}) async {
+    final r = await inner.redeem(code, idempotencyKey: idempotencyKey);
+    return _parent = Redemption(
+      redemptionId: r.redemptionId,
+      campaign: r.campaign,
+      outcome: Outcome(prize: r.outcome.prize, extraSpins: granted, gameResult: r.outcome.gameResult),
+      alreadyPlayed: alreadyPlayed,
+      playedAt: r.playedAt,
+    );
+  }
+
+  @override
+  Future<Redemption> spin(String parentRedemptionId, {required String idempotencyKey}) async {
+    spinKeys.add(idempotencyKey);
+    return Redemption(
+      redemptionId: 'hijo-${spinKeys.length}',
+      campaign: _parent!.campaign,
+      outcome: const Outcome(
+        prize: Prize(id: 'none', type: PrizeType.none, label: 'Sin premio'),
+        gameResult: {'segmentIndex': 1},
+      ),
+      parentRedemptionId: parentRedemptionId,
+      spinNo: spinKeys.length,
+    );
+  }
+
+  @override
+  Future<Balance> getBalance() => inner.getBalance();
+}
+
+/// Simulador cuyo primer giro hijo concede OTRO giro (un «giro extra» sacado de la reserva).
+class _ChainRepo implements GamificationRepository {
+  _ChainRepo(this.inner);
+  final MockRepository inner;
+  final spinKeys = <String>[];
+  Redemption? _parent;
+
+  @override
+  Future<Redemption> redeem(String code, {required String idempotencyKey}) async =>
+      _parent = await inner.redeem(code, idempotencyKey: idempotencyKey);
+
+  @override
+  Future<Redemption> spin(String parentRedemptionId, {required String idempotencyKey}) async {
+    spinKeys.add(idempotencyKey);
+    final n = spinKeys.length;
+    return Redemption(
+      redemptionId: 'hijo-$n',
+      campaign: _parent!.campaign,
+      outcome: Outcome(
+        prize: const Prize(id: 'extra', type: PrizeType.extraSpin, label: 'Gira de nuevo'),
+        extraSpins: n == 1 ? 1 : 0,
+        gameResult: const {'segmentIndex': 6},
+      ),
+      parentRedemptionId: parentRedemptionId,
+      spinNo: 1,
+    );
+  }
+
+  @override
+  Future<Balance> getBalance() => inner.getBalance();
+}
+
+Future<void> _playOut(WidgetTester t) async {
+  await t.tap(find.text('empezar'));
+  await t.pump();
+  await t.tap(find.text('terminar'));
+  await t.pumpAndSettle();
 }
 
 GameRegistry _registry({bool scratch = true}) {
@@ -131,6 +238,100 @@ void main() {
     expect(find.text(r'$ 50.000'), findsOneWidget);
     expect(find.text('Se acreditó a tu saldo'), findsOneWidget);
     expect(find.text(r'$ 170.000'), findsOneWidget); // saldo en cabecera tras el count-up
+  });
+
+  testWidgets('giro extra: el resultado ofrece girar de nuevo y el servidor decide cada giro', (t) async {
+    await _pump(t, repo: repo);
+    await _enterAndValidate(t, 'RULETA-EXTRA');
+    await _playOut(t);
+
+    expect(find.byKey(const ValueKey('spin-again')), findsOneWidget);
+    expect(find.text('Girar de nuevo'), findsOneWidget);
+
+    await t.tap(find.byKey(const ValueKey('spin-again')));
+    await t.pumpAndSettle();
+    // Giro hijo: se juega con lo que devolvió el servidor (segmento 2 = $ 10.000 en el simulador).
+    expect(find.textContaining("segmentIndex: 2"), findsOneWidget);
+    await _playOut(t);
+
+    expect(find.text(r'$ 10.000'), findsOneWidget);
+    // Sin más giros: el botón principal vuelve a ser continuar.
+    expect(find.byKey(const ValueKey('spin-again')), findsNothing);
+    expect(find.text('Continuar'), findsOneWidget);
+  });
+
+  testWidgets('un giro hijo que concede más giros los encadena, con claves estables por padre y número', (t) async {
+    final chain = _ChainRepo(repo);
+    await _pump(t, repo: chain);
+    await _enterAndValidate(t, 'RULETA-EXTRA');
+    await _playOut(t);
+
+    await t.tap(find.byKey(const ValueKey('spin-again')));
+    await t.pumpAndSettle();
+    await _playOut(t);
+    // El primer giro hijo concedió otro: se vuelve a ofrecer, y sus giros se juegan antes que los restantes del padre.
+    expect(find.byKey(const ValueKey('spin-again')), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('spin-again')));
+    await t.pumpAndSettle();
+    await _playOut(t);
+
+    expect(chain.spinKeys, ['r-1:1', 'hijo-1:1']);
+    expect(find.byKey(const ValueKey('spin-again')), findsNothing);
+  });
+
+  testWidgets('un canje que concede dos giros los ofrece uno por uno, con la clave de cada número', (t) async {
+    final grant = _GrantRepo(repo, granted: 2);
+    await _pump(t, repo: grant);
+    await _enterAndValidate(t, 'RULETA-EXTRA');
+    await _playOut(t);
+    expect(find.text('Girar de nuevo (2)'), findsOneWidget);
+
+    await t.tap(find.byKey(const ValueKey('spin-again')));
+    await t.pumpAndSettle();
+    await _playOut(t);
+    expect(find.text('Girar de nuevo'), findsOneWidget, reason: 'queda un solo giro');
+
+    await t.tap(find.byKey(const ValueKey('spin-again')));
+    await t.pumpAndSettle();
+    await _playOut(t);
+    expect(grant.spinKeys, ['r-1:1', 'r-1:2']);
+    expect(find.byKey(const ValueKey('spin-again')), findsNothing);
+  });
+
+  testWidgets('un resultado ya jugado (showPrevious) no vuelve a ofrecer giros', (t) async {
+    await _pump(t, repo: _GrantRepo(repo, granted: 1, alreadyPlayed: true));
+    await _enterAndValidate(t, 'RULETA-EXTRA');
+    expect(find.byKey(const ValueKey('spin-again')), findsNothing);
+  });
+
+  testWidgets('sin red el giro se puede reintentar con la MISMA clave', (t) async {
+    final spinRepo = _SpinRepo(repo, failFirst: true);
+    await _pump(t, repo: spinRepo);
+    await _enterAndValidate(t, 'RULETA-EXTRA');
+    await _playOut(t);
+
+    await t.tap(find.byKey(const ValueKey('spin-again')));
+    await t.pumpAndSettle();
+    expect(find.textContaining('Sin conexión'), findsOneWidget);
+    expect(find.byKey(const ValueKey('spin-again')), findsOneWidget);
+
+    await t.tap(find.byKey(const ValueKey('spin-again')));
+    await t.pumpAndSettle();
+    expect(spinRepo.spinKeys, hasLength(2));
+    expect(spinRepo.spinKeys[0], spinRepo.spinKeys[1], reason: 'reintentar no debe consumir otra casilla');
+    expect(find.textContaining('JUEGO:roulette'), findsOneWidget);
+  });
+
+  testWidgets('si el servidor dice que no hay giros (caducaron), se quitan y se explica', (t) async {
+    final spinRepo = _SpinRepo(repo, failWith: FailureReason.noSpinsLeft);
+    await _pump(t, repo: spinRepo);
+    await _enterAndValidate(t, 'RULETA-EXTRA');
+    await _playOut(t);
+
+    await t.tap(find.byKey(const ValueKey('spin-again')));
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('spin-again')), findsNothing);
+    expect(find.text('Continuar'), findsOneWidget);
   });
 
   testWidgets('secuencia de eventos hacia el host (RF-10)', (t) async {

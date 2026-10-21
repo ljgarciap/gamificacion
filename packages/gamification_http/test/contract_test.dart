@@ -50,6 +50,7 @@ void main() {
     'redemption-roulette-coupon',
     'redemption-roulette-points',
     'redemption-roulette-extra-spin',
+    'redemption-roulette-spin',
     'redemption-scratch-win',
     'redemption-scratch-none',
     'redemption-scratch-already-played',
@@ -68,6 +69,8 @@ void main() {
     'error-idempotency-key-required': (400, FailureReason.unknown),
     'error-unauthenticated': (401, FailureReason.unauthorized),
     'error-server-error': (500, FailureReason.unknown),
+    'error-spin-not-found': (404, FailureReason.noSpinsLeft),
+    'error-spin-reserve-exhausted': (409, FailureReason.spinReserveExhausted),
   };
 
   test('hay un test para cada ejemplo del contrato (si el backend agrega uno, hay que cubrirlo aquí)', () {
@@ -126,6 +129,33 @@ void main() {
       final none = Redemption.fromJson(_example('redemption-roulette-none')).outcome.prize;
       expect(none.type, PrizeType.none);
       expect(none.isWin, isFalse);
+    });
+  });
+
+  group('giro extra', () {
+    test('una redención hija trae su padre y su número, y se pide por POST /v1/spins', () async {
+      final child = Redemption.fromJson(_example('redemption-roulette-spin'));
+      expect(child.parentRedemptionId, isNotEmpty);
+      expect(child.spinNo, 1);
+      expect(Redemption.fromJson(_example('redemption-roulette-win')).parentRedemptionId, isNull);
+
+      late http.Request sent;
+      final repo = HttpRepository(
+        baseUrl: 'http://api.test:8000',
+        tokenProvider: _Token(),
+        client: MockClient((r) async {
+          sent = r;
+          return http.Response.bytes(
+            utf8.encode(_read('redemption-roulette-spin')),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+      final viaHttp = await repo.spin(child.parentRedemptionId!, idempotencyKey: 'giro-0000001');
+      expect((sent.method, sent.url.path, sent.headers['Idempotency-Key']), ('POST', '/v1/spins', 'giro-0000001'));
+      expect(jsonDecode(sent.body), {'parentRedemptionId': child.parentRedemptionId});
+      expect(viaHttp.redemptionId, child.redemptionId);
     });
   });
 

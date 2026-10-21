@@ -86,6 +86,50 @@ void main() {
     expect(r.outcome.extraSpins, 1);
   });
 
+  group('giros hijos del giro extra', () {
+    Future<GamificationException> fails(Future<Object?> Function() f) async {
+      try {
+        await f();
+      } on GamificationException catch (e) {
+        return e;
+      }
+      fail('debía fallar');
+    }
+
+    test('un giro devuelve una redención hija con su padre y número, y paga como cualquier premio', () async {
+      final parent = await repo.redeem('RULETA-EXTRA', idempotencyKey: 'k');
+      final before = (await repo.getBalance()).amount;
+      final child = await repo.spin(parent.redemptionId, idempotencyKey: 'giro-0000001');
+      expect((child.parentRedemptionId, child.spinNo), (parent.redemptionId, 1));
+      expect(child.redemptionId, isNot(parent.redemptionId));
+      expect(child.outcome.prize.type, PrizeType.money);
+      expect((await repo.getBalance()).amount, before + (child.outcome.prize.amount ?? 0));
+    });
+
+    test('la misma clave devuelve el mismo giro sin gastar otro', () async {
+      final parent = await repo.redeem('RULETA-EXTRA', idempotencyKey: 'k');
+      final a = await repo.spin(parent.redemptionId, idempotencyKey: 'giro-0000001');
+      final b = await repo.spin(parent.redemptionId, idempotencyKey: 'giro-0000001');
+      expect(b.redemptionId, a.redemptionId);
+      expect(
+        (await fails(() => repo.spin(parent.redemptionId, idempotencyKey: 'giro-0000002'))).reason,
+        FailureReason.noSpinsLeft,
+      );
+    });
+
+    test('un padre sin giros concedidos o desconocido no tiene giros', () async {
+      final noExtra = await repo.redeem('RULETA-50K', idempotencyKey: 'k');
+      expect(
+        (await fails(() => repo.spin(noExtra.redemptionId, idempotencyKey: 'giro-0000001'))).reason,
+        FailureReason.noSpinsLeft,
+      );
+      expect(
+        (await fails(() => repo.spin('no-existe', idempotencyKey: 'giro-0000002'))).reason,
+        FailureReason.noSpinsLeft,
+      );
+    });
+  });
+
   test('raspa: la cuadrícula ganadora tiene 3 símbolos iguales al id del premio', () async {
     final r = await repo.redeem('RASPA-GANA', idempotencyKey: 'k');
     final grid = (r.outcome.gameResult['grid'] as List).cast<String>();

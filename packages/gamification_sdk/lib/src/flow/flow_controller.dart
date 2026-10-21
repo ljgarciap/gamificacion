@@ -73,6 +73,8 @@ class FlowController extends Notifier<FlowState> {
         stage: redemption.alreadyPlayed ? FlowStage.result : FlowStage.playing,
         redemption: redemption,
         balance: balance,
+        // Un código ya jugado (showPrevious) no vuelve a conceder giros: los suyos se ofrecieron la primera vez.
+        spinQueue: redemption.alreadyPlayed ? const [] : _entitlement(const [], redemption),
       );
     } on GamificationException catch (e) {
       if (e.reason != FailureReason.network) {
@@ -109,7 +111,7 @@ class FlowController extends Notifier<FlowState> {
     if (state.stage != FlowStage.playing || r == null) return;
     final prize = r.outcome.prize;
 
-    state = FlowState(stage: FlowStage.result, redemption: r, balance: state.balance);
+    state = FlowState(stage: FlowStage.result, redemption: r, balance: state.balance, spinQueue: state.spinQueue);
     if (prize.isWin) _events.emit(PrizeWonEvent(redemptionId: r.redemptionId, prize: prize));
 
     // El saldo se refresca recién ahora (no al validar) para no adelantar el resultado en pantalla.
@@ -121,6 +123,57 @@ class FlowController extends Notifier<FlowState> {
       } catch (_) {
         // Sin saldo nuevo: el premio ya está acreditado en el servidor.
       }
+    }
+  }
+
+  /// Agrega a la pila los giros que concede [r] (si concede alguno).
+  static List<PendingSpin> _entitlement(List<PendingSpin> queue, Redemption r) {
+    final granted = r.outcome.extraSpins;
+    return granted > 0 ? [...queue, PendingSpin(parentId: r.redemptionId, remaining: granted)] : queue;
+  }
+
+  /// Juega el siguiente giro extra: el servidor decide el resultado (la animación usa lo que devuelva). Solo desde la pantalla de resultado.
+  Future<void> spinNext() async {
+    if (state.stage != FlowStage.result || state.spinning || state.spinQueue.isEmpty) return;
+    final queue = state.spinQueue;
+    final top = queue.last;
+    final before = state;
+    state = state.copyWith(spinning: true, clearSpinFailure: true);
+
+    try {
+      final child = await _repo.spin(top.parentId, idempotencyKey: top.nextKey);
+      final rest = [...queue.sublist(0, queue.length - 1), if (top.remaining > 1) top.afterPlaying()];
+      _events.emit(CodeValidatedEvent(redemptionId: child.redemptionId, gameType: child.gameType));
+      state = FlowState(
+        stage: FlowStage.playing,
+        redemption: child,
+        balance: before.balance,
+        spinQueue: _entitlement(rest, child),
+      );
+    } on GamificationException catch (e) {
+      // Sin red: se queda en el resultado y el reintento reutiliza la misma clave. Con noSpinsLeft ese padre ya no tiene giros
+      // (o caducaron al cerrar el lote); con cualquier otro fallo se conserva la pila para poder reintentar.
+      final drop =
+          e.reason == FailureReason.noSpinsLeft ||
+          e.reason == FailureReason.expired ||
+          e.reason == FailureReason.spinReserveExhausted;
+      _events.emit(ErrorEvent(e.reason));
+      state = FlowState(
+        stage: FlowStage.result,
+        redemption: before.redemption,
+        balance: before.balance,
+        spinQueue: drop ? const [] : queue,
+        spinFailure: e.reason,
+      );
+    } catch (_) {
+      _events.emit(const ErrorEvent(FailureReason.unknown));
+      state = FlowState(
+        stage: FlowStage.result,
+        redemption: before.redemption,
+        balance: before.balance,
+        spinQueue: queue,
+        spinFailure: FailureReason.unknown,
+      );
     }
   }
 

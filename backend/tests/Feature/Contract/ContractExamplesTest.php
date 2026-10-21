@@ -3,7 +3,10 @@
 namespace Tests\Feature\Contract;
 
 use App\Domain\Redemption\RedeemFailure;
+use App\Domain\Redemption\RedeemService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Tests\DbTestCase;
 use Tests\Support\Fixtures;
 use Tests\Support\HostTokens;
@@ -98,7 +101,7 @@ final class ContractExamplesTest extends DbTestCase
         return get_debug_type($v);
     }
 
-    private function check(string $name, \Illuminate\Testing\TestResponse $response): void
+    private function check(string $name, TestResponse $response): void
     {
         $file = $this->dir()."/$name.json";
         $normalized = $this->normalize(json_decode($response->getContent(), false, 512, JSON_THROW_ON_ERROR));
@@ -115,7 +118,7 @@ final class ContractExamplesTest extends DbTestCase
         $this->assertEquals($this->shape($committed), $this->shape($normalized), "el ejemplo $name.json ya no coincide con lo que responde la API");
     }
 
-    private function redeem(string $code, ?array $headers = null): \Illuminate\Testing\TestResponse
+    private function redeem(string $code, ?array $headers = null): TestResponse
     {
         return $this->postJson('/v1/codes/redeem', ['code' => $code], $headers ?? $this->headers());
     }
@@ -150,6 +153,37 @@ final class ContractExamplesTest extends DbTestCase
         $this->check('redemption-roulette-coupon', $this->redeem($byPrize['cupon'], $this->headers('u1', 'clave-1000001'))->assertOk());
         $this->check('redemption-roulette-points', $this->redeem($byPrize['pts'], $this->headers('u2', 'clave-2000001'))->assertOk());
         $this->check('redemption-roulette-extra-spin', $this->redeem($byPrize['extra'], $this->headers('u3', 'clave-3000001'))->assertOk());
+    }
+
+    public function test_ejemplos_del_giro_extra(): void
+    {
+        // 9 posiciones de p10k: 7 códigos + 2 de reserva. Un solo premio hace que la FORMA del ejemplo no dependa de la baraja (un «sin premio» no trae `amount`);
+        // el padre es manual (concede los giros).
+        $b = $this->rf->activeReserveBatch([['prize_id' => 'p10k', 'quantity' => 9]], 2);
+        $parent = $this->manualParent($b['batch'], 'host-a:ana', 3);
+        $spin = fn (string $parent, string $key, string $user = 'ana') => $this->postJson('/v1/spins', ['parentRedemptionId' => $parent], HostTokens::bearer($user) + ['Idempotency-Key' => $key]);
+
+        $this->check('redemption-roulette-spin', $spin($parent, 'giro-0000001')->assertOk());
+        $this->check('error-spin-not-found', $spin($parent, 'giro-0000002', 'beto')->assertStatus(404));
+        $spin($parent, 'giro-0000003')->assertOk();
+        // La reserva (2 casillas) se agotó aunque el padre aún tenía un giro concedido: error explícito, nunca un premio inventado.
+        $this->check('error-spin-reserve-exhausted', $spin($parent, 'giro-0000004')->assertStatus(409));
+        $single = $this->manualParent($b['batch'], 'host-a:cata', 1);
+        $this->postJson('/v1/spins', ['parentRedemptionId' => $single], HostTokens::bearer('cata') + ['Idempotency-Key' => 'giro-0000005'])->assertStatus(409);
+    }
+
+    /** Un padre que concede `$granted` giros (se reclama un código libre y se registra como lo haría el canje). */
+    private function manualParent(string $batch, string $user, int $granted): string
+    {
+        $code = DB::selectOne('SELECT id FROM codes WHERE batch_id = ? AND redeemed_at IS NULL ORDER BY idx LIMIT 1', [$batch])->id;
+        DB::update('UPDATE codes SET redeemed_at = now(), redeemed_by = ? WHERE id = ?', [$user, $code]);
+        $id = (string) Str::uuid();
+        DB::insert(
+            "INSERT INTO redemptions (id, code_id, batch_id, user_id, idempotency_key, prize_id, response, spins_granted) VALUES (?, ?, ?, ?, ?, 'extra', '{}'::json, ?)",
+            [$id, $code, $batch, $user, 'padre-'.Str::random(10), $granted],
+        );
+
+        return $id;
     }
 
     public function test_ejemplos_del_raspa(): void
@@ -214,7 +248,7 @@ final class ContractExamplesTest extends DbTestCase
         $this->check('error-campaign-inactive', $this->redeem($codes[0], $this->headers('e6', 'clave-e600001'))->assertStatus(403));
 
         config(['app.debug' => false]);
-        $this->app->bind(\App\Domain\Redemption\RedeemService::class, fn () => throw new \RuntimeException('secreto interno'));
+        $this->app->bind(RedeemService::class, fn () => throw new \RuntimeException('secreto interno'));
         $this->check('error-server-error', $this->redeem($b['codes'][4], $this->headers('e7', 'clave-e700001'))->assertStatus(500));
     }
 
@@ -229,6 +263,7 @@ final class ContractExamplesTest extends DbTestCase
         $esperados = [
             RedeemFailure::ALREADY_USED, RedeemFailure::CAMPAIGN_INACTIVE, RedeemFailure::EXPIRED, RedeemFailure::INVALID,
             RedeemFailure::KEY_REUSE, RedeemFailure::RATE_LIMITED, 'idempotencyKeyRequired', 'serverError', 'unauthenticated',
+            RedeemFailure::SPIN_NOT_FOUND, RedeemFailure::RESERVE_EXHAUSTED,
         ];
         sort($esperados);
         $this->assertSame($esperados, $codes, 'debe haber un ejemplo por cada código de error documentado');

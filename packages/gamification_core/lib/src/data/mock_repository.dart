@@ -22,6 +22,11 @@ class MockRepository implements GamificationRepository {
 
   final _byIdempotencyKey = <String, Redemption>{};
   final _byCode = <String, Redemption>{};
+  final _byId = <String, Redemption>{};
+  final _spinsPlayed = <String, int>{};
+
+  /// Premios de los giros hijos del simulador, en el orden en que se consumen (como la reserva del servidor).
+  static const _spinPrizes = <int>[2, 1, 7, 6]; // p10k, sin premio, p100k (y otra vez extra: encadena)
 
   static const _rouletteSegments = <Prize>[
     Prize(id: 'p50k', type: PrizeType.money, label: r'$ 50.000', amount: 50000),
@@ -107,10 +112,46 @@ class MockRepository implements GamificationRepository {
       playedAt: _clock(),
     );
     _byCode[normalized] = redemption;
+    _byId[redemption.redemptionId] = redemption;
     _byIdempotencyKey[idempotencyKey] = redemption;
     final p = redemption.outcome.prize;
     if (p.type == PrizeType.money) _balance += p.amount ?? 0;
     return redemption;
+  }
+
+  @override
+  Future<Redemption> spin(String parentRedemptionId, {required String idempotencyKey}) async {
+    if (latency > Duration.zero) await Future<void>.delayed(latency);
+
+    final replay = _byIdempotencyKey[idempotencyKey];
+    if (replay != null) return replay;
+
+    final parent = _byId[parentRedemptionId];
+    if (parent == null) throw const GamificationException(FailureReason.noSpinsLeft);
+    final played = _spinsPlayed[parentRedemptionId] ?? 0;
+    if (played >= parent.outcome.extraSpins) throw const GamificationException(FailureReason.noSpinsLeft);
+
+    // El simulador reparte la «reserva» en orden: el k-ésimo giro de toda la sesión recibe el k-ésimo segmento de la lista.
+    final slot = _byId.values.where((r) => r.parentRedemptionId != null).length;
+    final index = _spinPrizes[slot % _spinPrizes.length];
+    final prize = _rouletteSegments[index];
+    _spinsPlayed[parentRedemptionId] = played + 1;
+    final child = Redemption(
+      redemptionId: 'r-${_byId.length + 1}',
+      campaign: parent.campaign,
+      outcome: Outcome(
+        prize: prize,
+        extraSpins: prize.type == PrizeType.extraSpin ? 1 : 0,
+        gameResult: {'segmentIndex': index},
+      ),
+      playedAt: _clock(),
+      parentRedemptionId: parentRedemptionId,
+      spinNo: played + 1,
+    );
+    _byId[child.redemptionId] = child;
+    _byIdempotencyKey[idempotencyKey] = child;
+    if (prize.type == PrizeType.money) _balance += prize.amount ?? 0;
+    return child;
   }
 
   @override

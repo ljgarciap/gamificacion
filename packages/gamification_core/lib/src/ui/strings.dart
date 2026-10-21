@@ -50,6 +50,9 @@ abstract class GamificationStrings {
   String diceLabel(int a, int b);
   String diceCombo(int a, int b);
   String previouslyPlayed(DateTime date);
+
+  /// Botón para jugar el siguiente giro extra; [remaining] es cuántos quedan por jugar.
+  String spinAgain(int remaining);
   String failure(FailureReason reason, {Duration? retryAfter});
 
   /// Texto del premio para pantalla y lectores de pantalla.
@@ -138,6 +141,9 @@ class EsStrings extends GamificationStrings {
       'Este código ya fue jugado el ${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   @override
+  String spinAgain(int remaining) => remaining == 1 ? 'Girar de nuevo' : 'Girar de nuevo ($remaining)';
+
+  @override
   String failure(FailureReason reason, {Duration? retryAfter}) => switch (reason) {
     FailureReason.invalidCode => 'El código no es válido. Revísalo e inténtalo de nuevo.',
     FailureReason.alreadyUsed => 'Este código ya fue utilizado.',
@@ -148,6 +154,8 @@ class EsStrings extends GamificationStrings {
           ? 'Demasiados intentos. Espera un momento.'
           : 'Demasiados intentos. Reintenta en ${retryAfter.inSeconds} s.',
     FailureReason.network => 'Sin conexión. Verifica tu internet e inténtalo de nuevo.',
+    FailureReason.noSpinsLeft => 'Ya no tienes giros por jugar.',
+    FailureReason.spinReserveExhausted => 'Los giros extra de esta promoción se agotaron.',
     FailureReason.unauthorized => 'Tu sesión no es válida. Vuelve a abrir la aplicación e inténtalo de nuevo.',
     FailureReason.unknown => 'Ocurrió un error inesperado. Inténtalo de nuevo.',
   };
@@ -231,6 +239,9 @@ class EnStrings extends GamificationStrings {
       'This code was already played on ${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
+  String spinAgain(int remaining) => remaining == 1 ? 'Spin again' : 'Spin again ($remaining)';
+
+  @override
   String failure(FailureReason reason, {Duration? retryAfter}) => switch (reason) {
     FailureReason.invalidCode => 'The code is not valid. Check it and try again.',
     FailureReason.alreadyUsed => 'This code has already been used.',
@@ -241,6 +252,8 @@ class EnStrings extends GamificationStrings {
           ? 'Too many attempts. Please wait a moment.'
           : 'Too many attempts. Try again in ${retryAfter.inSeconds} s.',
     FailureReason.network => 'No connection. Check your internet and try again.',
+    FailureReason.noSpinsLeft => 'You have no spins left to play.',
+    FailureReason.spinReserveExhausted => 'The extra spins of this promotion have run out.',
     FailureReason.unauthorized => 'Your session is not valid. Please reopen the app and try again.',
     FailureReason.unknown => 'An unexpected error occurred. Please try again.',
   };

@@ -1,0 +1,6 @@
+{
+    "error": {
+        "code": "spinNotFound",
+        "message": "No hay un giro para jugar con esa redención."
+    }
+}
