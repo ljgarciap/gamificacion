@@ -283,6 +283,13 @@ void main() {
         (await _fails(() => repo((_) async => throw http.ClientException('x')).getBalance())).reason,
         FailureReason.network,
       );
+      // La app host no responde: transitorio, como una caída de red.
+      expect(
+        (await _fails(
+          () => repo((_) async => _json(503, '{"error":{"code":"hostUnavailable","message":"m"}}')).getBalance(),
+        )).reason,
+        FailureReason.network,
+      );
       expect((await _fails(() => repo((_) async => _json(200, 'roto')).getBalance())).reason, FailureReason.unknown);
       expect(
         (await _fails(() => repo((_) async => _json(200, '{"currency":"COP"}')).getBalance())).reason,

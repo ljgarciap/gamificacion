@@ -2,6 +2,7 @@
 
 namespace App\Domain\Fulfillment;
 
+use App\Domain\Settings\Settings;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,9 +17,9 @@ final class OutboxDispatcher
     /** @return array{sent: int, retry: int, failed: int} */
     public function dispatchDue(int $limit = 100): array
     {
-        $max = \App\Domain\Settings\Settings::int('outbox.max_attempts');
-        $base = \App\Domain\Settings\Settings::int('outbox.backoff_base_seconds');
-        $cap = \App\Domain\Settings\Settings::int('outbox.backoff_max_seconds');
+        $max = Settings::int('outbox.max_attempts');
+        $base = Settings::int('outbox.backoff_base_seconds');
+        $cap = Settings::int('outbox.backoff_max_seconds');
         $stats = ['sent' => 0, 'retry' => 0, 'failed' => 0];
 
         DB::transaction(function () use ($limit, $max, $base, $cap, &$stats): void {
@@ -35,7 +36,7 @@ final class OutboxDispatcher
                     $stats['sent']++;
                 } catch (\Throwable $e) {
                     $error = mb_substr($e->getMessage(), 0, 500);
-                    if ($attempts >= $max) {
+                    if ($e instanceof PermanentDeliveryFailure || $attempts >= $max) {
                         DB::update("UPDATE prize_outbox SET status = 'failed', attempts = ?, last_error = ? WHERE id = ?", [$attempts, $error, $row->id]);
                         $stats['failed']++;
                     } else {

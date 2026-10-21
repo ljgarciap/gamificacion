@@ -25,6 +25,16 @@ return [
     */
     // Puertos permitidos (además del 443) para las URL de callback/saldo de un host. Ej.: GAMIF_HOST_PORTS=8443,9443
     'host_ports' => array_filter(array_map('intval', explode(',', (string) env('GAMIF_HOST_PORTS', '')))),
+    // Llamadas salientes a la app host (SPEC-003 P5b). `fulfillment`/`balance`: `stub` (desarrollo) o `http` (host real o simulador).
+    'host' => [
+        'fulfillment' => env('GAMIF_FULFILLMENT', 'stub'),
+        'balance' => env('GAMIF_BALANCE', 'stub'),
+        'timeout_seconds' => 5,
+        'connect_timeout_seconds' => 3,
+        'signature_tolerance_seconds' => 300,
+        'breaker_failures' => 5,
+        'breaker_open_seconds' => 30,
+    ],
     'hosts' => json_decode((string) env('GAMIF_HOSTS', '{}'), true) ?: [],
 
     'token' => [

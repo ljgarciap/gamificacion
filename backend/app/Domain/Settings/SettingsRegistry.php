@@ -25,6 +25,11 @@ final class SettingsRegistry
         }
         $defs += [
             'redeem.requests_per_minute' => $d('Peticiones por minuto al redimir', 'peticiones', 1, 600, true),
+            'host.timeout_seconds' => $d('Tiempo máximo de una llamada al host', 's', 1, 30, true),
+            'host.connect_timeout_seconds' => $d('Tiempo máximo para conectar con el host', 's', 1, 10, true),
+            'host.signature_tolerance_seconds' => $d('Tolerancia de reloj en las firmas del host', 's', 30, 900, true),
+            'host.breaker_failures' => $d('Fallos seguidos del saldo antes de cortar al host', 'fallos', 1, 100, true),
+            'host.breaker_open_seconds' => $d('Tiempo que se corta al host tras fallar', 's', 1, 600, true),
             'outbox.max_attempts' => $d('Reintentos de aviso al host', 'intentos', 1, 30, false),
             'outbox.backoff_base_seconds' => $d('Espera inicial entre reintentos', 's', 1, 3600, false),
             'outbox.backoff_max_seconds' => $d('Espera máxima entre reintentos', 's', 1, 86400, false),

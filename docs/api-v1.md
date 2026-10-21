@@ -56,6 +56,7 @@ El código se normaliza: minúsculas, espacios, guiones, el prefijo (decorativo)
 | 422 | `invalidCode` | No existe, mal escrito, dígito de verificación incorrecto, o lote en borrador |
 | 422 | `idempotencyKeyReuse` | La clave ya se usó con otro código |
 | 429 | `rateLimited` | Bloqueo por intentos fallidos o tope de peticiones. Incluye `retryAfter` (s) y la cabecera `Retry-After` |
+| 503 | `hostUnavailable` | `GET /v1/balance`: la app host no respondió o su respuesta no está firmada/es inválida (reintentar tras `Retry-After`; nunca un saldo inventado) |
 | 500 | `serverError` | Error interno (nunca filtra detalles) |
 
 **Bloqueo por intentos fallidos** (R1): al superar el máximo de fallos en la ventana (por usuario y, con un umbral mayor, por IP) el usuario queda bloqueado, y cada reincidencia **duplica** el tiempo hasta un tope. Cuentan los códigos inválidos y probar códigos ya usados por **otros**. Un canje exitoso reinicia el contador del usuario (no el de la IP). Parámetros en `config/gamification.php` (administración desde panel: SPEC-003).

@@ -82,6 +82,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Balance' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
+        '503': { $ref: '#/components/responses/HostUnavailable' }
 
   /v1/dev/token:
     post:
@@ -169,6 +170,11 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     RateLimited:
       description: Bloqueo por intentos fallidos o tope de peticiones. Cada reincidencia duplica el bloqueo hasta un tope.
+      headers:
+        Retry-After: { description: "Segundos a esperar", schema: { type: integer } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    HostUnavailable:
+      description: La app host no respondió o su respuesta no es válida (código `hostUnavailable`). Nunca se devuelve un saldo inventado; reintentar tras `Retry-After`.
       headers:
         Retry-After: { description: "Segundos a esperar", schema: { type: integer } }
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

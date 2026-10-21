@@ -46,8 +46,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Adaptadores de desarrollo. Una app host real los reemplaza: su billetera y su canal de acreditación (SPEC-003).
         $this->app->bind(\App\Domain\Hosts\HostUrlGuard::class, fn () => \App\Domain\Hosts\HostUrlGuard::fromConfig());
-        $this->app->bind(BalanceProvider::class, StubBalanceProvider::class);
-        $this->app->bind(PrizeFulfillment::class, StubFulfillment::class);
+        $this->app->bind(BalanceProvider::class, fn ($app) => config('gamification.host.balance') === 'http' ? $app->make(\App\Domain\Balance\HttpBalanceProvider::class) : $app->make(StubBalanceProvider::class));
+        $this->app->bind(PrizeFulfillment::class, fn ($app) => config('gamification.host.fulfillment') === 'http' ? $app->make(\App\Domain\Fulfillment\HttpPrizeFulfillment::class) : $app->make(StubFulfillment::class));
     }
 
     /**

@@ -139,6 +139,8 @@ class HttpRepository implements GamificationRepository {
       'campaignInactive' => FailureReason.campaignInactive,
       'rateLimited' => FailureReason.rateLimited,
       'unauthenticated' => FailureReason.unauthorized,
+      // La app host no responde: transitorio, se muestra igual que una caída de red.
+      'hostUnavailable' => FailureReason.network,
       // idempotencyKeyReuse / idempotencyKeyRequired / serverError: errores de uso o internos, no accionables por el usuario.
       String() => FailureReason.unknown,
       null => switch (status) {
