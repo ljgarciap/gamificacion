@@ -64,6 +64,21 @@ Errores: `422 validationFailed` (tipo o rango), `404 notFound`, `409 approvalReq
 **Congelación (la impone la base):** con un lote comprometido ya no cambian `gameType`, `usedCodeBehavior` ni `gameConfig`, ni los premios que ese lote usa → `409 campaignFrozen`. El título, el tema y los premios no usados siguen editables. Una campaña no se borra.
 Errores: `422 validationFailed`, `404 notFound`, `409 duplicate|campaignFrozen`, `403 forbidden`.
 
+## Lotes (permisos `batches.view` / `batches.manage`)
+Leer y buscar: todos los roles. Crear, comprometer, cerrar y revelar: superadmin y operador. **Activar no está aquí**: es la acción de control dual `batch.activate`.
+| Ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `GET /batches?campaignId=&state=` | — | `{batches: [{id, campaignId, name, state, totalCodes, generatedCodes, redeemed, redeemableUntil, …fechas}]}` (máx. 500) |
+| `GET /batches/{id}` | — | detalle: `pool`, `poolHash`, `redeemedByPrize`, compromiso público (`commitment`, `codesDigest`, `chainHash`, `beaconRound`, `beaconValue`) y `seed` **solo tras revelar** |
+| `POST /batches` | `{campaignId, name, pool: [{prizeId, quantity}], redeemableUntil?}` | `201 {id}` (borrador) |
+| `POST /batches/{id}/commit` | — | recibo del compromiso (requiere todos los códigos generados) |
+| `POST /batches/{id}/close` · `/reveal` | — | `204` |
+| `GET /batches/{id}/redemptions?page=&perPage=` | — | `{items: [{id, userId, prizeId, index, redeemedAt}], total, page, perPage}` (`perPage` ≤ 200) |
+| `POST /codes/lookup` | `{code}` | `{batchId, batchName, batchState, index, redeemed, redeemedAt, redeemedBy, prizeId}` |
+
+La búsqueda de código es POST para que el código no quede en registros de acceso; acepta el formato que escribe una persona (minúsculas, guiones, O/0, I/L/1). **Un código sin canjear nunca revela su premio** (`prizeId: null`): la baraja es secreta hasta revelar. Cada búsqueda queda en la bitácora (`code.lookup`, sin el código).
+Errores: `422 validationFailed|codeInvalid`, `404 notFound`, `409 wrongState|batchNotReady`, `503 beaconUnavailable`, `403 forbidden`. La generación de códigos (`codes.generate`) y la exportación de auditoría (`audit.export`) llegan en P2b-2.
+
 ## Control dual (permisos `approvals.view|request|approve`)
 Flujo: **solicitar → otro usuario aprueba con un código TOTP nuevo → el solicitante ejecuta (una sola vez)**. Se ejecutan siempre los `params` guardados al solicitar (inmutables); caducan (`admin.approval_ttl_hours`, 24 h por defecto) y se comprueba al aprobar **y** al ejecutar.
 | Ruta | Cuerpo | Respuesta |

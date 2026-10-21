@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ApprovalController;
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\BatchController;
 use App\Http\Controllers\Admin\CampaignController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
@@ -58,4 +59,18 @@ Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::CAMPAIGNS_MANAGE
     Route::post('/campaigns/{id}/prizes', [CampaignController::class, 'addPrize']);
     Route::patch('/campaigns/{id}/prizes/{prizeId}', [CampaignController::class, 'updatePrize']);
     Route::delete('/campaigns/{id}/prizes/{prizeId}', [CampaignController::class, 'deletePrize']);
+});
+
+// Lotes (RF-36/37): leer y buscar códigos, todos los roles; crear, comprometer, cerrar y revelar, superadmin y operador. Activar es control dual.
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::BATCHES_VIEW])->group(function (): void {
+    Route::get('/batches', [BatchController::class, 'index']);
+    Route::get('/batches/{id}', [BatchController::class, 'show']);
+    Route::get('/batches/{id}/redemptions', [BatchController::class, 'redemptions']);
+    Route::post('/codes/lookup', [BatchController::class, 'lookup']);
+});
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::BATCHES_MANAGE])->group(function (): void {
+    Route::post('/batches', [BatchController::class, 'store']);
+    Route::post('/batches/{id}/commit', [BatchController::class, 'commit']);
+    Route::post('/batches/{id}/close', [BatchController::class, 'close']);
+    Route::post('/batches/{id}/reveal', [BatchController::class, 'reveal']);
 });

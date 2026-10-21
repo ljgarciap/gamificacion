@@ -25,6 +25,8 @@ final class AdminPermissions
 
     public const BATCHES_MANAGE = 'batches.manage';
 
+    public const BATCHES_VIEW = 'batches.view';
+
     public const CAMPAIGNS_VIEW = 'campaigns.view';
 
     public const CAMPAIGNS_MANAGE = 'campaigns.manage';
@@ -37,9 +39,9 @@ final class AdminPermissions
 
     /** @var array<string, list<string>> */
     private const MATRIX = [
-        self::SUPERADMIN => [self::ACCOUNT_SELF, self::USERS_MANAGE, self::SETTINGS_MANAGE, self::BATCHES_MANAGE, self::CAMPAIGNS_VIEW, self::CAMPAIGNS_MANAGE, self::APPROVALS_VIEW, self::APPROVALS_REQUEST, self::APPROVALS_APPROVE],
-        self::OPERATOR => [self::ACCOUNT_SELF, self::BATCHES_MANAGE, self::CAMPAIGNS_VIEW, self::CAMPAIGNS_MANAGE, self::APPROVALS_VIEW, self::APPROVALS_REQUEST, self::APPROVALS_APPROVE],
-        self::AUDITOR => [self::ACCOUNT_SELF, self::CAMPAIGNS_VIEW, self::APPROVALS_VIEW],
+        self::SUPERADMIN => [self::ACCOUNT_SELF, self::USERS_MANAGE, self::SETTINGS_MANAGE, self::BATCHES_MANAGE, self::BATCHES_VIEW, self::CAMPAIGNS_VIEW, self::CAMPAIGNS_MANAGE, self::APPROVALS_VIEW, self::APPROVALS_REQUEST, self::APPROVALS_APPROVE],
+        self::OPERATOR => [self::ACCOUNT_SELF, self::BATCHES_MANAGE, self::BATCHES_VIEW, self::CAMPAIGNS_VIEW, self::CAMPAIGNS_MANAGE, self::APPROVALS_VIEW, self::APPROVALS_REQUEST, self::APPROVALS_APPROVE],
+        self::AUDITOR => [self::ACCOUNT_SELF, self::BATCHES_VIEW, self::CAMPAIGNS_VIEW, self::APPROVALS_VIEW],
     ];
 
     /** @return list<string> */
