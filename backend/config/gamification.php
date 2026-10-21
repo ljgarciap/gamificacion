@@ -118,6 +118,10 @@ return [
         'approval_ttl_hours' => (int) env('GAMIF_ADMIN_APPROVAL_TTL', 24),
         // Minutos que el archivo de códigos generados espera su descarga única antes de destruirse.
         'export_ttl_minutes' => (int) env('GAMIF_ADMIN_EXPORT_TTL', 60),
+        // Búsquedas de código (POST /codes/lookup) por minuto y por usuario del panel: cada una escribe en la bitácora global.
+        'lookup_per_minute' => (int) env('GAMIF_ADMIN_LOOKUP_PER_MINUTE', 30),
+        // Directorio de las entregas únicas (códigos y auditoría). null = storage/app/private/exports.
+        'export_dir' => env('GAMIF_ADMIN_EXPORT_DIR'),
         'recovery_codes' => 10,
         'issuer' => env('GAMIF_ADMIN_ISSUER', 'Gamificacion'),
     ],

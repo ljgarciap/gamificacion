@@ -203,4 +203,22 @@ final class BatchesTest extends AdminTestCase
         $r = $this->api('GET', "/batches/$id/redemptions?perPage=100000&page=-4")->assertOk();
         $this->assertSame([1, 200], [$r->json('page'), $r->json('perPage')]);
     }
+
+    public function test_las_busquedas_de_codigo_tienen_limite_por_usuario(): void
+    {
+        $admin = $this->makeAdmin('auditor');
+        $this->login($admin);
+        \Illuminate\Support\Facades\DB::table('settings')->insert(['key' => 'admin.lookup_per_minute', 'value' => '3', 'updated_by' => 'test', 'updated_at' => now()]);
+        \Illuminate\Support\Facades\Cache::flush();
+        $canon = \App\Domain\Codes\CodeFormat::canonicalFromBytes(str_repeat("\x03", 7));
+        $body = ['code' => \App\Domain\Codes\CodeFormat::display($canon, 'SG')];
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->assertSame(404, $this->api('POST', '/codes/lookup', $body)->status());
+        }
+        $r = $this->api('POST', '/codes/lookup', $body);
+        $this->assertSame([429, 'rateLimited'], [$r->status(), $r->json('error.code')]);
+        $this->assertNotEmpty($r->headers->get('Retry-After'));
+        $this->assertSame(3, DB::table('audit_log')->where('action', 'code.lookup')->count(), 'lo rechazado no escribe en la bitácora');
+    }
 }

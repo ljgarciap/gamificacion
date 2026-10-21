@@ -79,6 +79,8 @@ abstract class TestCase extends BaseTestCase
         $app['config']->set('gamification.prize_map_key', base64_encode(self::TEST_PRIZE_KEY));
         $app['config']->set('gamification.code_pepper', base64_encode(self::TEST_PEPPER));
         $app['config']->set('gamification.admin_key', base64_encode(self::TEST_ADMIN_KEY));
+        // Las entregas únicas de las pruebas no comparten directorio con las de verdad: las pruebas borran lo que haya ahí.
+        $app['config']->set('gamification.admin.export_dir', sys_get_temp_dir().'/gamif-test-exports');
         // La clave de la aplicación cifra las cookies (sesión del panel): fija, para no depender del .env de cada quien.
         $app['config']->set('app.key', 'base64:'.base64_encode(self::TEST_APP_KEY));
 

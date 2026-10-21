@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Domain\Admin\AdminException;
 use App\Domain\Batches\BatchAdminService;
 use App\Domain\Beacon\BeaconUnavailable;
+use App\Domain\Settings\Settings;
 use App\Http\ApiError;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpFoundation\Response;
 
 /** Lotes (SPEC-003 RF-36/37). Activar NO está aquí: es una acción de control dual (`/approvals`, `batch.activate`). */
@@ -68,6 +70,13 @@ final class BatchController
         if (! is_string($code) || strlen($code) > 64) {
             return ApiError::response('validationFailed', 'Indica el «code» a buscar.', 422);
         }
+
+        // Cada búsqueda escribe en la bitácora global (mismo candado que los canjes) y confirma si un código existe: se limita por usuario.
+        $key = 'gamif:admin:lookup:'.$request->attributes->get('admin_user')->id;
+        if (RateLimiter::tooManyAttempts($key, Settings::int('admin.lookup_per_minute'))) {
+            return ApiError::response('rateLimited', 'Demasiadas búsquedas; espera un momento.', 429, RateLimiter::availableIn($key));
+        }
+        RateLimiter::hit($key, 60);
 
         return $this->guard(fn () => response()->json($this->batches->lookupCode($code, $this->actor($request)), 200, ['Cache-Control' => 'no-store']));
     }

@@ -13,7 +13,7 @@ final class CodeExportStore
 {
     public function dir(): string
     {
-        $dir = storage_path('app/private/exports');
+        $dir = config('gamification.admin.export_dir') ?: storage_path('app/private/exports');
         if (! is_dir($dir)) {
             mkdir($dir, 0700, true);
         }

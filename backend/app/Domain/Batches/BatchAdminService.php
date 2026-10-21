@@ -33,8 +33,9 @@ final class BatchAdminService
         }
         $rows = DB::select(
             "SELECT b.id, b.campaign_id, b.name, b.state, b.total_codes, b.redeemable_until, b.created_at, b.committed_at, b.activated_at, b.closed_at, b.revealed_at,
-                    (SELECT count(*) FROM codes c WHERE c.batch_id = b.id) AS codes,
-                    (SELECT count(*) FROM codes c WHERE c.batch_id = b.id AND c.redeemed_at IS NOT NULL) AS redeemed
+                    -- Sin recorrer `codes` (hasta un millón de filas por lote): fuera del borrador los códigos son todos los del pool, y cada canje es una fila de `redemptions` (índice por lote).
+                    CASE WHEN b.state = 'draft' THEN (SELECT count(*) FROM codes c WHERE c.batch_id = b.id) ELSE b.total_codes END AS codes,
+                    (SELECT count(*) FROM redemptions r WHERE r.batch_id = b.id) AS redeemed
              FROM batches b WHERE (?::uuid IS NULL OR b.campaign_id = ?::uuid) AND (?::text IS NULL OR b.state = ?)
              ORDER BY b.created_at DESC, b.id LIMIT 500",
             [$campaignId !== null ? $this->uuid($campaignId) : null, $campaignId, $state, $state],
@@ -57,8 +58,8 @@ final class BatchAdminService
                     encode(seed_revealed, 'hex') AS seed_revealed, committed_at, activated_at, closed_at, revealed_at
              FROM batches WHERE id = ?", [$this->uuid($id)]) ?? throw $this->notFound();
 
-        $generated = (int) DB::selectOne('SELECT count(*) AS c FROM codes WHERE batch_id = ?', [$b->id])->c;
-        $redeemed = (int) DB::selectOne('SELECT count(*) AS c FROM codes WHERE batch_id = ? AND redeemed_at IS NOT NULL', [$b->id])->c;
+        $generated = $b->state === 'draft' ? (int) DB::selectOne('SELECT count(*) AS c FROM codes WHERE batch_id = ?', [$b->id])->c : (int) $b->total_codes;
+        $redeemed = (int) DB::selectOne('SELECT count(*) AS c FROM redemptions WHERE batch_id = ?', [$b->id])->c;
         $byPrize = DB::select('SELECT prize_id, count(*) AS n FROM redemptions WHERE batch_id = ? GROUP BY prize_id ORDER BY prize_id', [$b->id]);
 
         return [

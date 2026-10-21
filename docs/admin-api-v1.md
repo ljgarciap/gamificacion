@@ -76,7 +76,7 @@ Leer y buscar: todos los roles. Crear, comprometer, cerrar y revelar: superadmin
 | `GET /batches/{id}/redemptions?page=&perPage=` | — | `{items: [{id, userId, prizeId, index, redeemedAt}], total, page, perPage}` (`perPage` ≤ 200) |
 | `POST /codes/lookup` | `{code}` | `{batchId, batchName, batchState, index, redeemed, redeemedAt, redeemedBy, prizeId}` |
 
-La búsqueda de código es POST para que el código no quede en registros de acceso; acepta el formato que escribe una persona (minúsculas, guiones, O/0, I/L/1). **Un código sin canjear nunca revela su premio** (`prizeId: null`): la baraja es secreta hasta revelar. Cada búsqueda queda en la bitácora (`code.lookup`, sin el código).
+La búsqueda de código es POST para que el código no quede en registros de acceso; acepta el formato que escribe una persona (minúsculas, guiones, O/0, I/L/1). **Un código sin canjear nunca revela su premio** (`prizeId: null`): la baraja es secreta hasta revelar. Cada búsqueda queda en la bitácora (`code.lookup`, sin el código) y está limitada por usuario (`admin.lookup_per_minute`, 30 por defecto → `429 rateLimited` con `Retry-After`): escribe en la bitácora global y confirma si un código existe.
 Errores: `422 validationFailed|codeInvalid`, `404 notFound`, `409 wrongState|batchNotReady`, `503 beaconUnavailable`, `403 forbidden`. Los códigos se generan por control dual (`codes.generate`, ver abajo); la exportación de auditoría es la acción dual `audit.export`.
 
 ## Resumen y outbox (permisos `dashboard.view`, `outbox.view`, `outbox.retry`)

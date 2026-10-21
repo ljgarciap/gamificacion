@@ -121,32 +121,32 @@ final class ApprovalService
         $path = null;
         try {
             return DB::transaction(function () use ($user, $id, &$path): ?array {
-            $row = $this->lock($id);
-            if ((int) $row->requested_by !== (int) $user->id) {
-                throw new ApprovalException('notRequester', 'Solo quien la solicitó puede ejecutarla.', 403);
-            }
-            $this->requirePermission($user, self::ACTIONS[$row->action]['permission']);
-            if ($row->status !== 'approved') {
-                throw new ApprovalException('wrongState', $row->status === 'executed' ? 'Ya se ejecutó.' : 'Aún no está aprobada.', 409);
-            }
-            $this->requireNotExpired($row);
+                $row = $this->lock($id);
+                if ((int) $row->requested_by !== (int) $user->id) {
+                    throw new ApprovalException('notRequester', 'Solo quien la solicitó puede ejecutarla.', 403);
+                }
+                $this->requirePermission($user, self::ACTIONS[$row->action]['permission']);
+                if ($row->status !== 'approved') {
+                    throw new ApprovalException('wrongState', $row->status === 'executed' ? 'Ya se ejecutó.' : 'Aún no está aprobada.', 409);
+                }
+                $this->requireNotExpired($row);
 
-            $params = json_decode($row->params, true);
-            $actor = 'admin:'.$user->id;
-            $result = null;
-            match ($row->action) {
-                'batch.activate' => $this->batches->activate((string) $params['batchId'], $actor),
-                'setting.change' => $this->settings->set((string) $params['key'], $params['value'], $actor),
-                'codes.generate' => $result = $this->generateCodes($id, $params, $actor, $path),
-                'audit.export' => $result = $this->exportAudit($id, $params, $actor, $path),
-            };
+                $params = json_decode($row->params, true);
+                $actor = 'admin:'.$user->id;
+                $result = null;
+                match ($row->action) {
+                    'batch.activate' => $this->batches->activate((string) $params['batchId'], $actor),
+                    'setting.change' => $this->settings->set((string) $params['key'], $params['value'], $actor),
+                    'codes.generate' => $result = $this->generateCodes($id, $params, $actor, $path),
+                    'audit.export' => $result = $this->exportAudit($id, $params, $actor, $path),
+                };
 
-            DB::update("UPDATE approvals SET status = 'executed', executed_at = ? WHERE id = ?", [Carbon::now()->format('Y-m-d H:i:s.uP'), $id]);
-            $this->audit->append($actor, 'approval.executed', 'approval', (string) $id, [
-                'action' => $row->action, 'subject' => $row->subject_id, 'requested_by' => (int) $row->requested_by, 'approved_by' => (int) $row->approved_by,
-            ]);
+                DB::update("UPDATE approvals SET status = 'executed', executed_at = ? WHERE id = ?", [Carbon::now()->format('Y-m-d H:i:s.uP'), $id]);
+                $this->audit->append($actor, 'approval.executed', 'approval', (string) $id, [
+                    'action' => $row->action, 'subject' => $row->subject_id, 'requested_by' => (int) $row->requested_by, 'approved_by' => (int) $row->approved_by,
+                ]);
 
-            return $result;
+                return $result;
             });
         } catch (\Throwable $e) {
             // Si la transacción se revierte, los códigos desaparecen de la base: un archivo con códigos que ya no existen no debe quedar.
@@ -200,7 +200,7 @@ final class ApprovalService
      * Escribe la exportación de auditoría (JSON, 0600) y el ancla actual. La exportación no lleva secretos pendientes (el lote ya está revelado),
      * pero sí toda la bitácora: por eso se pide control dual y se entrega una sola vez, como los códigos.
      *
-     * @param array<string, mixed> $params @return array<string, mixed>
+     * @param  array<string, mixed>  $params  @return array<string, mixed>
      */
     private function exportAudit(int $approvalId, array $params, string $actor, ?string &$path): array
     {
