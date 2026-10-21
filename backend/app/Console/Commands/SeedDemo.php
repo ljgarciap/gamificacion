@@ -82,10 +82,11 @@ class SeedDemo extends Command
         ]);
 
         return $this->batch($lifecycle, $generator, $actor, $campaign, 'roulette', 'RULETA', [
-            ['prize_id' => 'none', 'quantity' => 18], ['prize_id' => 'p10k', 'quantity' => 10], ['prize_id' => 'pts', 'quantity' => 5],
-            ['prize_id' => 'cupon', 'quantity' => 3], ['prize_id' => 'extra', 'quantity' => 1], ['prize_id' => 'p50k', 'quantity' => 2],
+            ['prize_id' => 'none', 'quantity' => 17], ['prize_id' => 'p10k', 'quantity' => 10], ['prize_id' => 'pts', 'quantity' => 5],
+            ['prize_id' => 'cupon', 'quantity' => 3], ['prize_id' => 'extra', 'quantity' => 2], ['prize_id' => 'p50k', 'quantity' => 2],
             ['prize_id' => 'p100k', 'quantity' => 1],
-        ]);
+            // 40 posiciones: 38 códigos y 2 casillas de reserva para los giros de los dos premios «Gira de nuevo» (1 giro cada uno).
+        ], reserve: 2);
     }
 
     /** @return list<array{code: string, game: string, description: string, batch_id: string}> */
@@ -168,9 +169,9 @@ class SeedDemo extends Command
      * @param  list<array{prize_id: string, quantity: int}>  $pool
      * @return list<array{code: string, game: string, description: string, batch_id: string}>
      */
-    private function batch(BatchLifecycle $lifecycle, CodeGenerator $generator, string $actor, string $campaign, string $game, string $prefix, array $pool): array
+    private function batch(BatchLifecycle $lifecycle, CodeGenerator $generator, string $actor, string $campaign, string $game, string $prefix, array $pool, int $reserve = 0): array
     {
-        $batch = $lifecycle->createDraft($campaign, "Demo $prefix", $pool, $actor);
+        $batch = $lifecycle->createDraft($campaign, "Demo $prefix", $pool, $actor, null, $reserve);
 
         $csv = tempnam(sys_get_temp_dir(), 'demo-codes-');
         unlink($csv); // el generador crea el archivo y no sobrescribe uno existente

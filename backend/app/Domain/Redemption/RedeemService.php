@@ -181,6 +181,10 @@ final class RedeemService
     {
         $body = json_decode($redemption->response); // como objetos: {} sigue siendo {}
         $body->alreadyPlayed = true;
+        // Los giros que aún quedan por jugar (solo si hay): el cliente los recupera al volver a abrir la app.
+        if (($pending = PendingSpins::of($redemption->id)) !== []) {
+            $body->pendingSpins = $pending;
+        }
         $played = Carbon::parse($redemption->created_at)->utc();
         $body->playedAt = $played->format('Y-m-d\TH:i:s.u\Z');
 

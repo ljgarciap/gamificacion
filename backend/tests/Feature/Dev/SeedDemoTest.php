@@ -3,6 +3,7 @@
 namespace Tests\Feature\Dev;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Crypto\PrizeVault;
 use App\Domain\Dev\DemoCodes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -42,9 +43,9 @@ final class SeedDemoTest extends DbTestCase
         $this->assertSame(['showPrevious', 'showPrevious', 'rejectOnly', 'showPrevious'], $campaigns->pluck('used_code_behavior')->all());
 
         $this->assertSame(['active', 'active', 'active', 'active'], DB::table('batches')->pluck('state')->all());
-        $this->assertSame(140, DB::table('codes')->count());
-        $this->assertCount(140, DemoCodes::load());
-        $this->assertSame(['dice' => 30, 'memory' => 30, 'roulette' => 40, 'scratch' => 40], array_map('count', $this->byGame()));
+        $this->assertSame(138, DB::table('codes')->count());
+        $this->assertCount(138, DemoCodes::load());
+        $this->assertSame(['dice' => 30, 'memory' => 30, 'roulette' => 38, 'scratch' => 40], array_map('count', $this->byGame()));
         $this->assertNull((new AuditLog)->verifyChain());
     }
 
@@ -84,14 +85,38 @@ final class SeedDemoTest extends DbTestCase
         $this->artisan('gamification:demo:seed')->assertSuccessful();
         $service = (new RedeemFixtures)->service();
 
+        // 40 posiciones = 38 códigos + 2 casillas de reserva. Se canjean todos los códigos y se juegan todos los giros que concedan; lo que
+        // queda sin consumir en la reserva se suma al final: el total es EXACTAMENTE el stock del pool.
+        $spins = (new RedeemFixtures)->spinService();
         $delivered = [];
+        $count = function (array $r) use (&$delivered): void {
+            $delivered[$r['outcome']['prize']['label']] = ($delivered[$r['outcome']['prize']['label']] ?? 0) + 1;
+        };
         foreach (array_filter(DemoCodes::load(), fn ($e) => $e['game'] === 'roulette') as $i => $entry) {
-            $label = $service->redeem('host-a:r'.$i, 'clave-'.str_pad((string) $i, 8, '0', STR_PAD_LEFT), $entry['code'])->toArray()['outcome']['prize']['label'];
+            $user = 'host-a:r'.$i;
+            $r = $service->redeem($user, 'clave-'.str_pad((string) $i, 8, '0', STR_PAD_LEFT), $entry['code']);
+            $count($r->toArray());
+            $pending = [[$r->redemptionId, $r->toArray()['outcome']['extraSpins']]];
+            $n = 0;
+            while ($pending !== []) {
+                [$parent, $granted] = array_pop($pending);
+                for ($g = 0; $g < $granted; $g++) {
+                    $child = $spins->spin($user, 'giro-'.$i.'-'.(++$n).'-xxxx', $parent);
+                    $count($child->toArray());
+                    $pending[] = [$child->redemptionId, $child->toArray()['outcome']['extraSpins']];
+                }
+            }
+        }
+        $batch = DB::table('batches')->where('name', 'Demo RULETA')->value('id');
+        $vault = new PrizeVault;
+        $labels = DB::table('prizes')->where('campaign_id', DB::table('batches')->where('id', $batch)->value('campaign_id'))->pluck('label', 'prize_id')->all();
+        foreach (DB::select("SELECT idx, encode(prize_enc,'hex') AS p FROM reserve_slots WHERE batch_id = ? AND consumed_at IS NULL", [$batch]) as $slot) {
+            $label = $labels[$vault->decryptReservePrize($batch, 38 + (int) $slot->idx, hex2bin($slot->p))];
             $delivered[$label] = ($delivered[$label] ?? 0) + 1;
         }
         ksort($delivered);
 
-        $esperado = ['$ 10.000' => 10, '$ 100.000' => 1, '$ 50.000' => 2, '250 puntos' => 5, 'Cupón 20%' => 3, 'Gira de nuevo' => 1, 'Sin premio' => 18];
+        $esperado = ['$ 10.000' => 10, '$ 100.000' => 1, '$ 50.000' => 2, '250 puntos' => 5, 'Cupón 20%' => 3, 'Gira de nuevo' => 2, 'Sin premio' => 17];
         ksort($esperado);
         $this->assertSame($esperado, $delivered);
     }
@@ -149,8 +174,8 @@ final class SeedDemoTest extends DbTestCase
         $this->artisan('gamification:demo:seed')->assertSuccessful();
         $this->artisan('gamification:demo:seed')->assertSuccessful();
         $this->assertSame(8, DB::table('batches')->count());
-        $this->assertCount(280, DemoCodes::load());
-        $this->assertCount(280, array_unique(array_column(DemoCodes::load(), 'code')));
+        $this->assertCount(276, DemoCodes::load());
+        $this->assertCount(276, array_unique(array_column(DemoCodes::load(), 'code')));
     }
 
     public function test_se_niega_a_correr_fuera_de_desarrollo(): void

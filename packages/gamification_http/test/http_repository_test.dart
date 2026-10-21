@@ -89,6 +89,38 @@ void main() {
     });
   });
 
+  group('giros extra', () {
+    test('un resultado ya jugado trae los giros pendientes y un canje normal no', () async {
+      final withPending = _okBody.replaceFirst(
+        '"alreadyPlayed":false',
+        '"alreadyPlayed":true,"pendingSpins":[{"redemptionId":"p1","remaining":2,"played":1}]',
+      );
+      final r = await repo((_) async => _json(200, withPending)).redeem('X', idempotencyKey: 'clave-0000001');
+      expect(r.alreadyPlayed, isTrue);
+      expect(r.pendingSpins, hasLength(1));
+      expect(
+        (r.pendingSpins.single.redemptionId, r.pendingSpins.single.remaining, r.pendingSpins.single.played),
+        ('p1', 2, 1),
+      );
+
+      final plain = await repo((_) async => _json(200, _okBody)).redeem('X', idempotencyKey: 'clave-0000002');
+      expect(plain.pendingSpins, isEmpty);
+    });
+
+    test('los errores de giro se traducen: sin giros, padre desconocido y reserva agotada', () async {
+      for (final (code, status, reason) in [
+        ('noSpinsLeft', 409, FailureReason.noSpinsLeft),
+        ('spinNotFound', 404, FailureReason.noSpinsLeft),
+        ('spinReserveExhausted', 409, FailureReason.spinReserveExhausted),
+        ('expired', 410, FailureReason.expired),
+      ]) {
+        final body = '{"error":{"code":"$code","message":"x"}}';
+        final e = await _fails(() => repo((_) async => _json(status, body)).spin('p1', idempotencyKey: 'p1:1x2y3z'));
+        expect(e.reason, reason, reason: code);
+      }
+    });
+  });
+
   group('URL base', () {
     test('tolera una barra final y un prefijo de ruta', () async {
       for (final base in ['http://api.test/', 'http://api.test']) {

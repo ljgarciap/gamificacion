@@ -52,16 +52,22 @@ final class RedeemFixtures
      * @param  list<array{prize_id: string, quantity: int}>  $pool  N + R posiciones
      * @return array{batch: string, campaign: string, codes: list<string>, prizeOf: array<string, string>}
      */
-    public function activeReserveBatch(array $pool, int $reserve, int $extraSpins = 1, string $usedCodeBehavior = 'rejectOnly', ?Carbon $redeemableUntil = null): array
+    public function activeReserveBatch(array $pool, int $reserve, int $extraSpins = 1, string $usedCodeBehavior = 'rejectOnly', ?Carbon $redeemableUntil = null, bool $asMoney = false): array
     {
         $campaign = $this->f->campaign('roulette', $usedCodeBehavior);
-        DB::table('prizes')->insert(['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'extraSpin', 'label' => 'Gira de nuevo', 'amount' => null, 'meta' => json_encode(['extra_spins' => $extraSpins])]);
+        // `$asMoney`: el premio nace como dinero para poder armar un pool que la validación de la reserva no admitiría; se convierte al activar.
+        DB::table('prizes')->insert($asMoney
+            ? ['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'money', 'label' => 'Gira de nuevo', 'amount' => 1, 'meta' => '{}']
+            : ['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'extraSpin', 'label' => 'Gira de nuevo', 'amount' => null, 'meta' => json_encode(['extra_spins' => $extraSpins])]);
         DB::table('campaigns')->where('id', $campaign)->update(['game_config' => json_encode(['segments' => ['p50k', 'none', 'p10k', 'extra', 'none', 'p10k', 'none', 'p50k']])]);
         $batch = $this->f->lifecycle()->createDraft($campaign, 'Lote con reserva', $pool, 'tester', $redeemableUntil, $reserve);
 
         $codes = $this->generateCodes($batch);
         $this->f->lifecycle()->commit($batch, 'tester');
         $this->f->activate($batch);
+        if ($asMoney) {
+            $this->turnIntoExtraSpin($campaign, 'extra', $extraSpins);
+        }
 
         return ['batch' => $batch, 'campaign' => $campaign, 'codes' => $codes, 'prizeOf' => $this->prizeMap($batch, $codes)];
     }
@@ -101,6 +107,18 @@ final class RedeemFixtures
         return new RedeemService(
             $this->f->vault, new CodeHasher, new AuditLog, $throttle ?? new RedeemThrottle, $presentation ?? new Presentation,
         );
+    }
+
+    /**
+     * Simula un lote comprometido ANTES de que se prohibiera el giro extra sin reserva: el premio pasa a ser de giro extra con el guardián
+     * de premios apagado (un premio usado por un lote comprometido ya no se puede modificar). Solo para pruebas.
+     */
+    public function turnIntoExtraSpin(string $campaignId, string $prizeId, int $spins = 1): void
+    {
+        DB::statement('ALTER TABLE prizes DISABLE TRIGGER prizes_guard_trg');
+        DB::table('prizes')->where('campaign_id', $campaignId)->where('prize_id', $prizeId)
+            ->update(['type' => 'extraSpin', 'amount' => null, 'meta' => json_encode(['extra_spins' => $spins])]);
+        DB::statement('ALTER TABLE prizes ENABLE TRIGGER prizes_guard_trg');
     }
 
     public function spinService(?RedeemThrottle $throttle = null): SpinService

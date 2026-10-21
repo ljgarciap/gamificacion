@@ -138,7 +138,7 @@ final class ContractExamplesTest extends DbTestCase
         DB::table('prizes')->insert([
             ['campaign_id' => $campaign, 'prize_id' => 'cupon', 'type' => 'coupon', 'label' => 'Cupón 20%', 'amount' => null, 'meta' => json_encode(['coupon_code' => 'GIRA20', 'icon_key' => 'gift'])],
             ['campaign_id' => $campaign, 'prize_id' => 'pts', 'type' => 'points', 'label' => '250 puntos', 'amount' => 250, 'meta' => '{}'],
-            ['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'extraSpin', 'label' => 'Gira de nuevo', 'amount' => null, 'meta' => json_encode(['extra_spins' => 1])],
+            ['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'money', 'label' => 'Gira de nuevo', 'amount' => 1, 'meta' => '{}'],
         ]);
         DB::table('campaigns')->where('id', $campaign)->update(['game_config' => json_encode(['segments' => ['cupon', 'pts', 'extra', 'none', 'p10k', 'none', 'p50k', 'none'], 'durationMs' => 4600, 'fullTurns' => 5])]);
         $batch = $this->rf->f->lifecycle()->createDraft($campaign, 'L', [
@@ -148,6 +148,9 @@ final class ContractExamplesTest extends DbTestCase
         $codes = $this->rf->generateCodes($batch);
         $this->rf->f->lifecycle()->commit($batch, 'tester');
         $this->rf->f->activate($batch);
+        // El ejemplo de una redención que concede giros (`extraSpins: 1`): hoy un pool con giro extra exige reserva y su código puede caer en la reserva
+        // (sin código que canjear), así que el lote se «envejece» como los comprometidos antes de ese control.
+        $this->rf->turnIntoExtraSpin($campaign, 'extra');
         $byPrize = array_flip($this->rf->prizeMap($batch, $codes));
 
         $this->check('redemption-roulette-coupon', $this->redeem($byPrize['cupon'], $this->headers('u1', 'clave-1000001'))->assertOk());

@@ -21,6 +21,23 @@ class Outcome {
   final Map<String, dynamic> gameResult;
 }
 
+/// Giros extra que una redención todavía tiene por jugar (el servidor los informa al volver a ver un resultado ya jugado).
+class SpinEntitlement {
+  const SpinEntitlement({required this.redemptionId, required this.remaining, required this.played});
+
+  factory SpinEntitlement.fromJson(Map<String, dynamic> json) => SpinEntitlement(
+    redemptionId: json['redemptionId'] as String,
+    remaining: (json['remaining'] as num).toInt(),
+    played: (json['played'] as num).toInt(),
+  );
+
+  final String redemptionId;
+  final int remaining;
+
+  /// Giros ya jugados de esta redención: el siguiente se pide con la clave `<redemptionId>:<played + 1>`.
+  final int played;
+}
+
 class Redemption {
   const Redemption({
     required this.redemptionId,
@@ -30,6 +47,7 @@ class Redemption {
     this.playedAt,
     this.parentRedemptionId,
     this.spinNo,
+    this.pendingSpins = const [],
   });
 
   factory Redemption.fromJson(Map<String, dynamic> json) => Redemption(
@@ -40,6 +58,10 @@ class Redemption {
     playedAt: json['playedAt'] == null ? null : DateTime.parse(json['playedAt'] as String),
     parentRedemptionId: json['parentRedemptionId'] as String?,
     spinNo: (json['spinNo'] as num?)?.toInt(),
+    pendingSpins: [
+      for (final s in (json['pendingSpins'] as List?) ?? const [])
+        SpinEntitlement.fromJson((s as Map).cast<String, dynamic>()),
+    ],
   );
 
   final String redemptionId;
@@ -53,6 +75,9 @@ class Redemption {
   /// Solo en un giro hijo del giro extra: la redención que concedió el giro y su número dentro de ella.
   final String? parentRedemptionId;
   final int? spinNo;
+
+  /// Solo en un resultado ya jugado (`alreadyPlayed`): los giros que aún quedan, para recuperarlos al volver a abrir la app.
+  final List<SpinEntitlement> pendingSpins;
 
   String get gameType => campaign.gameType;
 }

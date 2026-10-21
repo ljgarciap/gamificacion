@@ -70,6 +70,7 @@ puede conceder más giros. El cliente nunca decide el resultado.
 - **Clave estable por giro** (por ejemplo `<padre>:<n>`): reintentar con la misma clave devuelve la misma respuesta sin consumir otra casilla; una clave nueva es un giro nuevo.
 - `404 spinNotFound` (padre ajeno, inexistente o mal formado: idéntico), `409 noSpinsLeft`, `409 spinReserveExhausted` (nunca se inventa un premio), `410 expired`.
 - **Los giros pendientes caducan** cuando el lote se cierra o vence su ventana de redención.
+- **Recuperar giros al volver a abrir la app:** si la campaña es `showPrevious` y se vuelve a enviar el código, la respuesta (`alreadyPlayed: true`) trae `pendingSpins: [{redemptionId, remaining, played}]` con los giros que aún quedan (de esa redención y de los giros que salieron de ella). El siguiente de cada una se pide con la clave `<redemptionId>:<played + 1>`. Se omite si no queda ninguno.
 - Mismo límite de intentos que el canje: un padre ajeno cuenta como fallo.
 - **Cambio para los hosts que implementan `GamificationRepository` (Flutter):** la interfaz ganó `spin(parentRedemptionId, {idempotencyKey})`; un adaptador propio debe implementarlo (llamar a `POST /v1/spins`) o dejará de compilar. `FailureReason` ganó `noSpinsLeft` y `spinReserveExhausted`.
 - `meta.extra_spins` de un premio `extraSpin` es un entero de 1 a 10 (sin el campo vale 1).

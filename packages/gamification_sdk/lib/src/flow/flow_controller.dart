@@ -73,8 +73,13 @@ class FlowController extends Notifier<FlowState> {
         stage: redemption.alreadyPlayed ? FlowStage.result : FlowStage.playing,
         redemption: redemption,
         balance: balance,
-        // Un código ya jugado (showPrevious) no vuelve a conceder giros: los suyos se ofrecieron la primera vez.
-        spinQueue: redemption.alreadyPlayed ? const [] : _entitlement(const [], redemption),
+        // Un código ya jugado (showPrevious) no concede giros nuevos: solo los que el servidor dice que aún quedan por jugar.
+        spinQueue: redemption.alreadyPlayed
+            ? [
+                for (final s in redemption.pendingSpins)
+                  PendingSpin(parentId: s.redemptionId, remaining: s.remaining, played: s.played),
+              ]
+            : _entitlement(const [], redemption),
       );
     } on GamificationException catch (e) {
       if (e.reason != FailureReason.network) {

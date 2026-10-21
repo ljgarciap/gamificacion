@@ -373,13 +373,11 @@ final class BatchLifecycle
     /**
      * Con reserva, las casillas deben alcanzar para el PEOR caso: cada posición del mazo con un premio «giro extra» puede pedir sus
      * giros, y cada giro consume una casilla. Si no alcanza, alguien ganaría un giro que no se puede entregar (stock exacto: error
-     * duro, no advertencia). Sin reserva (R = 0) no hay giros hijos y se conserva el comportamiento anterior.
+     * duro, no advertencia). Con R = 0 no hay con qué entregar giros: un pool con premios de giro extra se rechaza (los lotes que ya se
+     * comprometieron antes de este control siguen como están).
      */
     private function assertReserveCovers(string $campaignId, Pool $pool, int $reserve): void
     {
-        if ($reserve === 0) {
-            return;
-        }
         $demand = 0;
         $qty = [];
         foreach ($pool->entries() as [$id, $q]) {
@@ -394,6 +392,9 @@ final class BatchLifecycle
                 throw new InvalidBatch("El premio {$r->prize_id} no concede un número válido de giros: ".$e->getMessage());
             }
             $demand += $qty[(string) $r->prize_id] * $spins;
+        }
+        if ($demand > 0 && $reserve === 0) {
+            throw new InvalidBatch("El pool tiene premios de giro extra (hasta $demand giros) y el lote no tiene reserva: indique cuántas casillas reservar.");
         }
         if ($demand > $reserve) {
             throw new InvalidBatch("La reserva ($reserve) no cubre el peor caso: los premios de giro extra del pool piden hasta $demand giros.");

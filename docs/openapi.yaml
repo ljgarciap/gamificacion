@@ -299,6 +299,16 @@ components:
           type: string
           format: uuid
           description: 'Solo en un giro hijo (`/v1/spins`): la redención que concedió el giro.'
+        pendingSpins:
+          type: array
+          description: 'Solo en un resultado ya jugado (`alreadyPlayed`) y solo si quedan giros: los que esa redención (y los giros que salieron de ella) tienen por jugar. El siguiente giro de cada una se pide con la clave `<redemptionId>:<played + 1>`. Los giros caducan al cerrar el lote.'
+          items:
+            type: object
+            required: [redemptionId, remaining, played]
+            properties:
+              redemptionId: { type: string, format: uuid }
+              remaining: { type: integer, minimum: 1 }
+              played: { type: integer, minimum: 0 }
         spinNo:
           type: integer
           minimum: 1

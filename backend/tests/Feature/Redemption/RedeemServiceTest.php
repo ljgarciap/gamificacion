@@ -133,7 +133,7 @@ final class RedeemServiceTest extends DbTestCase
         DB::table('prizes')->insert([
             ['campaign_id' => $campaign, 'prize_id' => 'cupon', 'type' => 'coupon', 'label' => 'Cupón 20%', 'amount' => null, 'meta' => json_encode(['coupon_code' => 'GIRA20', 'icon_key' => 'gift'])],
             ['campaign_id' => $campaign, 'prize_id' => 'pts', 'type' => 'points', 'label' => '250 puntos', 'amount' => 250, 'meta' => '{}'],
-            ['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'extraSpin', 'label' => 'Gira de nuevo', 'amount' => null, 'meta' => json_encode(['extra_spins' => 2])],
+            ['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'money', 'label' => 'Gira de nuevo', 'amount' => 1, 'meta' => '{}'],
         ]);
         DB::table('campaigns')->where('id', $campaign)->update(['game_config' => json_encode(['segments' => ['cupon', 'pts', 'extra', 'none', 'p10k', 'none', 'p50k', 'none']])]);
         $batch = $this->rf->f->lifecycle()->createDraft($campaign, 'L', [
@@ -143,6 +143,8 @@ final class RedeemServiceTest extends DbTestCase
         $codes = $this->rf->generateCodes($batch);
         $this->rf->f->lifecycle()->commit($batch, 'tester');
         $this->rf->f->activate($batch);
+        // Un pool con giro extra exige reserva al comprometer; el canje de un lote sin ella (anterior a ese control) devuelve igual `extraSpins`.
+        $this->rf->turnIntoExtraSpin($campaign, 'extra', 2);
         $map = $this->rf->prizeMap($batch, $codes);
         $byPrize = array_flip($map);
 

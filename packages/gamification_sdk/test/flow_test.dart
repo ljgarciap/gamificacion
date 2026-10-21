@@ -72,10 +72,11 @@ class _SpinRepo implements GamificationRepository {
 
 /// Repositorio cuyo canje concede `granted` giros (los hijos no conceden más) o devuelve un resultado ya jugado.
 class _GrantRepo implements GamificationRepository {
-  _GrantRepo(this.inner, {required this.granted, this.alreadyPlayed = false});
+  _GrantRepo(this.inner, {required this.granted, this.alreadyPlayed = false, this.pending = const []});
   final MockRepository inner;
   final int granted;
   final bool alreadyPlayed;
+  final List<SpinEntitlement> pending;
   final spinKeys = <String>[];
   Redemption? _parent;
 
@@ -88,6 +89,7 @@ class _GrantRepo implements GamificationRepository {
       outcome: Outcome(prize: r.outcome.prize, extraSpins: granted, gameResult: r.outcome.gameResult),
       alreadyPlayed: alreadyPlayed,
       playedAt: r.playedAt,
+      pendingSpins: pending,
     );
   }
 
@@ -298,7 +300,28 @@ void main() {
     expect(find.byKey(const ValueKey('spin-again')), findsNothing);
   });
 
-  testWidgets('un resultado ya jugado (showPrevious) no vuelve a ofrecer giros', (t) async {
+  testWidgets('al volver a abrir la app, un resultado ya jugado recupera los giros que el servidor dice que quedan', (
+    t,
+  ) async {
+    final grant = _GrantRepo(
+      repo,
+      granted: 2,
+      alreadyPlayed: true,
+      pending: const [SpinEntitlement(redemptionId: 'padre-1', remaining: 1, played: 1)],
+    );
+    await _pump(t, repo: grant);
+    await _enterAndValidate(t, 'RULETA-EXTRA');
+    expect(find.text('Girar de nuevo'), findsOneWidget, reason: 'solo el que queda, no los 2 concedidos');
+
+    await t.tap(find.byKey(const ValueKey('spin-again')));
+    await t.pumpAndSettle();
+    await _playOut(t);
+    // La clave del giro es la del número que sigue (el 2.º de ese padre): el servidor repite si ya se había jugado.
+    expect(grant.spinKeys, ['padre-1:2']);
+    expect(find.byKey(const ValueKey('spin-again')), findsNothing);
+  });
+
+  testWidgets('un resultado ya jugado sin giros pendientes no ofrece nada', (t) async {
     await _pump(t, repo: _GrantRepo(repo, granted: 1, alreadyPlayed: true));
     await _enterAndValidate(t, 'RULETA-EXTRA');
     expect(find.byKey(const ValueKey('spin-again')), findsNothing);

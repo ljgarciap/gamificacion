@@ -98,14 +98,16 @@ final class ReserveExportTest extends DbTestCase
     public function test_sin_reserva_el_canje_de_un_premio_de_giro_extra_deja_la_bitacora_como_siempre(): void
     {
         $this->rf = new RedeemFixtures;
-        // Lote SIN reserva (R = 0) con un premio de giro extra: permitido, y su bitácora no trae campos nuevos.
+        // Lote SIN reserva (R = 0) comprometido antes de que se prohibiera el giro extra sin reserva: su bitácora no trae campos nuevos.
         $campaign = $this->rf->f->campaign('roulette');
-        DB::table('prizes')->insert(['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'extraSpin', 'label' => 'Gira de nuevo', 'amount' => null, 'meta' => '{}']);
+        DB::table('prizes')->insert(['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'money', 'label' => 'Gira de nuevo', 'amount' => 1, 'meta' => '{}']);
         DB::table('campaigns')->where('id', $campaign)->update(['game_config' => json_encode(['segments' => ['p50k', 'none', 'p10k', 'extra', 'none', 'p10k', 'none', 'p50k']])]);
         $batch = $this->rf->f->lifecycle()->createDraft($campaign, 'Sin reserva', [['prize_id' => 'extra', 'quantity' => 3]], 'tester');
         $codes = $this->rf->generateCodes($batch);
         $this->rf->f->lifecycle()->commit($batch, 'tester');
         $this->rf->f->activate($batch);
+        // Ya hoy no se puede comprometer un pool con giro extra sin reserva: el lote se «envejece» como los que se comprometieron antes del control.
+        $this->rf->turnIntoExtraSpin($campaign, 'extra');
 
         $r = $this->rf->service()->redeem('host-a:ana', 'canje-0000001', $codes[0]);
         $this->assertSame(1, $r->toArray()['outcome']['extraSpins'], 'el cuerpo de la respuesta no cambia');

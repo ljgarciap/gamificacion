@@ -189,9 +189,13 @@ final class ReserveSchemaTest extends DbTestCase
         $this->assertSame(1, $extra['spins']);
         $this->assertArrayNotHasKey('spins', collect($snapshot($with))->firstWhere('prize_id', 'none'));
 
-        // Sin reserva (lote de siempre) la bitácora es la de siempre: ni `spins` en la foto ni `spins_granted` al canjear.
-        $plain = $this->committed(0);
-        $this->assertArrayNotHasKey('spins', collect($snapshot($plain))->firstWhere('prize_id', 'extra'));
+        // Sin reserva (lote de siempre) la foto es la de siempre: sin `spins` en ningún premio.
+        $plain = $this->f->lifecycle()->createDraft($this->campaign, 'Sin reserva', [['prize_id' => 'none', 'quantity' => 6], ['prize_id' => 'p10k', 'quantity' => 3]], Fixtures::ACTOR);
+        $this->f->addCodes($plain, 9);
+        $this->f->lifecycle()->commit($plain, Fixtures::ACTOR);
+        foreach ($snapshot($plain) as $prize) {
+            $this->assertArrayNotHasKey('spins', $prize);
+        }
     }
 
     public function test_la_reserva_debe_dejar_al_menos_un_codigo(): void
@@ -206,10 +210,16 @@ final class ReserveSchemaTest extends DbTestCase
         }
     }
 
-    public function test_sin_reserva_se_conserva_el_comportamiento_anterior_aunque_haya_giros_extra_en_el_pool(): void
+    public function test_sin_reserva_un_pool_con_giros_extra_se_rechaza_y_uno_sin_ellos_sigue_como_siempre(): void
     {
-        $id = $this->draft(0);
-        $this->assertSame(11, (int) DB::table('batches')->where('id', $id)->value('total_codes'));
+        try {
+            $this->draft(0);
+            $this->fail('un pool con giro extra y sin reserva debió rechazarse');
+        } catch (InvalidBatch $e) {
+            $this->assertStringContainsString('no tiene reserva', $e->getMessage());
+        }
+        $id = $this->draft(0, [['prize_id' => 'none', 'quantity' => 6], ['prize_id' => 'p10k', 'quantity' => 3]]);
+        $this->assertSame(9, (int) DB::table('batches')->where('id', $id)->value('total_codes'));
         $this->assertSame(0, DB::table('reserve_slots')->where('batch_id', $id)->count());
     }
 

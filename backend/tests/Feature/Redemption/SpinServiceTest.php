@@ -156,6 +156,30 @@ final class SpinServiceTest extends DbTestCase
         $this->assertSame(0, DB::table('reserve_slots')->where('batch_id', $b['batch'])->whereNotNull('consumed_at')->count());
     }
 
+    public function test_volver_a_ver_un_resultado_ya_jugado_trae_los_giros_que_aun_quedan(): void
+    {
+        // Campaña showPrevious; todas las posiciones son del premio «extra» (1 giro cada una), así cada giro hijo concede otro.
+        $b = $this->rf->activeReserveBatch([['prize_id' => 'extra', 'quantity' => 7]], 2, 1, 'showPrevious', null, asMoney: true);
+        $code = $b['codes'][0];
+        $first = $this->redeem->redeem('host-a:ana', 'canje-0000001', $code);
+        $this->assertArrayNotHasKey('pendingSpins', $first->toArray(), 'la respuesta guardada del canje no cambia');
+
+        // Sin haber girado: el padre tiene su giro pendiente.
+        $again = $this->redeem->redeem('host-a:ana', 'canje-0000002', $code)->toArray();
+        $this->assertTrue($again['alreadyPlayed']);
+        $this->assertSame([['redemptionId' => $first->redemptionId, 'remaining' => 1, 'played' => 0]], $again['pendingSpins']);
+
+        // Tras girar, el giro del padre ya se jugó y queda el que concedió el hijo.
+        $child = $this->spins->spin('host-a:ana', $first->redemptionId.':1', $first->redemptionId);
+        $this->assertSame([['redemptionId' => $child->redemptionId, 'remaining' => 1, 'played' => 0]],
+            $this->redeem->redeem('host-a:ana', 'canje-0000003', $code)->toArray()['pendingSpins']);
+
+        // Jugado el del hijo queda el que concede el nieto (todos los premios de este pool son «extra»); el padre y el hijo ya no deben nada.
+        $grandchild = $this->spins->spin('host-a:ana', $child->redemptionId.':1', $child->redemptionId);
+        $this->assertSame([['redemptionId' => $grandchild->redemptionId, 'remaining' => 1, 'played' => 0]],
+            $this->redeem->redeem('host-a:ana', 'canje-0000004', $code)->toArray()['pendingSpins']);
+    }
+
     public function test_una_clave_no_se_comparte_entre_un_canje_de_codigo_y_un_giro(): void
     {
         $parent = $this->manualParent('host-a:ana', 1);
