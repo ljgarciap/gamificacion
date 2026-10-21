@@ -64,3 +64,17 @@ Un padre de otro usuario, uno inexistente y uno sin giros pendientes deben respo
 2. **H5:** **error duro** al comprometer si la reserva no cubre el peor caso (modifica el RF-57, que decía "advertir").
 
 Todo lo demás es técnico dentro del diseño y lo resuelvo yo. Orden de implementación propuesto: P6a motor + compromiso v2 + vectores + verificador (sin tocar la base) → P6b esquema y triggers → P6c servicio y endpoint `/v1/spins` con concurrencia real → P6d exportación/panel/cliente Flutter → Senior Review independiente.
+
+## Review independiente de P6 (subagente en frío, 2026-10-21)
+Veredicto: integrable con correcciones. Corregido en el commit de review:
+- **Giros por premio sin validar (medio):** `meta.extra_spins` negativo compensaba la cuenta de la reserva (H5 evadido) y un valor enorme daba 500 permanente en el canje. Ahora `ExtraSpins` lo acota (entero 1…10) al definir el premio y es error duro al comprometer; lo ya guardado con un valor raro no concede giros en vez de romper el canje.
+- **El verificador no comprobaba el derecho a girar ni la caducidad (medio):** con reserva, la foto de lo comprometido trae `spins` de cada premio de giro extra; el verificador exige que los giros concedidos coincidan, que todo ocurra con el lote activo (entre su activación y su cierre) y que `pending_spins` del cierre salga de la cadena.
+- **CA-38 en la bitácora (medio):** `spins_granted` y la foto con `spins` solo se anotan en lotes con reserva; con `R = 0` la bitácora es la de siempre (prueba).
+- **Conteos del panel (medio):** `redeemed` y `redeemedByPrize` cuentan solo canjes de código; los giros hijos van aparte (`spinsPlayed`).
+- Menores: `FOR SHARE OF b` (no bloquear la campaña), `down()` completo (con prueba de deshacer y volver a aplicar), el verificador no se cae con datos de bitácora que no son un objeto.
+
+**Límites conocidos y decisiones pendientes (de Luis):**
+1. **El operador puede dirigir qué casilla recibe quién (medio, diseño).** Las casillas se consumen en orden de llegada; el operador conoce el premio de cada una desde la activación y controla cuentas propias, así que podría «quemar» casillas con cuentas suyas hasta que la siguiente sea el premio gordo y dejar pasar a un cómplice. El verificador ve un orden perfectamente válido. A diferencia de los códigos (asignación fijada antes de repartirlos), aquí el destino depende de quién gira cuándo. Mitigaciones posibles (no aplicadas): ligar casilla→giro con una función no controlable por el operador (p. ej. de la baliza y el id del padre) o reservar casillas por premio padre. Es un límite de confianza del diseño aprobado, no un defecto del código.
+2. **Lotes con `R = 0` y premios de giro extra:** el cliente ofrece «Girar de nuevo» y el servidor responde `spinReserveExhausted`. Afecta a lotes ya comprometidos antes de P6.
+3. **Giros pendientes al reabrir la app:** la pila de giros vive en memoria; tras cerrar la app el código ya jugado vuelve con `alreadyPlayed` y el cliente no sabe cuántos giros quedan. Requiere que el servidor devuelva `spinsRemaining`.
+4. El verificador sigue sin poder detectar que se omitan los últimos eventos de la bitácora (límite conocido: el ancla).

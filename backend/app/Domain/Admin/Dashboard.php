@@ -20,7 +20,7 @@ final class Dashboard
         }
         $red = DB::selectOne("SELECT count(*) AS total, count(*) FILTER (WHERE created_at >= now() - interval '24 hours') AS last24h FROM redemptions");
         // Sin recorrer `codes`: los totales vienen del pool y los canjes de `redemptions` (índice por lote).
-        $codes = DB::selectOne("SELECT coalesce(sum(b.total_codes), 0) AS total, (SELECT count(*) FROM redemptions r JOIN batches x ON x.id = r.batch_id WHERE x.state = 'active') AS redeemed FROM batches b WHERE b.state = 'active'");
+        $codes = DB::selectOne("SELECT coalesce(sum(b.total_codes), 0) AS total, (SELECT count(*) FROM redemptions r JOIN batches x ON x.id = r.batch_id WHERE x.state = 'active' AND r.code_id IS NOT NULL) AS redeemed FROM batches b WHERE b.state = 'active'");
         $oldest = DB::selectOne("SELECT min(created_at) AS t FROM prize_outbox WHERE status = 'pending'");
         $approvals = DB::selectOne("SELECT count(*) FILTER (WHERE status = 'pending') AS pending, count(*) FILTER (WHERE status = 'approved') AS approved FROM approvals WHERE expires_at > now() AND status IN ('pending', 'approved')");
 

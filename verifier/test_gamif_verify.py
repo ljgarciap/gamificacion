@@ -401,6 +401,47 @@ class ReserveExportTests(unittest.TestCase):
         self.edit(first, parent_redemption_id="00000000-0000-0000-0000-000000000000")
         self.assertTrue(any("no es una redención previa" in f for f in g.verify_export(self.export)))
 
+    def test_detecta_giros_concedidos_que_el_premio_no_declaro(self):
+        # Un padre con premio «sin premio» al que se le inflan los giros concedidos: antes pasaba, porque el valor salía del propio evento.
+        parent = next(e for e in self.export["audit_log"] if e["action"] == "code.redeemed" and json.loads(e["data"]).get("prize_id") == "none")
+        self.edit(parent, spins_granted=5)
+        self.assertTrue(any("declaró" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_giros_concedidos_distintos_a_los_del_premio_de_giro_extra(self):
+        first = self.spins()[0]
+        parent_id = json.loads(first["data"])["parent_redemption_id"]
+        parent = next(e for e in self.export["audit_log"] if e["subject_id"] == parent_id)
+        self.edit(parent, spins_granted=json.loads(parent["data"]).get("spins_granted", 0) + 1)
+        self.assertTrue(any("declaró" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_una_redencion_o_un_giro_despues_del_cierre(self):
+        closed = next(i for i, e in enumerate(self.export["audit_log"]) if e["action"] == "batch.closed" and e["subject_id"] == self.export["batch_id"])
+        late = dict(self.spins()[-1])
+        late["id"] = int(self.export["audit_log"][-1]["id"]) + 1
+        late["subject_id"] = "99999999-9999-9999-9999-999999999999"
+        self.export["audit_log"].insert(closed + 1, late)
+        rechain(self.export)
+        self.assertTrue(any("lote activo" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_una_redencion_antes_de_activar_el_lote(self):
+        activated = next(i for i, e in enumerate(self.export["audit_log"]) if e["action"] == "batch.activated" and e["subject_id"] == self.export["batch_id"])
+        early = next(e for e in self.export["audit_log"] if e["action"] == "code.redeemed")
+        self.export["audit_log"].remove(early)
+        self.export["audit_log"].insert(activated, early)
+        rechain(self.export)
+        self.assertTrue(any("lote activo" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_giros_pendientes_mal_anotados_al_cerrar(self):
+        closed = next(e for e in self.export["audit_log"] if e["action"] == "batch.closed" and e["subject_id"] == self.export["batch_id"])
+        self.edit(closed, pending_spins=7)
+        self.assertTrue(any("giros pendientes" in f for f in g.verify_export(self.export)))
+
+    def test_datos_de_bitacora_que_no_son_un_objeto_se_reportan_sin_caerse(self):
+        parent = next(e for e in self.export["audit_log"] if e["action"] == "code.redeemed")
+        parent["data"] = "[]"
+        rechain(self.export)
+        self.assertTrue(any("no son un objeto" in f for f in g.verify_export(self.export)))
+
     def test_detecta_que_se_consumieron_mas_casillas_que_la_reserva(self):
         extra = dict(self.spins()[-1])
         slots = len(self.export["reserve_assignments"])

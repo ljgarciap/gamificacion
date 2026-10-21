@@ -3,6 +3,7 @@
 namespace App\Domain\Redemption;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Campaigns\ExtraSpins;
 use App\Domain\Crypto\Secrets;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -81,8 +82,9 @@ final class RedemptionWriter
         $this->audit->append('user:'.$ref, $child ? 'spin.redeemed' : 'code.redeemed', 'redemption', $id, [
             'batch_id' => $row->batch_id, 'prize_id' => $prizeId, 'user_ref' => $ref,
         ] + ($child ? ['parent_redemption_id' => $source['parent'], 'spin_no' => $source['spin_no'], 'reserve_idx' => $source['reserve_idx']] : [])
-            // Los giros que concede esta redención: el verificador comprueba con ellos que no se jugaron más de los concedidos.
-            + ($prize['extraSpins'] > 0 ? ['spins_granted' => $prize['extraSpins']] : []));
+            // Los giros que concede esta redención (solo en lotes con reserva: sin reserva la bitácora es la de siempre): el verificador
+            // comprueba con ellos que no se jugaron más de los concedidos.
+            + ($prize['extraSpins'] > 0 && (int) ($row->reserve_size ?? 0) > 0 ? ['spins_granted' => $prize['extraSpins']] : []));
 
         return new RedemptionResult($json, $id, replayed: false);
     }
@@ -108,7 +110,7 @@ final class RedemptionWriter
             }
             $out[(string) $p->prize_id] = [
                 'json' => $json,
-                'extraSpins' => $p->type === 'extraSpin' ? (int) ($meta['extra_spins'] ?? 1) : 0,
+                'extraSpins' => ExtraSpins::lenient($p->type, $meta),
             ];
         }
 

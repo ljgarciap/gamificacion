@@ -35,7 +35,7 @@ final class BatchAdminService
             "SELECT b.id, b.campaign_id, b.name, b.state, b.total_codes, b.reserve_size, b.redeemable_until, b.created_at, b.committed_at, b.activated_at, b.closed_at, b.revealed_at,
                     -- Sin recorrer `codes` (hasta un millón de filas por lote): fuera del borrador los códigos son todos los del pool, y cada canje es una fila de `redemptions` (índice por lote).
                     CASE WHEN b.state = 'draft' THEN (SELECT count(*) FROM codes c WHERE c.batch_id = b.id) ELSE b.total_codes END AS codes,
-                    (SELECT count(*) FROM redemptions r WHERE r.batch_id = b.id) AS redeemed
+                    (SELECT count(*) FROM redemptions r WHERE r.batch_id = b.id AND r.code_id IS NOT NULL) AS redeemed
              FROM batches b WHERE (?::uuid IS NULL OR b.campaign_id = ?::uuid) AND (?::text IS NULL OR b.state = ?)
              ORDER BY b.created_at DESC, b.id LIMIT 500",
             [$campaignId !== null ? $this->uuid($campaignId) : null, $campaignId, $state, $state],
@@ -59,14 +59,16 @@ final class BatchAdminService
              FROM batches WHERE id = ?", [$this->uuid($id)]) ?? throw $this->notFound();
 
         $generated = $b->state === 'draft' ? (int) DB::selectOne('SELECT count(*) AS c FROM codes WHERE batch_id = ?', [$b->id])->c : (int) $b->total_codes;
-        $redeemed = (int) DB::selectOne('SELECT count(*) AS c FROM redemptions WHERE batch_id = ?', [$b->id])->c;
-        $byPrize = DB::select('SELECT prize_id, count(*) AS n FROM redemptions WHERE batch_id = ? GROUP BY prize_id ORDER BY prize_id', [$b->id]);
+        $redeemed = (int) DB::selectOne('SELECT count(*) AS c FROM redemptions WHERE batch_id = ? AND code_id IS NOT NULL', [$b->id])->c;
+        $byPrize = DB::select('SELECT prize_id, count(*) AS n FROM redemptions WHERE batch_id = ? AND code_id IS NOT NULL GROUP BY prize_id ORDER BY prize_id', [$b->id]);
 
         // Giro extra: cuánta reserva hay, cuánta se consumió y cuántos giros siguen pendientes (caducan al cerrar el lote).
         $reserve = (int) $b->reserve_size === 0 ? [] : [
             'reserveSize' => (int) $b->reserve_size,
             'reserveConsumed' => (int) (DB::selectOne('SELECT consumed FROM reserve_cursors WHERE batch_id = ?', [$b->id])->consumed ?? 0),
             'pendingSpins' => $this->lifecycle->pendingSpins($b->id),
+            // Los giros hijos se cuentan aparte: `redeemed` y `redeemedByPrize` son solo canjes de código (nunca superan `totalCodes`).
+            'spinsPlayed' => (int) DB::selectOne('SELECT count(*) AS c FROM redemptions WHERE batch_id = ? AND reserve_idx IS NOT NULL', [$b->id])->c,
             'commitVersion' => 2,
         ];
 

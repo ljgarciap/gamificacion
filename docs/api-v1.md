@@ -71,6 +71,8 @@ puede conceder más giros. El cliente nunca decide el resultado.
 - `404 spinNotFound` (padre ajeno, inexistente o mal formado: idéntico), `409 noSpinsLeft`, `409 spinReserveExhausted` (nunca se inventa un premio), `410 expired`.
 - **Los giros pendientes caducan** cuando el lote se cierra o vence su ventana de redención.
 - Mismo límite de intentos que el canje: un padre ajeno cuenta como fallo.
+- **Cambio para los hosts que implementan `GamificationRepository` (Flutter):** la interfaz ganó `spin(parentRedemptionId, {idempotencyKey})`; un adaptador propio debe implementarlo (llamar a `POST /v1/spins`) o dejará de compilar. `FailureReason` ganó `noSpinsLeft` y `spinReserveExhausted`.
+- `meta.extra_spins` de un premio `extraSpin` es un entero de 1 a 10 (sin el campo vale 1).
 
 ## `GET /v1/balance`
 `200 {"amount": 120000, "currency": "COP"}`. En el modo independiente es un saldo de demostración (inicial + premios en dinero ganados); en una app host, la billetera es del host (SPEC-002 D2).

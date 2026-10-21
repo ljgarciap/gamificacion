@@ -40,10 +40,12 @@ Si la exportación trae `reserve_assignments` y `commit_version: 2`, el lote res
 
 - recalcula el mazo completo de `N + R` posiciones (los `N` códigos y las `R` casillas de reserva) con la baraja del compromiso v2, y comprueba que el stock total es el del pool;
 - exige la combinación canónica: sin reserva solo vale el compromiso v1 y con reserva solo el v2 (un lote no puede tener dos compromisos válidos);
-- comprueba en la bitácora que las casillas se consumieron **en orden** (la k-ésima redención hija recibió la casilla k), que cada una entregó el premio de su casilla, y que ningún padre jugó más giros de los que se le concedieron;
+- comprueba en la bitácora que las casillas se consumieron **en orden** (la k-ésima redención hija recibió la casilla k), que cada una entregó el premio de su casilla, que ningún padre jugó más giros de los que se le concedieron, que esos giros son los que el premio declaró al comprometer, que todo ocurrió con el lote activo y que los giros pendientes anotados al cerrar salen de la cadena;
 - comprueba que la reserva exportada es la registrada al comprometer.
 
 Los giros que quedaron sin jugar al cerrar caducan; la bitácora los deja anotados en `batch.closed` (`pending_spins`).
+
+**Límite que el verificador no cubre:** el orden de las casillas es el de llegada de los giros, y quien opera conoce el premio de cada casilla desde la activación; el verificador comprueba que el orden es consistente, no *quién* giró en cada momento ni que no se hayan omitido los últimos eventos (para eso está el ancla).
 
 ## Qué NO prueba
 

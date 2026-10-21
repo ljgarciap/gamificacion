@@ -141,7 +141,7 @@ final class RedeemService
     {
         return DB::selectOne(
             "SELECT c.id AS code_id, c.batch_id, c.idx, encode(c.prize_enc, 'hex') AS prize_enc,
-                    b.state, b.campaign_id, (b.redeemable_until IS NOT NULL AND b.redeemable_until <= now()) AS window_closed,
+                    b.state, b.campaign_id, b.reserve_size, (b.redeemable_until IS NOT NULL AND b.redeemable_until <= now()) AS window_closed,
                     ca.name AS campaign_name, ca.game_type, ca.used_code_behavior, ca.title,
                     ca.theme::text AS theme, ca.game_config::text AS game_config
              FROM codes c JOIN batches b ON b.id = c.batch_id JOIN campaigns ca ON ca.id = b.campaign_id

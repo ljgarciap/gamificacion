@@ -3,6 +3,9 @@
 namespace Tests\Feature\Audit;
 
 use App\Domain\Audit\AuditExporter;
+use App\Domain\Audit\AuditLog;
+use App\Domain\Batches\BatchAdminService;
+use App\Domain\Crypto\CodeHasher;
 use Illuminate\Support\Facades\DB;
 use Tests\DbTestCase;
 use Tests\Support\Fixtures;
@@ -78,6 +81,37 @@ final class ReserveExportTest extends DbTestCase
         $granted = DB::table('redemptions')->where('batch_id', $id)->where('spins_granted', '>', 0)->count();
         $audited = DB::table('audit_log')->whereIn('action', ['code.redeemed', 'spin.redeemed'])->whereRaw("jsonb_exists(data, 'spins_granted')")->count();
         $this->assertSame($granted, $audited);
+    }
+
+    public function test_los_conteos_del_panel_cuentan_solo_canjes_de_codigo_y_los_giros_aparte(): void
+    {
+        ['batch' => $id, 'spins' => $spins] = $this->revealedWithSpins();
+        $admin = new BatchAdminService($this->rf->f->lifecycle(), new CodeHasher, new AuditLog);
+
+        $b = $admin->get($id);
+        $this->assertSame(8, $b['redeemed']);
+        $this->assertSame(8, array_sum(array_column($b['redeemedByPrize'], 'count')));
+        $this->assertSame($spins, $b['spinsPlayed']);
+        $this->assertSame(8, collect($admin->list(null, null))->firstWhere('id', $id)['redeemed']);
+    }
+
+    public function test_sin_reserva_el_canje_de_un_premio_de_giro_extra_deja_la_bitacora_como_siempre(): void
+    {
+        $this->rf = new RedeemFixtures;
+        // Lote SIN reserva (R = 0) con un premio de giro extra: permitido, y su bitácora no trae campos nuevos.
+        $campaign = $this->rf->f->campaign('roulette');
+        DB::table('prizes')->insert(['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'extraSpin', 'label' => 'Gira de nuevo', 'amount' => null, 'meta' => '{}']);
+        DB::table('campaigns')->where('id', $campaign)->update(['game_config' => json_encode(['segments' => ['p50k', 'none', 'p10k', 'extra', 'none', 'p10k', 'none', 'p50k']])]);
+        $batch = $this->rf->f->lifecycle()->createDraft($campaign, 'Sin reserva', [['prize_id' => 'extra', 'quantity' => 3]], 'tester');
+        $codes = $this->rf->generateCodes($batch);
+        $this->rf->f->lifecycle()->commit($batch, 'tester');
+        $this->rf->f->activate($batch);
+
+        $r = $this->rf->service()->redeem('host-a:ana', 'canje-0000001', $codes[0]);
+        $this->assertSame(1, $r->toArray()['outcome']['extraSpins'], 'el cuerpo de la respuesta no cambia');
+        $data = json_decode((string) DB::table('audit_log')->where('action', 'code.redeemed')->where('subject_id', $r->redemptionId)->value('data'), true);
+        $this->assertSame(['batch_id', 'prize_id', 'user_ref'], array_keys(array_intersect_key($data, array_flip(['batch_id', 'prize_id', 'user_ref']))));
+        $this->assertArrayNotHasKey('spins_granted', $data);
     }
 
     /** Regenera el fixture del verificador Python (una exportación REAL con giros): UPDATE_VERIFIER_FIXTURE=1, ver AuditExportTest. */

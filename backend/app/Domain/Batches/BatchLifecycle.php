@@ -4,6 +4,7 @@ namespace App\Domain\Batches;
 
 use App\Domain\Audit\AuditLog;
 use App\Domain\Beacon\BeaconClient;
+use App\Domain\Campaigns\ExtraSpins;
 use App\Domain\Crypto\PrizeVault;
 use App\Domain\Redemption\Presentation;
 use App\Engine\Commitment;
@@ -175,7 +176,7 @@ final class BatchLifecycle
             );
             // La definición de los premios se fotografía en la bitácora: cambiar un monto después alteraría lo prometido.
             $this->audit->append($actor, 'batch.committed', 'batch', $batchId,
-                $receipt->toArray() + ['prizes' => $this->prizeSnapshot($b->campaign_id, $pool)]);
+                $receipt->toArray() + ['prizes' => $this->prizeSnapshot($b->campaign_id, $pool, $reserve > 0)]);
 
             return $receipt;
         });
@@ -385,9 +386,13 @@ final class BatchLifecycle
             $qty[$id] = $q;
         }
         $rows = DB::table('prizes')->where('campaign_id', $campaignId)->where('type', 'extraSpin')->whereIn('prize_id', array_keys($qty))
-            ->get(['prize_id', DB::raw('meta::text AS meta')]);
+            ->get(['prize_id', 'type', DB::raw('meta::text AS meta')]);
         foreach ($rows as $r) {
-            $spins = (int) ((json_decode($r->meta, true) ?: [])['extra_spins'] ?? 1);
+            try {
+                $spins = ExtraSpins::fromMeta($r->type, json_decode($r->meta, true) ?: []);
+            } catch (\InvalidArgumentException $e) {
+                throw new InvalidBatch("El premio {$r->prize_id} no concede un número válido de giros: ".$e->getMessage());
+            }
             $demand += $qty[(string) $r->prize_id] * $spins;
         }
         if ($demand > $reserve) {
@@ -448,14 +453,16 @@ final class BatchLifecycle
     }
 
     /** @return list<array<string, mixed>> */
-    private function prizeSnapshot(string $campaignId, Pool $pool): array
+    private function prizeSnapshot(string $campaignId, Pool $pool, bool $withSpins = false): array
     {
         return DB::table('prizes')
             ->where('campaign_id', $campaignId)
             ->whereIn('prize_id', array_column($pool->entries(), 0))
             ->orderBy('prize_id')
-            ->get(['prize_id', 'type', 'label', 'amount'])
-            ->map(static fn ($r): array => ['prize_id' => $r->prize_id, 'type' => $r->type, 'label' => $r->label, 'amount' => $r->amount === null ? null : (int) $r->amount])
+            ->get(['prize_id', 'type', 'label', 'amount', DB::raw('meta::text AS meta')])
+            ->map(static fn ($r): array => ['prize_id' => $r->prize_id, 'type' => $r->type, 'label' => $r->label, 'amount' => $r->amount === null ? null : (int) $r->amount]
+                // Con reserva, cuántos giros concede cada premio de giro extra queda en la foto de lo comprometido: el verificador lo contrasta.
+                + ($withSpins && $r->type === 'extraSpin' ? ['spins' => ExtraSpins::lenient($r->type, json_decode($r->meta, true) ?: [])] : []))
             ->all();
     }
 }

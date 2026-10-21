@@ -116,6 +116,10 @@ final class CampaignsTest extends AdminTestCase
             'dinero sin monto' => ['prizes' => [['prizeId' => 'a', 'type' => 'money', 'label' => 'x']]],
             'monto negativo' => ['prizes' => [['prizeId' => 'a', 'type' => 'money', 'label' => 'x', 'amount' => -1]]],
             'monto decimal' => ['prizes' => [['prizeId' => 'a', 'type' => 'money', 'label' => 'x', 'amount' => 10.5]]],
+            'giros negativos' => ['prizes' => [['prizeId' => 'a', 'type' => 'extraSpin', 'label' => 'x', 'meta' => ['extra_spins' => -40]]]],
+            'giros en exceso' => ['prizes' => [['prizeId' => 'a', 'type' => 'extraSpin', 'label' => 'x', 'meta' => ['extra_spins' => 11]]]],
+            'giros como texto' => ['prizes' => [['prizeId' => 'a', 'type' => 'extraSpin', 'label' => 'x', 'meta' => ['extra_spins' => '3']]]],
+            'giros en un premio de dinero' => ['prizes' => [['prizeId' => 'a', 'type' => 'money', 'label' => 'x', 'amount' => 5, 'meta' => ['extra_spins' => 2]]]],
             'ids repetidos' => ['prizes' => [['prizeId' => 'a', 'type' => 'none', 'label' => 'x'], ['prizeId' => 'a', 'type' => 'none', 'label' => 'y']]],
         ];
         foreach ($bad as $label => $over) {
@@ -123,6 +127,14 @@ final class CampaignsTest extends AdminTestCase
         }
         $this->assertSame(0, (int) DB::selectOne('SELECT count(*) AS n FROM campaigns')->n, 'nada a medias');
         $this->assertSame(0, (int) DB::selectOne('SELECT count(*) AS n FROM prizes')->n);
+
+        // Un premio de giro extra válido sí se acepta (con o sin el número de giros).
+        $this->assertSame(201, $this->api('POST', '/campaigns', $this->body(['prizes' => [
+            ['prizeId' => 'extra', 'type' => 'extraSpin', 'label' => 'Gira de nuevo', 'meta' => ['extra_spins' => 2]],
+            ['prizeId' => 'extra2', 'type' => 'extraSpin', 'label' => 'Gira otra vez'],
+        ]]))->status());
+        DB::table('prizes')->delete();
+        DB::table('campaigns')->delete();
 
         $id = $this->create();
         $this->assertSame(422, $this->api('PATCH', "/campaigns/$id", [])->status());

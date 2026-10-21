@@ -223,9 +223,16 @@ final class CampaignService
             throw $this->invalid('Un premio de dinero o puntos necesita «amount».');
         }
 
+        $meta = $this->jsonObject($in['meta'] ?? new \stdClass, 'meta', 4096);
+        try {
+            \App\Domain\Campaigns\ExtraSpins::fromMeta($type, json_decode($meta, true));
+        } catch (\InvalidArgumentException $e) {
+            throw $this->invalid($e->getMessage());
+        }
+
         return [
             'prize_id' => $id, 'type' => $type, 'label' => $this->text($in['label'] ?? null, 'label', 120, true), 'amount' => $amount,
-            'meta' => $this->jsonObject($in['meta'] ?? new \stdClass, 'meta', 4096),
+            'meta' => $meta,
         ];
     }
 

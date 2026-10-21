@@ -224,26 +224,52 @@ def audit_entry_hash(prev: bytes, e: dict) -> bytes:
     )
 
 
-def verify_spins(entries, batch_id, reserve_assignments):
+def verify_spins(entries, batch_id, reserve_assignments, snapshot=None):
     """Giros hijos de la reserva, comprobados contra la cadena: las casillas se consumieron EN ORDEN (la k-ésima redención hija recibió la
-    casilla k), cada una entregó el premio de su casilla, y ningún padre jugó más giros de los que se le concedieron."""
+    casilla k), cada una entregó el premio de su casilla, ningún padre jugó más giros de los concedidos, los giros concedidos son los que
+    el premio declaró al comprometer (`snapshot`: prize_id -> giros), todo ocurrió con el lote ACTIVO (entre activarlo y cerrarlo) y los
+    giros pendientes anotados al cerrar son los que salen de la cadena."""
     failures = []
     granted = {}   # id de redención -> giros concedidos
     owner = {}     # id de redención -> usuario (seudónimo)
     played = {}    # id de padre -> giros jugados
     next_slot = 0
+    activated_at = closed_at = None
+    closed_data = None
+    last_redemption_id = None
     for e in entries:
+        if e["subject_type"] == "batch" and e["subject_id"] == batch_id:
+            if e["action"] == "batch.activated":
+                activated_at = int(e["id"])
+            elif e["action"] == "batch.closed":
+                closed_at = int(e["id"])
+                try:
+                    closed_data = json.loads(e["data"])
+                except ValueError:
+                    closed_data = None
+            continue
         if e["action"] not in ("code.redeemed", "spin.redeemed") or e["subject_type"] != "redemption":
             continue
         try:
             data = json.loads(e["data"])
         except ValueError:
+            failures.append(f"la entrada {e['id']} tiene datos que no son JSON")
+            continue
+        if not isinstance(data, dict):
+            failures.append(f"la entrada {e['id']} tiene datos que no son un objeto")
             continue
         if data.get("batch_id") != batch_id:
             continue
         rid = e["subject_id"]
+        last_redemption_id = int(e["id"])
+        if activated_at is None or (closed_at is not None):
+            failures.append(f"la redención {rid} no ocurrió con el lote activo (debe estar entre su activación y su cierre)")
         granted[rid] = data.get("spins_granted", 0)
         owner[rid] = data.get("user_ref")
+        if snapshot is not None and granted[rid] != snapshot.get(data.get("prize_id"), 0):
+            failures.append(
+                f"la redención {rid} concedió {granted[rid]} giros y el premio {data.get('prize_id')!r} declaró {snapshot.get(data.get('prize_id'), 0)} al comprometer"
+            )
         if e["action"] == "code.redeemed":
             continue
         idx, parent, n = data.get("reserve_idx"), data.get("parent_redemption_id"), data.get("spin_no")
@@ -262,6 +288,10 @@ def verify_spins(entries, batch_id, reserve_assignments):
         played[parent] = played.get(parent, 0) + 1
         if n != played[parent] or played[parent] > granted[parent]:
             failures.append(f"el padre {parent} jugó el giro {n} (de {granted[parent]} concedidos): giros fuera de orden o de más")
+    if closed_data is not None and "pending_spins" in closed_data:
+        pending = sum(granted.values()) - next_slot
+        if closed_data["pending_spins"] != pending:
+            failures.append(f"el cierre anota {closed_data['pending_spins']} giros pendientes y la cadena da {pending}")
     return failures
 
 
@@ -317,7 +347,10 @@ def verify_audit_log(export: dict, anchor=None):
     if committed is not None:
         if committed.get("reserve", 0) != len(reserve_export) or committed.get("commit_version", 1) != export.get("commit_version", 1):
             failures.append("la reserva o la versión del compromiso de la exportación no coinciden con las registradas al comprometer")
-    failures += verify_spins(entries, batch_id, reserve_export)
+    snapshot = None
+    if reserve_export and committed is not None:
+        snapshot = {p["prize_id"]: p.get("spins", 0) for p in committed.get("prizes", []) if isinstance(p, dict)}
+    failures += verify_spins(entries, batch_id, reserve_export, snapshot)
 
     if anchor is not None:
         try:

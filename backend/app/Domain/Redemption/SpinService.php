@@ -75,7 +75,7 @@ final class SpinService
             'SELECT b.id AS batch_id, b.state, b.total_codes, b.reserve_size, b.campaign_id,
                     (b.redeemable_until IS NOT NULL AND b.redeemable_until <= clock_timestamp()) AS window_closed,
                     ca.name AS campaign_name, ca.game_type, ca.used_code_behavior, ca.title, ca.theme::text AS theme, ca.game_config::text AS game_config
-             FROM batches b JOIN campaigns ca ON ca.id = b.campaign_id WHERE b.id = ? FOR SHARE', [$parent->batch_id]);
+             FROM batches b JOIN campaigns ca ON ca.id = b.campaign_id WHERE b.id = ? FOR SHARE OF b', [$parent->batch_id]);
         // Los giros pendientes caducan al cerrar el lote o vencer su ventana (decisión de Luis, H6).
         if ($batch === null || $batch->state !== 'active' || $batch->window_closed) {
             throw new RedeemFailure(RedeemFailure::EXPIRED);

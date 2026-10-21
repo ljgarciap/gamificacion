@@ -172,6 +172,28 @@ final class ReserveSchemaTest extends DbTestCase
         $this->draft(1);
     }
 
+    public function test_un_premio_de_giro_extra_con_numero_de_giros_invalido_guardado_antes_se_rechaza_al_crear_el_lote(): void
+    {
+        // Datos viejos o escritos sin pasar por la API: -40 giros compensaban 50 y la cuenta de la reserva «pasaba».
+        DB::table('prizes')->where('campaign_id', $this->campaign)->where('prize_id', 'extra')->update(['meta' => json_encode(['extra_spins' => -40])]);
+        $this->expectException(InvalidBatch::class);
+        $this->expectExceptionMessage('número válido de giros');
+        $this->draft(3);
+    }
+
+    public function test_con_reserva_la_foto_de_los_premios_trae_los_giros_y_sin_reserva_no(): void
+    {
+        $with = $this->committed(3);
+        $snapshot = fn (string $batch) => json_decode((string) DB::table('audit_log')->where('action', 'batch.committed')->where('subject_id', $batch)->value('data'), true)['prizes'];
+        $extra = collect($snapshot($with))->firstWhere('prize_id', 'extra');
+        $this->assertSame(1, $extra['spins']);
+        $this->assertArrayNotHasKey('spins', collect($snapshot($with))->firstWhere('prize_id', 'none'));
+
+        // Sin reserva (lote de siempre) la bitácora es la de siempre: ni `spins` en la foto ni `spins_granted` al canjear.
+        $plain = $this->committed(0);
+        $this->assertArrayNotHasKey('spins', collect($snapshot($plain))->firstWhere('prize_id', 'extra'));
+    }
+
     public function test_la_reserva_debe_dejar_al_menos_un_codigo(): void
     {
         foreach ([-1, 11, 12] as $bad) {

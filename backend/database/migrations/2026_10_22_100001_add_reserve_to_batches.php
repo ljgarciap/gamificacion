@@ -226,6 +226,10 @@ return new class extends Migration
         SQL);
     }
 
+    /**
+     * Deshacer es posible solo mientras no exista ninguna redención hija (`code_id` vuelve a ser obligatorio). Restaura el trigger original
+     * de las redenciones.
+     */
     public function down(): void
     {
         DB::unprepared(<<<'SQL'
@@ -237,11 +241,32 @@ return new class extends Migration
             DROP CONSTRAINT IF EXISTS redemptions_one_source,
             DROP COLUMN IF EXISTS spins_granted, DROP COLUMN IF EXISTS spin_no,
             DROP COLUMN IF EXISTS parent_redemption_id, DROP COLUMN IF EXISTS reserve_idx;
+        ALTER TABLE redemptions ALTER COLUMN code_id SET NOT NULL;
         DROP TABLE IF EXISTS reserve_cursors;
         DROP TABLE IF EXISTS reserve_slots;
         DROP FUNCTION IF EXISTS reserve_cursors_guard();
         DROP FUNCTION IF EXISTS reserve_slots_guard();
         ALTER TABLE batches DROP COLUMN IF EXISTS reserve_size;
+        SQL);
+
+        DB::unprepared(<<<'SQL'
+        CREATE OR REPLACE FUNCTION redemptions_guard() RETURNS trigger LANGUAGE plpgsql AS $fn$
+        DECLARE
+            c_user text;
+            c_batch uuid;
+            c_redeemed timestamptz;
+        BEGIN
+            IF TG_OP <> 'INSERT' THEN
+                RAISE EXCEPTION 'las redenciones son inmutables (% bloqueado)', TG_OP USING ERRCODE = '23000';
+            END IF;
+
+            SELECT redeemed_by, batch_id, redeemed_at INTO c_user, c_batch, c_redeemed FROM codes WHERE id = NEW.code_id;
+            IF c_redeemed IS NULL OR c_user IS DISTINCT FROM NEW.user_id OR c_batch IS DISTINCT FROM NEW.batch_id THEN
+                RAISE EXCEPTION 'la redención no corresponde al código reclamado por ese usuario' USING ERRCODE = '23000';
+            END IF;
+            RETURN NEW;
+        END;
+        $fn$;
         SQL);
     }
 };
