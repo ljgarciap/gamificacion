@@ -87,6 +87,8 @@ final class Settings
             throw new \InvalidArgumentException("El valor debe estar entre {$def['min']} y {$def['max']}.");
         }
 
+        $this->assertConsistent($key, $value);
+
         DB::transaction(function () use ($key, $value, $actor): void {
             $old = DB::selectOne('SELECT value::text AS v FROM settings WHERE key = ? FOR UPDATE', [$key]);
             $oldValue = $old === null ? null : json_decode($old->v);
@@ -100,6 +102,22 @@ final class Settings
             $this->audit->append($actor, 'settings.changed', 'setting', $key, ['old' => $oldValue, 'new' => $value]);
         });
         Cache::forget(self::CACHE_KEY);
+    }
+
+    /** El bloqueo/espera inicial (`*_base_seconds`) no puede superar al máximo (`*_max_seconds`) del mismo grupo. */
+    private function assertConsistent(string $key, int $value): void
+    {
+        if (str_ends_with($key, '_base_seconds')) {
+            $other = substr($key, 0, -strlen('_base_seconds')).'_max_seconds';
+            if (SettingsRegistry::get($other) !== null && $value > $this->get($other)) {
+                throw new \InvalidArgumentException('El valor inicial no puede superar al máximo ('.$this->get($other).').');
+            }
+        } elseif (str_ends_with($key, '_max_seconds')) {
+            $other = substr($key, 0, -strlen('_max_seconds')).'_base_seconds';
+            if (SettingsRegistry::get($other) !== null && $value < $this->get($other)) {
+                throw new \InvalidArgumentException('El máximo no puede ser menor que el valor inicial ('.$this->get($other).').');
+            }
+        }
     }
 
     /** @return list<array<string, mixed>> */

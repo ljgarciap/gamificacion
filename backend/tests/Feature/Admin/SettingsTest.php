@@ -144,4 +144,20 @@ final class SettingsTest extends AdminTestCase
         $this->assertSame(7, Settings::group('redeem.user')['max_failures']);
         $this->assertSame(600, Settings::group('redeem.user')['window_seconds'], 'lo no sobrescrito queda como en config');
     }
+
+    public function test_el_valor_inicial_no_puede_superar_al_maximo_del_grupo(): void
+    {
+        $settings = new Settings;
+        $settings->set('outbox.backoff_max_seconds', 100, 'cli');
+        $this->expectException(\InvalidArgumentException::class);
+        $settings->set('outbox.backoff_base_seconds', 101, 'cli');
+    }
+
+    public function test_el_maximo_no_puede_quedar_bajo_el_valor_inicial(): void
+    {
+        $settings = new Settings;
+        $settings->set('outbox.backoff_base_seconds', 500, 'cli');
+        $this->expectException(\InvalidArgumentException::class);
+        $settings->set('outbox.backoff_max_seconds', 499, 'cli');
+    }
 }
