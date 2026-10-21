@@ -66,7 +66,7 @@ class AppServiceProvider extends ServiceProvider
             /** @var HostUser|null $user */
             $user = $request->attributes->get('gamification_user');
 
-            return Limit::perMinute((int) config('gamification.redeem.requests_per_minute'))->by($user?->id() ?? 'ip:'.$request->ip());
+            return Limit::perMinute(\App\Domain\Settings\Settings::int('redeem.requests_per_minute'))->by($user?->id() ?? 'ip:'.$request->ip());
         });
     }
 }

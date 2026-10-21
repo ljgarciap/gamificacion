@@ -15,6 +15,7 @@ final class AdminPermissionsTest extends TestCase
         $matrix = [
             P::ACCOUNT_SELF => [P::SUPERADMIN => true, P::OPERATOR => true, P::AUDITOR => true],
             P::USERS_MANAGE => [P::SUPERADMIN => true, P::OPERATOR => false, P::AUDITOR => false],
+            P::SETTINGS_MANAGE => [P::SUPERADMIN => true, P::OPERATOR => false, P::AUDITOR => false],
         ];
         foreach ($matrix as $permission => $byRole) {
             foreach ($byRole as $role => $allowed) {

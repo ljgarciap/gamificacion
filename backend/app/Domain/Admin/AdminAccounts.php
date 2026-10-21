@@ -3,6 +3,7 @@
 namespace App\Domain\Admin;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Settings\Settings;
 use App\Domain\Crypto\Secrets;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -110,7 +111,7 @@ final class AdminAccounts
     /** Cuenta un fallo (contraseña o segundo factor) y, al llegar al máximo, bloquea con espera creciente. */
     public function recordFailure(object $user, ?string $ip, string $factor): void
     {
-        $cfg = (array) config('gamification.admin.login');
+        $cfg = Settings::group('admin.login');
         DB::transaction(function () use ($user, $ip, $factor, $cfg): void {
             $row = DB::selectOne('SELECT failed_attempts FROM admin_users WHERE id = ? FOR UPDATE', [$user->id]);
             $failures = (int) $row->failed_attempts + 1;
@@ -200,7 +201,7 @@ final class AdminAccounts
             return null;
         }
         $secret = $this->box->open(hex2bin($fresh->totp_secret_hex), $this->context((int) $user->id));
-        $step = Totp::verify($secret, $code, $now, null, (int) config('gamification.admin.totp_window'));
+        $step = Totp::verify($secret, $code, $now, null, Settings::int('admin.totp_window'));
         if ($step === null) {
             return null;
         }
@@ -237,7 +238,7 @@ final class AdminAccounts
         $code = trim($code);
         if (preg_match('/^\d{6}$/', $code) === 1) {
             $secret = $this->box->open(hex2bin($fresh->totp_secret_hex), $this->context((int) $user->id));
-            $step = Totp::verify($secret, $code, $now, $fresh->totp_last_step === null ? null : (int) $fresh->totp_last_step, (int) config('gamification.admin.totp_window'));
+            $step = Totp::verify($secret, $code, $now, $fresh->totp_last_step === null ? null : (int) $fresh->totp_last_step, Settings::int('admin.totp_window'));
             // Atómico: dos peticiones con el mismo código a la vez → solo una cambia la fila.
             if ($step !== null && DB::update('UPDATE admin_users SET totp_last_step = ? WHERE id = ? AND (totp_last_step IS NULL OR totp_last_step < ?)', [$step, $user->id, $step]) === 1) {
                 return;

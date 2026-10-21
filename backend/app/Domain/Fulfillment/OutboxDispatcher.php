@@ -16,9 +16,9 @@ final class OutboxDispatcher
     /** @return array{sent: int, retry: int, failed: int} */
     public function dispatchDue(int $limit = 100): array
     {
-        $max = (int) config('gamification.outbox.max_attempts');
-        $base = (int) config('gamification.outbox.backoff_base_seconds');
-        $cap = (int) config('gamification.outbox.backoff_max_seconds');
+        $max = \App\Domain\Settings\Settings::int('outbox.max_attempts');
+        $base = \App\Domain\Settings\Settings::int('outbox.backoff_base_seconds');
+        $cap = \App\Domain\Settings\Settings::int('outbox.backoff_max_seconds');
         $stats = ['sent' => 0, 'retry' => 0, 'failed' => 0];
 
         DB::transaction(function () use ($limit, $max, $base, $cap, &$stats): void {

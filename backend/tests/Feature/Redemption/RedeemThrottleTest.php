@@ -6,9 +6,9 @@ use App\Domain\Redemption\RedeemFailure;
 use App\Domain\Redemption\RedeemThrottle;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Tests\TestCase;
+use Tests\DbTestCase;
 
-final class RedeemThrottleTest extends TestCase
+final class RedeemThrottleTest extends DbTestCase
 {
     private RedeemThrottle $t;
 

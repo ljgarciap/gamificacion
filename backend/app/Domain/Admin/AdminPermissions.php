@@ -21,9 +21,11 @@ final class AdminPermissions
 
     public const USERS_MANAGE = 'users.manage';
 
+    public const SETTINGS_MANAGE = 'settings.manage';
+
     /** @var array<string, list<string>> */
     private const MATRIX = [
-        self::SUPERADMIN => [self::ACCOUNT_SELF, self::USERS_MANAGE],
+        self::SUPERADMIN => [self::ACCOUNT_SELF, self::USERS_MANAGE, self::SETTINGS_MANAGE],
         self::OPERATOR => [self::ACCOUNT_SELF],
         self::AUDITOR => [self::ACCOUNT_SELF],
     ];

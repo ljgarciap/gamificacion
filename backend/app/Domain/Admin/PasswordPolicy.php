@@ -2,6 +2,7 @@
 
 namespace App\Domain\Admin;
 
+use App\Domain\Settings\Settings;
 /**
  * Política de contraseñas del panel. Sin llamadas a servicios externos: una lista embebida de contraseñas comunes y reglas simples.
  * Máximo 72 BYTES: bcrypt ignora en silencio lo que pase de ahí, y una contraseña "más larga" que en realidad no lo es engaña a quien la elige.
@@ -23,7 +24,7 @@ final class PasswordPolicy
     public static function errors(string $password, string $email): array
     {
         $errors = [];
-        $min = (int) config('gamification.admin.password_min_length');
+        $min = Settings::int('admin.password_min_length');
         if (mb_strlen($password) < $min) {
             $errors[] = "Debe tener al menos {$min} caracteres.";
         }

@@ -39,6 +39,16 @@ Mientras no termina, la sesión está **pendiente** (caduca a los 10 min) y no d
 
 Errores: `422 validationFailed`, `404 notFound`, `409 lastSuperadmin` (la base impide dejar el sistema sin un superadmin activo).
 
+## Parámetros (solo `superadmin`, permiso `settings.manage`)
+| Ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `GET /settings` | — | `{settings: [{key, label, unit, min, max, security, default, value, overridden, updatedBy, updatedAt}]}` |
+| `PUT /settings/{key}` | `{value}` (entero dentro de `min`–`max`) | `204` |
+| `GET /settings/{key}/history` | — | `{history: [{id, old, new, actor, changedAt}]}` (más reciente primero) |
+
+Cada clave es la ruta de `config/gamification.php` y se declara en `SettingsRegistry` con **mínimo y máximo duros** (nunca 0 intentos, token de ≤ 1 h, contraseña de ≥ 12). Sin fila vale el default de config; un valor guardado fuera de rango se ignora (se usa el default y se registra). Lectura con caché de 60 s: un cambio aplica en menos de 1 minuto. El historial es de solo agregar (trigger) y cada cambio va a la bitácora.
+Errores: `422 validationFailed` (tipo o rango), `404 notFound`, `409 approvalRequired`: los parámetros de seguridad (`security: true`) exigen control dual (RF-43) y **no se pueden cambiar por esta ruta hasta que exista el control dual (P3)**.
+
 ## Primer superadmin
 Solo por consola (no hay usuarios por defecto ni ruta de registro):
 ```

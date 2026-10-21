@@ -3,9 +3,9 @@
 namespace Tests\Unit\Admin;
 
 use App\Domain\Admin\PasswordPolicy;
-use Tests\TestCase;
+use Tests\DbTestCase;
 
-final class PasswordPolicyTest extends TestCase
+final class PasswordPolicyTest extends DbTestCase
 {
     private function errors(string $password, string $email = 'ana.lopez@ejemplo.com'): array
     {

@@ -34,7 +34,7 @@ final class RedeemThrottle
     public function recordFailure(string $userId, ?string $ip): void
     {
         foreach ($this->scopes($userId, $ip) as [$scope, $id]) {
-            $cfg = (array) config("gamification.redeem.$scope");
+            $cfg = \App\Domain\Settings\Settings::group("redeem.$scope");
             $failKey = $this->key('fail', $scope, $id);
 
             Cache::add($failKey, 0, (int) $cfg['window_seconds']);

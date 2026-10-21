@@ -8,9 +8,9 @@ use App\Domain\Auth\TokenInvalid;
 use Firebase\JWT\JWT;
 use Illuminate\Support\Carbon;
 use Tests\Support\HostTokens;
-use Tests\TestCase;
+use Tests\DbTestCase;
 
-final class HostTokenVerifierTest extends TestCase
+final class HostTokenVerifierTest extends DbTestCase
 {
     private function verifier(): HostTokenVerifier
     {

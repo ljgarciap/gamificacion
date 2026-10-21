@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Domain\Admin\AdminPermissions;
 use Illuminate\Support\Facades\Route;
@@ -27,4 +28,10 @@ Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::USERS_MANAGE])->
     Route::patch('/users/{id}', [UserController::class, 'update'])->whereNumber('id');
     Route::post('/users/{id}/reset-mfa', [UserController::class, 'resetMfa'])->whereNumber('id');
     Route::post('/users/{id}/reset-password', [UserController::class, 'resetPassword'])->whereNumber('id');
+});
+
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::SETTINGS_MANAGE])->group(function (): void {
+    Route::get('/settings', [SettingsController::class, 'index']);
+    Route::get('/settings/{key}/history', [SettingsController::class, 'history'])->where('key', '[a-z0-9_.]+');
+    Route::put('/settings/{key}', [SettingsController::class, 'update'])->where('key', '[a-z0-9_.]+');
 });

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Admin;
 
+use App\Domain\Settings\Settings;
 use App\Domain\Redemption\RedeemFailure;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -30,7 +31,7 @@ final class LoginThrottle
         if ($ip === null || $ip === '') {
             return;
         }
-        $cfg = (array) config('gamification.admin.login');
+        $cfg = Settings::group('admin.login');
         $failKey = $this->key('fail', $ip);
         Cache::add($failKey, 0, (int) $cfg['ip_window_seconds']);
         if ((int) Cache::increment($failKey) >= (int) $cfg['ip_max_failures']) {

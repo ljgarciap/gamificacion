@@ -185,7 +185,7 @@ final class AuthController
     private function pendingUser(Request $request, array $stages): ?object
     {
         $pending = $request->session()->get('admin.pending');
-        if (! is_array($pending) || Carbon::now()->getTimestamp() - (int) ($pending['at'] ?? 0) > (int) config('gamification.admin.pending_ttl_seconds')) {
+        if (! is_array($pending) || Carbon::now()->getTimestamp() - (int) ($pending['at'] ?? 0) > \App\Domain\Settings\Settings::int('admin.pending_ttl_seconds')) {
             $request->session()->forget('admin.pending');
 
             return null;

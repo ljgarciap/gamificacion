@@ -33,8 +33,8 @@ final class HostTokenVerifier
         return new self(
             (array) config('gamification.hosts'),
             (string) config('gamification.token.audience'),
-            (int) config('gamification.token.max_lifetime_seconds'),
-            (int) config('gamification.token.leeway_seconds'),
+            \App\Domain\Settings\Settings::int('token.max_lifetime_seconds'),
+            \App\Domain\Settings\Settings::int('token.leeway_seconds'),
         );
     }
 

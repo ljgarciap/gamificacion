@@ -24,7 +24,7 @@ final class AdminAuthenticate
         $id = $guard->id();
         $verifiedAt = $request->session()->get('admin.mfa_verified_at');
         $loginAt = (int) $request->session()->get('admin.login_at', 0);
-        $maxAge = (int) config('gamification.admin.session_absolute_hours') * 3600;
+        $maxAge = \App\Domain\Settings\Settings::int('admin.session_absolute_hours') * 3600;
 
         $user = $id === null ? null : $this->accounts->find((int) $id);
         if ($user === null || $verifiedAt === null || ! $user->active || $user->must_change_password
