@@ -27,6 +27,8 @@ return [
     'host_ports' => array_filter(array_map('intval', explode(',', (string) env('GAMIF_HOST_PORTS', '')))),
     // Llamadas salientes a la app host (SPEC-003 P5b). `fulfillment`/`balance`: `stub` (desarrollo) o `http` (host real o simulador).
     'host' => [
+        // Permite http y redes privadas en las URL de host (simulador). Solo cuenta si además APP_ENV=local.
+        'allow_local' => (bool) env('GAMIF_HOST_ALLOW_LOCAL', false),
         'fulfillment' => env('GAMIF_FULFILLMENT', 'stub'),
         'balance' => env('GAMIF_BALANCE', 'stub'),
         'timeout_seconds' => 5,

@@ -38,7 +38,8 @@ final class HostUrlGuard
 
     public static function fromConfig(): self
     {
-        return new self(app()->environment('local'), array_map('intval', (array) config('gamification.host_ports', [])));
+        // Relajar la defensa exige las DOS cosas: entorno `local` y el interruptor explícito (un APP_ENV=local olvidado en producción no basta).
+        return new self(app()->environment('local') && (bool) config('gamification.host.allow_local'), array_map('intval', (array) config('gamification.host_ports', [])));
     }
 
     /**

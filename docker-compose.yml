@@ -104,7 +104,7 @@ services:
 
   # --- Host simulador (SPEC-003 RF-53): SOLO desarrollo. Implementa docs/contrato-host.md con una billetera de juguete. ---
   #   docker compose up -d host-sim        -> http://localhost:8095  (estado: GET /__sim/state; fallos: POST /__sim/mode)
-  #   En el backend (APP_ENV=local): GAMIF_FULFILLMENT=http GAMIF_BALANCE=http y registrar el host en el panel con
+  #   En el backend (APP_ENV=local y GAMIF_HOST_ALLOW_LOCAL=true): GAMIF_FULFILLMENT=http GAMIF_BALANCE=http y registrar el host en el panel con
   #   callbackUrl http://host-sim:8095/callback y balanceUrl http://host-sim:8095/balance (http solo se admite en `local`).
   host-sim:
     image: php:8.3-cli-alpine

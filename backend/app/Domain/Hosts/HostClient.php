@@ -37,7 +37,7 @@ final class HostClient
         $this->handler = $handler !== null ? Closure::fromCallable($handler) : null;
     }
 
-    /** @return array{status: int, body: string, host: object} */
+    /** @return array{status: int, body: string, host: object, timestamp: ?string, signature: ?string} */
     public function post(string $userId, string $eventId, string $json): array
     {
         $host = $this->hostFor($userId);
@@ -45,7 +45,7 @@ final class HostClient
         return $this->send($host, 'POST', $host->callback_url, $json, $eventId);
     }
 
-    /** @return array{status: int, body: string, host: object} */
+    /** @return array{status: int, body: string, host: object, timestamp: ?string, signature: ?string} */
     public function get(string $userId, string $subject): array
     {
         $host = $this->hostFor($userId);
@@ -75,7 +75,7 @@ final class HostClient
 
     // --- Internos --------------------------------------------------------------------------------------------------
 
-    private function hostFor(string $userId): object
+    public function hostFor(string $userId): object
     {
         $best = null;
         foreach (DB::select('SELECT id, issuer, callback_url, balance_url, active FROM hosts WHERE active') as $h) {
@@ -87,7 +87,7 @@ final class HostClient
         return $best ?? throw new HostUnavailable('no hay un host activo registrado para este usuario');
     }
 
-    /** @return array{status: int, body: string, host: object} */
+    /** @return array{status: int, body: string, host: object, timestamp: ?string, signature: ?string} */
     private function send(object $host, string $method, string $url, string $payload, string $eventId): array
     {
         try {
@@ -95,6 +95,12 @@ final class HostClient
         } catch (HostUrlRejected $e) {
             throw new HostUnavailable('la URL del host ya no es segura: '.$e->getMessage());
         }
+        // La petición se hace a la URL RECONSTRUIDA con el nombre ya normalizado (minúsculas, sin punto final): cURL busca la entrada fijada por
+        // ESE nombre; con `Host.Example.com.` no la encontraría y resolvería el DNS por su cuenta (se saltaría la fijación de IP).
+        $parts = parse_url($url);
+        $url = $target['scheme'].'://'.(str_contains($target['host'], ':') ? '['.$target['host'].']' : $target['host'])
+            .(isset($parts['port']) ? ':'.$parts['port'] : '').($parts['path'] ?? '/').(isset($parts['query']) ? '?'.$parts['query'] : '');
+        $pinned = str_contains($target['ips'][0], ':') ? '['.$target['ips'][0].']' : $target['ips'][0];
         $secret = $this->hosts->secretsFor((int) $host->id)['current'];
         $ts = (string) Carbon::now()->getTimestamp();
         // POST firma el cuerpo; GET (sin cuerpo) firma el destino (ruta y consulta), para que la consulta tampoco se pueda cambiar.
@@ -115,7 +121,7 @@ final class HostClient
             },
             'verify' => true,
             'protocols' => [$target['scheme']], // solo el esquema validado, también si hubiera una redirección
-            'curl' => [CURLOPT_RESOLVE => [$target['host'].':'.$target['port'].':'.$target['ips'][0]]],
+            'curl' => [CURLOPT_RESOLVE => [$target['host'].':'.$target['port'].':'.$pinned]],
         ];
         $headers = [
             'Accept' => 'application/json', 'User-Agent' => 'gamification-callback/1',
@@ -140,6 +146,11 @@ final class HostClient
             throw new HostUnavailable('la respuesta del host excede el tope de '.self::MAX_BODY.' bytes');
         }
 
-        return ['status' => $response->getStatusCode(), 'body' => $body, 'host' => $host] + ['headers' => $response->getHeaders()];
+        // getHeaderLine no distingue mayúsculas: un host HTTP/2 manda las cabeceras en minúscula.
+        return [
+            'status' => $response->getStatusCode(), 'body' => $body, 'host' => $host,
+            'timestamp' => $response->hasHeader('X-Gamif-Timestamp') ? $response->getHeaderLine('X-Gamif-Timestamp') : null,
+            'signature' => $response->hasHeader('X-Gamif-Signature') ? $response->getHeaderLine('X-Gamif-Signature') : null,
+        ];
     }
 }

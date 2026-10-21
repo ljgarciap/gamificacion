@@ -58,6 +58,6 @@ Verificamos la URL contra SSRF **en cada llamada** y conectamos a la IP validada
 ## 5. Probar con el simulador
 ```
 docker compose up -d host-sim                       # http://localhost:8095
-docker compose run --rm -e APP_ENV=local -v "$PWD/backend/scripts:/scripts" backend php /scripts/e2e_host_sim.php
+docker compose run --rm -e APP_ENV=local -e GAMIF_HOST_ALLOW_LOCAL=true -v "$PWD/backend/scripts:/scripts" backend php /scripts/e2e_host_sim.php
 ```
-`POST /__sim/mode {"mode": "slow|http500|http403|http404|badsig|unsigned|oldts|bigbody", "count": N}` hace fallar las próximas N respuestas; `GET /__sim/state` muestra billetera, eventos (con duplicados) y rechazos de firma. El simulador usa `http` y una red privada: **solo funciona con `APP_ENV=local`**.
+`POST /__sim/mode {"mode": "slow|http500|http403|http404|badsig|unsigned|oldts|bigbody", "count": N}` hace fallar las próximas N respuestas; `GET /__sim/state` muestra billetera, eventos (con duplicados) y rechazos de firma. El simulador usa `http` y una red privada: **solo funciona con `APP_ENV=local` y `GAMIF_HOST_ALLOW_LOCAL=true`** (las dos a la vez: un `APP_ENV=local` olvidado en producción no relaja la defensa SSRF).

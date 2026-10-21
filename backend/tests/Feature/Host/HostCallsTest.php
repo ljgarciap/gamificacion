@@ -466,4 +466,59 @@ final class HostCallsTest extends DbTestCase
         $this->assertArrayNotHasKey('amount', $r->json());
         $this->assertSame('5', $r->headers->get('Retry-After'));
     }
+
+    public function test_las_cabeceras_de_la_respuesta_se_leen_sin_distinguir_mayusculas(): void
+    {
+        // Un host HTTP/2 manda las cabeceras en minúscula: leerlas por el nombre exacto haría fallar TODO saldo real.
+        $body = json_encode(['balance' => 77]);
+        $ts = (string) Carbon::now()->getTimestamp();
+        $this->reply = fn () => new Response(200, ['x-gamif-timestamp' => $ts, 'x-gamif-signature' => $this->signed($this->secret, $ts, $body)], $body);
+        $this->assertSame(77, (new HttpBalanceProvider($this->client()))->balanceFor(self::USER));
+    }
+
+    public function test_la_peticion_usa_el_nombre_validado_para_que_la_ip_fijada_aplique(): void
+    {
+        // cURL busca la entrada fijada por el nombre EXACTO de la URL: con mayúsculas o punto final no la encontraría y resolvería por su cuenta.
+        DB::update("UPDATE hosts SET callback_url = 'https://Host.Example.COM.:443/Gamif/CB?x=1' WHERE id = ?", [$this->hostId]);
+        (new HttpPrizeFulfillment($this->client()))->deliver($this->payload());
+        $uri = $this->seen[0]['request']->getUri();
+        $this->assertSame(['host.example.com', '/Gamif/CB', 'x=1'], [$uri->getHost(), $uri->getPath(), $uri->getQuery()]);
+        $this->assertSame(['host.example.com:443:8.8.8.8'], $this->seen[0]['options']['curl'][CURLOPT_RESOLVE]);
+    }
+
+    public function test_una_ip_v6_fijada_va_entre_corchetes(): void
+    {
+        $client = $this->client($this->guard(['host.example.com' => ['2606:4700:4700::1111']]));
+        (new HttpPrizeFulfillment($client))->deliver($this->payload());
+        $this->assertSame(['host.example.com:443:[2606:4700:4700::1111]'], $this->seen[0]['options']['curl'][CURLOPT_RESOLVE]);
+    }
+
+    public function test_el_interruptor_es_por_host_aunque_los_emisores_compartan_prefijo(): void
+    {
+        (new HostService(new AuditLog, new SecretBox, $this->guard()))->create(['issuer' => 'superapp:eu', 'callbackUrl' => 'https://otro.example.com/cb', 'balanceUrl' => 'https://otro.example.com/b'], 't');
+        DB::table('settings')->insert([['key' => 'host.breaker_failures', 'value' => '1', 'updated_by' => 't', 'updated_at' => now()]]);
+        Cache::flush();
+        $p = new HttpBalanceProvider($this->client());
+        $this->reply = fn () => new Response(503);
+        try {
+            $p->balanceFor('superapp:eu:u-1');
+        } catch (HostUnavailable) {
+        }
+        // `superapp:eu` quedó cortado; `superapp` (otro host) sigue llamándose.
+        $this->seen = [];
+        $this->balanceReply(9);
+        $this->assertSame(9, $p->balanceFor(self::USER));
+        $this->assertCount(1, $this->seen);
+    }
+
+    public function test_relajar_el_guard_exige_local_y_el_interruptor_explicito(): void
+    {
+        $this->app['env'] = 'local';
+        config(['gamification.host.allow_local' => false]);
+        $this->assertFalse((fn () => $this->allowLocal)->call(HostUrlGuard::fromConfig()), 'APP_ENV=local solo no basta');
+        config(['gamification.host.allow_local' => true]);
+        $this->assertTrue((fn () => $this->allowLocal)->call(HostUrlGuard::fromConfig()));
+        $this->app['env'] = 'production';
+        $this->assertFalse((fn () => $this->allowLocal)->call(HostUrlGuard::fromConfig()), 'el interruptor solo tampoco');
+    }
 }

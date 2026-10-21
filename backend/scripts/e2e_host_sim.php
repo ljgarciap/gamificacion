@@ -3,7 +3,7 @@
 // saldo firmado y los modos de fallo del simulador. Necesita `docker compose up -d host-sim` y APP_ENV=local (el simulador está en una red
 // privada y habla http: el guard SSRF solo lo admite en local). Todo lo de la base va dentro de una transacción que se revierte.
 //
-//   docker compose run --rm -e APP_ENV=local -v "$PWD/backend/scripts:/scripts" backend php /scripts/e2e_host_sim.php
+//   docker compose run --rm -e APP_ENV=local -e GAMIF_HOST_ALLOW_LOCAL=true -v "$PWD/backend/scripts:/scripts" backend php /scripts/e2e_host_sim.php
 
 use App\Domain\Admin\SecretBox;
 use App\Domain\Audit\AuditLog;

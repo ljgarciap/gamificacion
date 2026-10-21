@@ -22,13 +22,17 @@ final class OutboxDispatcher
         $cap = Settings::int('outbox.backoff_max_seconds');
         $stats = ['sent' => 0, 'retry' => 0, 'failed' => 0];
 
-        DB::transaction(function () use ($limit, $max, $base, $cap, &$stats): void {
-            $rows = DB::select(
-                "SELECT id, payload::text AS payload, attempts FROM prize_outbox
-                 WHERE status = 'pending' AND next_attempt_at <= now()
-                 ORDER BY next_attempt_at, id LIMIT ? FOR UPDATE SKIP LOCKED", [$limit]);
-
-            foreach ($rows as $row) {
+        // UNA transacción por aviso (no una para todo el lote): entregar puede tardar hasta el tiempo máximo de la llamada al host, y mantener
+        // abiertos los bloqueos de 100 avisos mientras un host lento responde frenaría hasta el reintento manual del panel.
+        for ($i = 0; $i < $limit; $i++) {
+            $took = DB::transaction(function () use ($max, $base, $cap, &$stats): bool {
+                $row = DB::selectOne(
+                    "SELECT id, payload::text AS payload, attempts FROM prize_outbox
+                     WHERE status = 'pending' AND next_attempt_at <= now()
+                     ORDER BY next_attempt_at, id LIMIT 1 FOR UPDATE SKIP LOCKED");
+                if ($row === null) {
+                    return false;
+                }
                 $attempts = (int) $row->attempts + 1;
                 try {
                     $this->fulfillment->deliver(json_decode($row->payload, true, 512, JSON_THROW_ON_ERROR));
@@ -48,8 +52,13 @@ final class OutboxDispatcher
                         $stats['retry']++;
                     }
                 }
+
+                return true;
+            });
+            if (! $took) {
+                break;
             }
-        });
+        }
 
         return $stats;
     }

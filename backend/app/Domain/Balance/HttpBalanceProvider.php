@@ -20,7 +20,8 @@ final class HttpBalanceProvider implements BalanceProvider
 
     public function balanceFor(string $userId): int
     {
-        $breaker = 'gamif:host:breaker:'.strtok($userId, ':');
+        // Por host (id), no por el primer trozo del emisor: dos emisores con `:` (p. ej. `app` y `app:eu`) no comparten interruptor.
+        $breaker = 'gamif:host:breaker:'.$this->client->hostFor($userId)->id;
         if ((int) Cache::get($breaker.':open_until', 0) > time()) {
             throw new HostUnavailable('el host está temporalmente cortado tras fallos seguidos');
         }
@@ -31,8 +32,7 @@ final class HttpBalanceProvider implements BalanceProvider
             if ($r['status'] !== 200) {
                 throw new HostUnavailable("el host respondió HTTP {$r['status']}");
             }
-            $h = $r['headers'];
-            if (! $this->client->verifyResponse($r['host'], $r['body'], $h['X-Gamif-Timestamp'][0] ?? null, $h['X-Gamif-Signature'][0] ?? null)) {
+            if (! $this->client->verifyResponse($r['host'], $r['body'], $r['timestamp'], $r['signature'])) {
                 throw new HostUnavailable('la respuesta del host no trae una firma válida');
             }
             $data = json_decode($r['body'], true);
