@@ -27,6 +27,6 @@ abstract class DbTestCase extends TestCase
 
             return;
         }
-        $this->fail("La base de datos debía rechazar la operación (esperaba: «$fragment»).");
+        $this->fail("La base de datos debía rechazar la operación (esperaba: «{$fragment}»).");
     }
 }

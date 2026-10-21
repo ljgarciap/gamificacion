@@ -37,6 +37,7 @@ final class SettingsRegistry
             'admin.login.ip_lockout_seconds' => $d('Bloqueo por IP', 's', 60, 86400, true),
             'admin.pending_ttl_seconds' => $d('Tiempo entre contraseña y segundo factor', 's', 60, 1800, true),
             'admin.session_absolute_hours' => $d('Duración máxima de la sesión del panel', 'h', 1, 24, true),
+            'admin.approval_ttl_hours' => $d('Caducidad de una solicitud de control dual', 'h', 1, 168, true),
             'admin.totp_window' => $d('Ventana de tolerancia del código TOTP', 'pasos', 0, 1, true),
         ];
 

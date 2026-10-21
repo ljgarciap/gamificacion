@@ -9,7 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/** Parámetros administrables (solo superadmin). Los de seguridad exigirán control dual (P3); mientras no exista, no se cambian por aquí. */
+/** Parámetros administrables (solo superadmin). Los de seguridad no se cambian por aquí: pasan por el control dual (`POST /approvals`, acción `setting.change`). */
 final class SettingsController
 {
     public function __construct(private readonly Settings $settings) {}
@@ -35,7 +35,7 @@ final class SettingsController
             return ApiError::response('notFound', 'Parámetro desconocido.', 404);
         }
         if ($def['security']) {
-            return ApiError::response('approvalRequired', 'Este parámetro es de seguridad y exige aprobación de un segundo usuario.', 409);
+            return ApiError::response('approvalRequired', 'Este parámetro es de seguridad y exige aprobación de un segundo usuario: solicítalo en /approvals (setting.change).', 409);
         }
         try {
             $this->settings->set($key, $request->input('value'), 'admin:'.$request->attributes->get('admin_user')->id);

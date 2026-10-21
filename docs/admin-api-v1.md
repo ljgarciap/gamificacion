@@ -47,7 +47,19 @@ Errores: `422 validationFailed`, `404 notFound`, `409 lastSuperadmin` (la base i
 | `GET /settings/{key}/history` | — | `{history: [{id, old, new, actor, changedAt}]}` (más reciente primero) |
 
 Cada clave es la ruta de `config/gamification.php` y se declara en `SettingsRegistry` con **mínimo y máximo duros** (nunca 0 intentos, token de ≤ 1 h, contraseña de ≥ 12). Sin fila vale el default de config; un valor guardado fuera de rango se ignora (se usa el default y se registra). Lectura con caché de 60 s: un cambio aplica en menos de 1 minuto. El historial es de solo agregar (trigger) y cada cambio va a la bitácora.
-Errores: `422 validationFailed` (tipo o rango), `404 notFound`, `409 approvalRequired`: los parámetros de seguridad (`security: true`) exigen control dual (RF-43) y **no se pueden cambiar por esta ruta hasta que exista el control dual (P3)**.
+Errores: `422 validationFailed` (tipo o rango), `404 notFound`, `409 approvalRequired`: los parámetros de seguridad (`security: true`) exigen control dual (RF-43) y **no se cambian por esta ruta**: se piden con `POST /approvals` (acción `setting.change`).
+
+## Control dual (permisos `approvals.view|request|approve`)
+Flujo: **solicitar → otro usuario aprueba con un código TOTP nuevo → el solicitante ejecuta (una sola vez)**. Se ejecutan siempre los `params` guardados al solicitar (inmutables); caducan (`admin.approval_ttl_hours`, 24 h por defecto) y se comprueba al aprobar **y** al ejecutar.
+| Ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `GET /approvals` (todos los roles) | — | `{approvals: [{id, action, subjectType, subjectId, params, status, requestedBy, approvedBy, requestedAt, expiresAt, approvedAt, executedAt}], fewApprovers}` — `fewApprovers: true` = menos de 2 personas pueden aprobar (RF-45) |
+| `POST /approvals` (superadmin, operador) | `{action, params}` | `201 {id}` |
+| `POST /approvals/{id}/approve` (superadmin, operador) | `{code}` (TOTP **nuevo**, no el del inicio de sesión) | `204` |
+| `POST /approvals/{id}/execute` (solo el solicitante) | — | `204` |
+
+Acciones hoy: `batch.activate` (`{batchId}`, lote `committed`; permiso `batches.manage`) y `setting.change` (`{key, value}` de un parámetro `security`; solo superadmin). `codes.generate` y `audit.export` llegan con P2.
+Errores: `422 validationFailed|invalidCode`, `404 notFound`, `403 forbidden|selfApproval|notRequester`, `409 alreadyPending|wrongState|expired|beaconNotReady` (la activación espera la ronda de drand; la aprobación sigue vigente y se reintenta). **No existe autoaprobación en ningún entorno** (CHECK en la base): en desarrollo usa dos cuentas.
 
 ## Primer superadmin
 Solo por consola (no hay usuarios por defecto ni ruta de registro):

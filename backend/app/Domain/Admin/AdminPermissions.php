@@ -23,11 +23,19 @@ final class AdminPermissions
 
     public const SETTINGS_MANAGE = 'settings.manage';
 
+    public const BATCHES_MANAGE = 'batches.manage';
+
+    public const APPROVALS_VIEW = 'approvals.view';
+
+    public const APPROVALS_REQUEST = 'approvals.request';
+
+    public const APPROVALS_APPROVE = 'approvals.approve';
+
     /** @var array<string, list<string>> */
     private const MATRIX = [
-        self::SUPERADMIN => [self::ACCOUNT_SELF, self::USERS_MANAGE, self::SETTINGS_MANAGE],
-        self::OPERATOR => [self::ACCOUNT_SELF],
-        self::AUDITOR => [self::ACCOUNT_SELF],
+        self::SUPERADMIN => [self::ACCOUNT_SELF, self::USERS_MANAGE, self::SETTINGS_MANAGE, self::BATCHES_MANAGE, self::APPROVALS_VIEW, self::APPROVALS_REQUEST, self::APPROVALS_APPROVE],
+        self::OPERATOR => [self::ACCOUNT_SELF, self::BATCHES_MANAGE, self::APPROVALS_VIEW, self::APPROVALS_REQUEST, self::APPROVALS_APPROVE],
+        self::AUDITOR => [self::ACCOUNT_SELF, self::APPROVALS_VIEW],
     ];
 
     /** @return list<string> */

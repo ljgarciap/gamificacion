@@ -76,8 +76,8 @@ final class Settings
         return $out;
     }
 
-    /** @throws \InvalidArgumentException clave desconocida, valor que no es entero o fuera del rango duro */
-    public function set(string $key, mixed $value, string $actor): void
+    /** @throws \InvalidArgumentException clave desconocida, valor que no es entero, fuera del rango duro o incoherente con su pareja */
+    public function validate(string $key, mixed $value): void
     {
         $def = SettingsRegistry::get($key) ?? throw new \InvalidArgumentException('Parámetro desconocido.');
         if (! is_int($value)) {
@@ -86,9 +86,13 @@ final class Settings
         if ($value < $def['min'] || $value > $def['max']) {
             throw new \InvalidArgumentException("El valor debe estar entre {$def['min']} y {$def['max']}.");
         }
-
         $this->assertConsistent($key, $value);
+    }
 
+    /** @throws \InvalidArgumentException ver [validate] */
+    public function set(string $key, mixed $value, string $actor): void
+    {
+        $this->validate($key, $value);
         DB::transaction(function () use ($key, $value, $actor): void {
             $old = DB::selectOne('SELECT value::text AS v FROM settings WHERE key = ? FOR UPDATE', [$key]);
             $oldValue = $old === null ? null : json_decode($old->v);
@@ -100,8 +104,9 @@ final class Settings
             DB::insert('INSERT INTO settings_history (key, old_value, new_value, actor) VALUES (?, ?::jsonb, ?::jsonb, ?)',
                 [$key, $oldValue === null ? null : json_encode($oldValue), json_encode($value), $actor]);
             $this->audit->append($actor, 'settings.changed', 'setting', $key, ['old' => $oldValue, 'new' => $value]);
+            // Después del commit EXTERNO: si se invalidara antes, otro lector repoblaría la caché con el valor viejo.
+            DB::afterCommit(fn () => Cache::forget(self::CACHE_KEY));
         });
-        Cache::forget(self::CACHE_KEY);
     }
 
     /** El bloqueo/espera inicial (`*_base_seconds`) no puede superar al máximo (`*_max_seconds`) del mismo grupo. */

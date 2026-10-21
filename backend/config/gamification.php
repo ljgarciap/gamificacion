@@ -114,6 +114,8 @@ return [
         'session_idle_minutes' => (int) env('GAMIF_ADMIN_SESSION_IDLE', 30),
         'session_absolute_hours' => (int) env('GAMIF_ADMIN_SESSION_MAX_HOURS', 12),
         'totp_window' => (int) env('GAMIF_ADMIN_TOTP_WINDOW', 1),
+        // Caducidad de una solicitud de control dual (horas).
+        'approval_ttl_hours' => (int) env('GAMIF_ADMIN_APPROVAL_TTL', 24),
         'recovery_codes' => 10,
         'issuer' => env('GAMIF_ADMIN_ISSUER', 'Gamificacion'),
     ],

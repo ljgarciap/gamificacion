@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ApprovalController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
@@ -35,3 +36,12 @@ Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::SETTINGS_MANAGE]
     Route::get('/settings/{key}/history', [SettingsController::class, 'history'])->where('key', '[a-z0-9_.]+');
     Route::put('/settings/{key}', [SettingsController::class, 'update'])->where('key', '[a-z0-9_.]+');
 });
+
+// Control dual: ver (todos los roles), solicitar y ejecutar (quien puede pedir), aprobar (quien puede aprobar). El servicio exige además el
+// permiso propio de cada acción y que aprobador ≠ solicitante.
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::APPROVALS_VIEW])->get('/approvals', [ApprovalController::class, 'index']);
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::APPROVALS_REQUEST])->group(function (): void {
+    Route::post('/approvals', [ApprovalController::class, 'store']);
+    Route::post('/approvals/{id}/execute', [ApprovalController::class, 'execute'])->whereNumber('id');
+});
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::APPROVALS_APPROVE])->post('/approvals/{id}/approve', [ApprovalController::class, 'approve'])->whereNumber('id');

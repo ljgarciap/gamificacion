@@ -32,7 +32,7 @@ final class AdminAuthFlowTest extends AdminTestCase
         $done = $this->api('POST', '/auth/mfa/enroll/confirm', ['code' => $this->nextCode($secret)])->assertOk();
         $this->assertCount(10, $done->json('recoveryCodes'));
         $this->assertSame('operator', $done->json('user.role'));
-        $this->assertSame(['account.self'], $done->json('user.permissions'));
+        $this->assertSame(\App\Domain\Admin\AdminPermissions::for('operator'), $done->json('user.permissions'));
 
         $this->getJson(self::PREFIX.'/auth/me')->assertOk()->assertJsonPath('email', 'nueva@ejemplo.com')->assertJsonMissingPath('password_hash');
 
