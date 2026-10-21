@@ -35,6 +35,20 @@ final class PrizeVault
         return $this->open($sealed, $this->prizeAad($batchId, $idx));
     }
 
+    /**
+     * Premio de una casilla de reserva. Contexto de TIPO distinto al de los códigos y ligado a la posición GLOBAL del mazo (N + idx):
+     * intercambiar el texto cifrado de un código con el de una casilla no pasa la autenticación.
+     */
+    public function encryptReservePrize(string $batchId, int $deckIdx, string $prizeId): string
+    {
+        return $this->seal($prizeId, $this->reserveAad($batchId, $deckIdx));
+    }
+
+    public function decryptReservePrize(string $batchId, int $deckIdx, string $sealed): string
+    {
+        return $this->open($sealed, $this->reserveAad($batchId, $deckIdx));
+    }
+
     public function encryptSeed(string $batchId, string $seed): string
     {
         if (strlen($seed) !== 32) {
@@ -52,6 +66,11 @@ final class PrizeVault
     private function prizeAad(string $batchId, int $idx): string
     {
         return 'gamif/v1/aead/prize'.Bytes::lp($batchId).Bytes::be32($idx);
+    }
+
+    private function reserveAad(string $batchId, int $deckIdx): string
+    {
+        return 'gamif/v2/aead/reserve-prize'.Bytes::lp($batchId).Bytes::be32($deckIdx);
     }
 
     private function seedAad(string $batchId): string

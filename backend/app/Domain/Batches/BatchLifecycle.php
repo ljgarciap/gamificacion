@@ -31,7 +31,7 @@ final class BatchLifecycle
         encode(pool_hash, 'hex') AS pool_hash, encode(codes_digest, 'hex') AS codes_digest,
         encode(chain_hash, 'hex') AS chain_hash, beacon_round, encode(commitment, 'hex') AS commitment,
         encode(seed_enc, 'hex') AS seed_enc, encode(beacon_value, 'hex') AS beacon_value,
-        encode(seed_revealed, 'hex') AS seed_revealed";
+        encode(seed_revealed, 'hex') AS seed_revealed, reserve_size";
 
     public function __construct(
         private readonly BeaconClient $beacon,
@@ -51,28 +51,38 @@ final class BatchLifecycle
         array $poolEntries,
         string $actor,
         ?Carbon $redeemableUntil = null,
+        int $reserve = 0,
     ): string {
         try {
             $pool = Pool::fromEntries($poolEntries, (int) config('gamification.max_codes_per_batch'));
         } catch (\InvalidArgumentException $e) {
             throw new InvalidBatch('Pool inválido: '.$e->getMessage(), 0, $e);
         }
+        // El pool tiene N + R posiciones: R para los giros hijos y al menos un código.
+        if ($reserve < 0 || ($reserve > 0 && $reserve >= $pool->total())) {
+            throw new InvalidBatch('La reserva debe ser 0 o un número menor que el total del pool.');
+        }
         if (DB::table('campaigns')->where('id', $campaignId)->doesntExist()) {
             throw new InvalidBatch("La campaña $campaignId no existe.");
         }
         $this->assertPrizesExist($campaignId, $pool);
+        $this->assertReserveCovers($campaignId, $pool, $reserve);
 
         $id = (string) Str::uuid();
-        DB::transaction(function () use ($id, $campaignId, $name, $pool, $redeemableUntil, $actor): void {
+        DB::transaction(function () use ($id, $campaignId, $name, $pool, $redeemableUntil, $actor, $reserve): void {
             DB::insert(
-                "INSERT INTO batches (id, campaign_id, name, state, pool, pool_hash, total_codes, redeemable_until, created_by)
-                 VALUES (?, ?, ?, 'draft', ?::jsonb, decode(?, 'hex'), ?, ?, ?)",
+                "INSERT INTO batches (id, campaign_id, name, state, pool, pool_hash, total_codes, reserve_size, redeemable_until, created_by)
+                 VALUES (?, ?, ?, 'draft', ?::jsonb, decode(?, 'hex'), ?, ?, ?, ?)",
                 [$id, $campaignId, $name, json_encode($this->poolToArray($pool)), bin2hex($pool->hash()),
-                    $pool->total(), $redeemableUntil, $actor],
+                    $pool->total() - $reserve, $reserve, $redeemableUntil, $actor],
             );
+            if ($reserve > 0) {
+                DB::insert('INSERT INTO reserve_slots (batch_id, idx) SELECT ?, g FROM generate_series(0, ?) AS g', [$id, $reserve - 1]);
+                DB::insert('INSERT INTO reserve_cursors (batch_id) VALUES (?)', [$id]);
+            }
             $this->audit->append($actor, 'batch.created', 'batch', $id, [
-                'campaign_id' => $campaignId, 'name' => $name, 'pool' => $this->poolToArray($pool), 'total_codes' => $pool->total(),
-            ]);
+                'campaign_id' => $campaignId, 'name' => $name, 'pool' => $this->poolToArray($pool), 'total_codes' => $pool->total() - $reserve,
+            ] + ($reserve > 0 ? ['reserve' => $reserve] : []));
         });
 
         return $id;
@@ -138,7 +148,9 @@ final class BatchLifecycle
                 throw new InvalidBatch("El lote tiene $count códigos y el pool define {$b->total_codes}: genere los que faltan antes de comprometer.");
             }
             $pool = $this->poolOf($b);
+            $reserve = (int) $b->reserve_size;
             $this->assertPrizesExist($b->campaign_id, $pool);
+            $this->assertReserveCovers($b->campaign_id, $pool, $reserve);
 
             // Mejor rechazar AHORA que descubrir, con un usuario jugando, que un premio no cabe en la ruleta.
             $campaign = DB::selectOne('SELECT game_type, game_config::text AS cfg FROM campaigns WHERE id = ?', [$b->campaign_id]);
@@ -146,7 +158,7 @@ final class BatchLifecycle
 
             $digest = Commitment::codesDigest($this->codeHashes($batchId), (int) $b->total_codes);
             $seed = random_bytes(32); // el CSPRNG del sistema operativo: único punto donde nace el azar del sorteo
-            $commitment = Commitment::commit($batchId, $pool, $digest, $chain, $round, $seed);
+            $commitment = $this->commitmentFor($batchId, $pool, $reserve, $digest, $chain, $round, $seed);
             $seedEnc = $this->vault->encryptSeed($batchId, $seed);
             sodium_memzero($seed);
 
@@ -159,7 +171,7 @@ final class BatchLifecycle
 
             $receipt = new CommitmentReceipt(
                 $batchId, bin2hex($commitment), $this->poolToArray($pool), bin2hex($pool->hash()),
-                bin2hex($digest), bin2hex($chain), $round,
+                bin2hex($digest), bin2hex($chain), $round, $reserve,
             );
             // La definición de los premios se fotografía en la bitácora: cambiar un monto después alteraría lo prometido.
             $this->audit->append($actor, 'batch.committed', 'batch', $batchId,
@@ -191,11 +203,22 @@ final class BatchLifecycle
 
             $pool = $this->poolOf($b);
             $seed = $this->vault->decryptSeed($batchId, hex2bin($b->seed_enc));
-            $assignment = PrizeAssigner::assign($pool, $seed, $value, $batchId);
+            $reserve = (int) $b->reserve_size;
+            $deck = PrizeAssigner::assignDeck($pool, $reserve, $seed, $value, $batchId);
+            $assignment = $deck['codes'];
             sodium_memzero($seed);
 
-            if (count($assignment) !== (int) $b->total_codes) {
-                throw new \LogicException('la asignación no cubre todos los códigos del lote');
+            if (count($assignment) !== (int) $b->total_codes || count($deck['reserve']) !== $reserve) {
+                throw new \LogicException('la asignación no cubre todos los códigos y casillas de reserva del lote');
+            }
+            foreach ($deck['reserve'] as $slot => $prizeId) {
+                $updated = DB::update(
+                    "UPDATE reserve_slots SET prize_enc = decode(?, 'hex') WHERE batch_id = ? AND idx = ?",
+                    [bin2hex($this->vault->encryptReservePrize($batchId, (int) $b->total_codes + $slot, $prizeId)), $batchId, $slot],
+                );
+                if ($updated !== 1) {
+                    throw new \LogicException("falta la casilla de reserva $slot al asignar premios");
+                }
             }
 
             foreach (array_chunk($assignment, self::CHUNK, true) as $chunk) {
@@ -260,12 +283,14 @@ final class BatchLifecycle
             if (bin2hex($digest) !== $b->codes_digest) {
                 throw new \RuntimeException("Integridad: las huellas de código del lote $batchId ya no coinciden con las comprometidas.");
             }
-            $recomputed = Commitment::commit($batchId, $pool, $digest, hex2bin($b->chain_hash), (int) $b->beacon_round, $seed);
+            $reserve = (int) $b->reserve_size;
+            $recomputed = $this->commitmentFor($batchId, $pool, $reserve, $digest, hex2bin($b->chain_hash), (int) $b->beacon_round, $seed);
             if (bin2hex($recomputed) !== $b->commitment) {
                 throw new \RuntimeException("Integridad: el compromiso del lote $batchId no se reproduce.");
             }
-            $expected = PrizeAssigner::assign($pool, $seed, hex2bin($b->beacon_value), $batchId);
-            $this->assertStoredAssignmentMatches($batchId, $expected);
+            $deck = PrizeAssigner::assignDeck($pool, $reserve, $seed, hex2bin($b->beacon_value), $batchId);
+            $this->assertStoredAssignmentMatches($batchId, $deck['codes']);
+            $this->assertStoredReserveMatches($batchId, (int) $b->total_codes, $deck['reserve']);
 
             DB::update(
                 "UPDATE batches SET state = 'revealed', seed_revealed = decode(?, 'hex'), revealed_at = now(), updated_at = now() WHERE id = ?",
@@ -292,6 +317,69 @@ final class BatchLifecycle
         }
         if ($seen !== count($expected)) {
             throw new \RuntimeException("Integridad: el lote $batchId tiene $seen códigos y la baraja define ".count($expected).'.');
+        }
+    }
+
+    /**
+     * Las casillas de reserva guardadas coinciden con la baraja, y lo consumido es coherente: el cursor, las casillas marcadas y las
+     * redenciones hijas son la misma cantidad (si no, alguien consumió fuera del servicio).
+     *
+     * @param  list<string>  $expected  premio esperado por casilla
+     */
+    private function assertStoredReserveMatches(string $batchId, int $codes, array $expected): void
+    {
+        $seen = 0;
+        $consumed = 0;
+        $rows = DB::cursor("SELECT idx, encode(prize_enc, 'hex') AS p, consumed_at FROM reserve_slots WHERE batch_id = ? ORDER BY idx", [$batchId]);
+        foreach ($rows as $r) {
+            $idx = (int) $r->idx;
+            if ($r->p === null || $this->vault->decryptReservePrize($batchId, $codes + $idx, hex2bin($r->p)) !== ($expected[$idx] ?? null)) {
+                throw new \RuntimeException("Integridad: el premio guardado de la casilla de reserva $idx del lote $batchId no coincide con la baraja recalculada.");
+            }
+            $seen++;
+            $consumed += $r->consumed_at === null ? 0 : 1;
+        }
+        if ($seen !== count($expected)) {
+            throw new \RuntimeException("Integridad: el lote $batchId tiene $seen casillas de reserva y la baraja define ".count($expected).'.');
+        }
+        $cursor = (int) (DB::selectOne('SELECT consumed FROM reserve_cursors WHERE batch_id = ?', [$batchId])->consumed ?? 0);
+        $children = (int) DB::selectOne('SELECT count(*) AS c FROM redemptions WHERE batch_id = ? AND reserve_idx IS NOT NULL', [$batchId])->c;
+        if ($cursor !== $consumed || $children !== $consumed) {
+            throw new \RuntimeException("Integridad: la reserva del lote $batchId no cuadra (cursor $cursor, casillas consumidas $consumed, redenciones hijas $children).");
+        }
+    }
+
+    /** R = 0 ⇒ compromiso v1 (sin cambios); R > 0 ⇒ v2. No hay otra combinación. */
+    private function commitmentFor(string $batchId, Pool $pool, int $reserve, string $digest, string $chain, int $round, string $seed): string
+    {
+        return Commitment::versionFor($reserve) === 1
+            ? Commitment::commit($batchId, $pool, $digest, $chain, $round, $seed)
+            : Commitment::commitV2($batchId, $pool, $reserve, $digest, $chain, $round, $seed);
+    }
+
+    /**
+     * Con reserva, las casillas deben alcanzar para el PEOR caso: cada posición del mazo con un premio «giro extra» puede pedir sus
+     * giros, y cada giro consume una casilla. Si no alcanza, alguien ganaría un giro que no se puede entregar (stock exacto: error
+     * duro, no advertencia). Sin reserva (R = 0) no hay giros hijos y se conserva el comportamiento anterior.
+     */
+    private function assertReserveCovers(string $campaignId, Pool $pool, int $reserve): void
+    {
+        if ($reserve === 0) {
+            return;
+        }
+        $demand = 0;
+        $qty = [];
+        foreach ($pool->entries() as [$id, $q]) {
+            $qty[$id] = $q;
+        }
+        $rows = DB::table('prizes')->where('campaign_id', $campaignId)->where('type', 'extraSpin')->whereIn('prize_id', array_keys($qty))
+            ->get(['prize_id', DB::raw('meta::text AS meta')]);
+        foreach ($rows as $r) {
+            $spins = (int) ((json_decode($r->meta, true) ?: [])['extra_spins'] ?? 1);
+            $demand += $qty[(string) $r->prize_id] * $spins;
+        }
+        if ($demand > $reserve) {
+            throw new InvalidBatch("La reserva ($reserve) no cubre el peor caso: los premios de giro extra del pool piden hasta $demand giros.");
         }
     }
 

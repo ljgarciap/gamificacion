@@ -150,13 +150,13 @@ final class BatchAdminService
         $page = max(1, $page);
         $perPage = min(self::MAX_PAGE, max(1, $perPage));
         $rows = DB::select(
-            'SELECT r.id, r.user_id, r.prize_id, r.created_at, c.idx FROM redemptions r JOIN codes c ON c.id = r.code_id
+            'SELECT r.id, r.user_id, r.prize_id, r.created_at, c.idx, r.reserve_idx, r.parent_redemption_id FROM redemptions r LEFT JOIN codes c ON c.id = r.code_id
              WHERE r.batch_id = ? ORDER BY r.created_at DESC, r.id LIMIT ? OFFSET ?',
             [$id, $perPage, ($page - 1) * $perPage],
         );
 
         return [
-            'items' => array_map(static fn (object $r): array => ['id' => $r->id, 'userId' => $r->user_id, 'prizeId' => $r->prize_id, 'index' => (int) $r->idx, 'redeemedAt' => $r->created_at], $rows),
+            'items' => array_map(static fn (object $r): array => ['id' => $r->id, 'userId' => $r->user_id, 'prizeId' => $r->prize_id, 'index' => $r->idx === null ? null : (int) $r->idx, 'reserveIndex' => $r->reserve_idx === null ? null : (int) $r->reserve_idx, 'parentRedemptionId' => $r->parent_redemption_id, 'redeemedAt' => $r->created_at], $rows),
             'total' => (int) DB::selectOne('SELECT count(*) AS c FROM redemptions WHERE batch_id = ?', [$id])->c,
             'page' => $page, 'perPage' => $perPage,
         ];

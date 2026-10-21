@@ -145,9 +145,9 @@ final class RedeemService
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
         DB::insert(
-            'INSERT INTO redemptions (id, code_id, batch_id, user_id, idempotency_key, prize_id, response, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?::json, ?::timestamptz)',
-            [$id, $row->code_id, $row->batch_id, $userId, $key, $prizeId, $json, $playedAt->format('Y-m-d H:i:s.uP')],
+            'INSERT INTO redemptions (id, code_id, batch_id, user_id, idempotency_key, prize_id, response, created_at, spins_granted)
+             VALUES (?, ?, ?, ?, ?, ?, ?::json, ?::timestamptz, ?)',
+            [$id, $row->code_id, $row->batch_id, $userId, $key, $prizeId, $json, $playedAt->format('Y-m-d H:i:s.uP'), $prize['extraSpins']],
         );
 
         // Aviso de acreditación en la MISMA transacción: o existen redención y aviso, o ninguno. Un "sin premio" no acredita nada.

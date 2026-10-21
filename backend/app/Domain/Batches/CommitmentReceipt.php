@@ -16,6 +16,7 @@ final readonly class CommitmentReceipt
         public string $codesDigestHex,
         public string $chainHashHex,
         public int $beaconRound,
+        public int $reserve = 0,
     ) {}
 
     /** @return array<string, mixed> */
@@ -29,6 +30,6 @@ final readonly class CommitmentReceipt
             'codes_digest' => $this->codesDigestHex,
             'chain_hash' => $this->chainHashHex,
             'beacon_round' => $this->beaconRound,
-        ];
+        ] + ($this->reserve > 0 ? ['reserve' => $this->reserve, 'commit_version' => 2] : []);
     }
 }

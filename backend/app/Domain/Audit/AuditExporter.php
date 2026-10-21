@@ -27,13 +27,18 @@ final class AuditExporter
     {
         $b = DB::selectOne(
             "SELECT state, encode(chain_hash,'hex') AS chain, beacon_round, encode(beacon_value,'hex') AS beacon, pool::text AS pool,
-                    encode(codes_digest,'hex') AS digest, encode(commitment,'hex') AS commitment, encode(seed_revealed,'hex') AS seed
+                    encode(codes_digest,'hex') AS digest, encode(commitment,'hex') AS commitment, encode(seed_revealed,'hex') AS seed, reserve_size
              FROM batches WHERE id = ?", [$batchId]);
         if ($b === null) {
             throw new InvalidBatch("El lote $batchId no existe.");
         }
         if ($b->state !== 'revealed') {
             throw new InvalidBatch("Solo se exporta un lote revelado; el lote $batchId está en estado «{$b->state}».");
+        }
+
+        if ((int) $b->reserve_size > 0) {
+            // Pendiente de P6d: una exportación v1 de un lote con reserva no verificaría (falta la reserva y la versión del compromiso).
+            throw new InvalidBatch("El lote $batchId tiene reserva y su exportación todavía no está soportada.");
         }
 
         $assignments = [];
