@@ -124,4 +124,55 @@ final class VectorsTest extends TestCase
         $this->assertSame($a['first_20'], array_slice($out, 0, 20));
         $this->assertSame($a['sha256_of_result'], hash('sha256', implode("\n", $out)));
     }
+
+    /** CA-38: con R = 0 nada de lo ya publicado cambia. La sección v1 de los vectores queda fijada por huella. */
+    public function test_la_seccion_v1_de_los_vectores_no_cambia_ni_un_byte(): void
+    {
+        $v1 = self::$v;
+        unset($v1['v2']);
+        ksort($v1);
+        $this->assertSame(
+            '18c7d27fea668447f8da5a5654c650a20057b755fabc4b86aa853fd10bb33d2c',
+            hash('sha256', json_encode($v1, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)),
+            'cambió algo del algoritmo v1: los lotes ya comprometidos dejarían de verificar',
+        );
+    }
+
+    public function test_v2_mezcla_de_semilla_coincide(): void
+    {
+        $m = self::$v['v2']['mix'];
+        $this->assertSame(
+            $m['result'],
+            bin2hex(Commitment::mixSeedV2(hex2bin($m['seed']), hex2bin($m['beacon']), $m['batch_id'])),
+        );
+    }
+
+    public function test_v2_compromiso_coincide(): void
+    {
+        $c = self::$v['v2']['commitment'];
+        $got = Commitment::commitV2(
+            $c['batch_id'], Pool::fromEntries($c['entries']), $c['reserve'], hex2bin($c['codes_digest']),
+            hex2bin($c['chain_hash']), $c['beacon_round'], hex2bin($c['seed']),
+        );
+        $this->assertSame($c['result'], bin2hex($got));
+    }
+
+    public function test_v2_asignacion_pequena_coincide(): void
+    {
+        $a = self::$v['v2']['assign_small'];
+        $deck = PrizeAssigner::assignDeck(Pool::fromEntries($a['entries']), $a['reserve'], hex2bin($a['seed']), hex2bin($a['beacon']), $a['batch_id']);
+        $this->assertSame($a['codes'], $deck['codes']);
+        $this->assertSame($a['reserve_slots'], $deck['reserve']);
+    }
+
+    public function test_v2_asignacion_grande_coincide(): void
+    {
+        $a = self::$v['v2']['assign_big'];
+        $deck = PrizeAssigner::assignDeck(Pool::fromEntries($a['entries']), $a['reserve'], hex2bin($a['seed']), hex2bin($a['beacon']), $a['batch_id']);
+        $this->assertCount($a['n'], $deck['codes']);
+        $this->assertCount($a['reserve'], $deck['reserve']);
+        $this->assertSame($a['first_reserve_10'], array_slice($deck['reserve'], 0, 10));
+        $this->assertSame($a['sha256_of_codes'], hash('sha256', implode("\n", $deck['codes'])));
+        $this->assertSame($a['sha256_of_reserve'], hash('sha256', implode("\n", $deck['reserve'])));
+    }
 }

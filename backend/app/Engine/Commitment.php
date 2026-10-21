@@ -68,6 +68,64 @@ final class Commitment
             true);
     }
 
+    /**
+     * Compromiso de un lote CON reserva (R ≥ 1): igual que v1 pero con su propio dominio y R explícito. El pool lleva N + R
+     * posiciones; N ya va dentro del resumen de huellas.
+     */
+    public static function commitV2(
+        string $batchId,
+        Pool $pool,
+        int $reserve,
+        string $codesDigest,
+        string $chainHash,
+        int $beaconRound,
+        string $seed,
+    ): string {
+        if (strlen($codesDigest) !== 32 || strlen($seed) !== 32) {
+            throw new \InvalidArgumentException('digest y semilla deben tener 32 bytes');
+        }
+        self::assertReserve($pool, $reserve);
+
+        return hash('sha256',
+            Domain::COMMIT_V2
+            .Bytes::lp($batchId)
+            .Bytes::be32($reserve)
+            .$pool->hash()
+            .$codesDigest
+            .Bytes::lp($chainHash)
+            .Bytes::be64($beaconRound)
+            .$seed,
+            true);
+    }
+
+    /** Versión canónica del compromiso: R = 0 ⇒ 1, R > 0 ⇒ 2. No hay otra combinación válida. */
+    public static function versionFor(int $reserve): int
+    {
+        if ($reserve < 0) {
+            throw new \InvalidArgumentException('la reserva no puede ser negativa');
+        }
+
+        return $reserve === 0 ? 1 : 2;
+    }
+
+    /** R ≥ 1 y debe quedar al menos un código: el pool tiene N + R posiciones. */
+    public static function assertReserve(Pool $pool, int $reserve): void
+    {
+        if ($reserve < 1 || $reserve >= $pool->total()) {
+            throw new \InvalidArgumentException('la reserva debe ser ≥ 1 y menor que el total del pool');
+        }
+    }
+
+    /** Igual que [mixSeed] con el dominio v2 (lotes con reserva). */
+    public static function mixSeedV2(string $seed, string $beacon, string $batchId): string
+    {
+        if (strlen($seed) !== 32) {
+            throw new \InvalidArgumentException('la semilla debe tener 32 bytes');
+        }
+
+        return hash_hmac('sha256', Domain::MIX_V2.Bytes::lp($beacon).Bytes::lp($batchId), $seed, true);
+    }
+
     /** S' = HMAC-SHA256(clave = S, "gamif/v1/mix" ‖ lp(B) ‖ lp(batch_id)). */
     public static function mixSeed(string $seed, string $beacon, string $batchId): string
     {

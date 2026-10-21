@@ -32,6 +32,82 @@ def sample_export():
     }
 
 
+def reserve_export(reserve=3):
+    """Lote con reserva: 12 posiciones = 9 códigos + 3 casillas de reserva (compromiso v2)."""
+    pool = [("none", 6), ("p10k", 3), ("extra", 2), ("p50k", 1)]
+    seed, beacon, chain = g._key("v2-seed"), g._key("v2-beacon"), g._key("v2-chain")
+    hashes = [g._key(f"v2-code-{i}") for i in range(12 - reserve)]
+    digest = g.codes_digest(hashes)
+    codes, slots = g.assign_deck(pool, reserve, seed, beacon, "lote-v2")
+    return {
+        "version": 1, "commit_version": 2, "batch_id": "lote-v2", "chain_hash": chain.hex(), "beacon_round": 9,
+        "beacon_value": beacon.hex(), "pool": [{"prize_id": p, "quantity": q} for p, q in pool], "codes_digest": digest.hex(),
+        "commitment": g.commitment_v2("lote-v2", pool, reserve, digest, chain, 9, seed).hex(), "seed": seed.hex(),
+        "code_hashes": [h.hex() for h in hashes], "assignments": codes, "reserve_assignments": slots,
+    }
+
+
+class ReserveTests(unittest.TestCase):
+    def test_con_reserva_cero_el_barajado_es_exactamente_el_v1(self):
+        pool = [("none", 6), ("p10k", 3), ("p50k", 1)]
+        s, b = g._key("s"), g._key("b")
+        self.assertEqual(g.assign_deck(pool, 0, s, b, "x"), (g.assign(pool, s, b, "x"), []))
+
+    def test_exportacion_con_reserva_valida(self):
+        self.assertEqual(g.verify_export(reserve_export()), [])
+
+    def test_el_stock_cuenta_codigos_y_reserva(self):
+        e = reserve_export()
+        counts = Counter(e["assignments"] + e["reserve_assignments"])
+        self.assertEqual(counts, Counter({"none": 6, "p10k": 3, "extra": 2, "p50k": 1}))
+
+    def test_detecta_una_casilla_de_reserva_alterada(self):
+        e = reserve_export()
+        slots = e["reserve_assignments"]
+        other = "p50k" if slots[0] != "p50k" else "none"
+        slots[0] = other
+        self.assertTrue(g.verify_export(e))
+
+    def test_detecta_dos_casillas_intercambiadas_aunque_el_stock_no_cambie(self):
+        e = reserve_export()
+        slots = e["reserve_assignments"]
+        i, j = next((a, b) for a in range(len(slots)) for b in range(len(slots)) if slots[a] != slots[b])
+        slots[i], slots[j] = slots[j], slots[i]
+        self.assertTrue(any("reserva difiere" in f for f in g.verify_export(e)))
+
+    def test_detecta_un_intercambio_entre_codigo_y_reserva(self):
+        e = reserve_export()
+        i = next(k for k, p in enumerate(e["assignments"]) if p != e["reserve_assignments"][0])
+        e["assignments"][i], e["reserve_assignments"][0] = e["reserve_assignments"][0], e["assignments"][i]
+        self.assertTrue(g.verify_export(e), "el stock total no cambia, pero la baraja sí")
+
+    def test_la_reserva_cambia_la_baraja_y_el_compromiso(self):
+        a, b = reserve_export(3), reserve_export(2)
+        self.assertNotEqual(a["commitment"], b["commitment"])
+
+    def test_v2_con_reserva_cero_se_rechaza(self):
+        e = sample_export()
+        e["commit_version"] = 2
+        self.assertTrue(any("versión de compromiso" in f for f in g.verify_export(e)))
+
+    def test_v1_con_reserva_se_rechaza(self):
+        e = reserve_export()
+        e["commit_version"] = 1
+        self.assertTrue(any("versión de compromiso" in f for f in g.verify_export(e)))
+
+    def test_el_compromiso_v2_liga_la_reserva(self):
+        e = reserve_export(3)
+        e["reserve_assignments"] = e["reserve_assignments"][:2]
+        e["assignments"] = e["assignments"] + ["none"]
+        self.assertTrue(g.verify_export(e))
+
+    def test_reservas_invalidas(self):
+        pool = [("none", 3)]
+        for bad in (0, -1, 3, 4, True, 1.5):
+            with self.assertRaises(ValueError):
+                g.check_reserve(pool, bad)
+
+
 class UniformTests(unittest.TestCase):
     def test_sin_sesgo_exacto_en_rango_reducido(self):
         # La lógica de descarte, comprobada de forma exacta: con un "rango" de 256 valores, todo resultado posible

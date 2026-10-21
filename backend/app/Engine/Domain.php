@@ -15,5 +15,10 @@ final class Domain
 
     public const MIX = 'gamif/v1/mix';
 
+    /** Solo lotes con reserva (R > 0). Con R = 0 vale únicamente v1: un lote nunca tiene dos compromisos válidos. */
+    public const COMMIT_V2 = 'gamif/v2/commit';
+
+    public const MIX_V2 = 'gamif/v2/mix';
+
     public const SHUFFLE = 'gamif/v1/shuffle';
 }

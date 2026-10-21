@@ -594,5 +594,123 @@
       "n": 3000000000
     }
   ],
+  "v2": {
+    "assign_big": {
+      "batch_id": "batch-grande-v2",
+      "beacon": "d88bc0b1b3cd3c722719eb915dbf79d306dc7eec3d53dc37edb9eb07f9a09233",
+      "entries": [
+        {
+          "prize_id": "none",
+          "quantity": 700
+        },
+        {
+          "prize_id": "p5k",
+          "quantity": 200
+        },
+        {
+          "prize_id": "p10k",
+          "quantity": 80
+        },
+        {
+          "prize_id": "p50k",
+          "quantity": 19
+        },
+        {
+          "prize_id": "p100k",
+          "quantity": 1
+        }
+      ],
+      "first_reserve_10": [
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "p5k"
+      ],
+      "n": 950,
+      "reserve": 50,
+      "seed": "f2d5828646e316658c03925c63f6a543dbe849232a24b9a5bb96604a3ab3bc5a",
+      "sha256_of_codes": "d43bfec284ccbb86cca23fdca13267184123c6f6455f6947293f3c1c54fe3c6b",
+      "sha256_of_reserve": "94800e84c5ca2adf68d5b4b5e123efd6c4fbcbae9bf6c1eff80aee16678ee9a0"
+    },
+    "assign_small": {
+      "batch_id": "batch-v2",
+      "beacon": "d88bc0b1b3cd3c722719eb915dbf79d306dc7eec3d53dc37edb9eb07f9a09233",
+      "codes": [
+        "p50k",
+        "p10k",
+        "none",
+        "none",
+        "none",
+        "p10k",
+        "none",
+        "extra",
+        "extra"
+      ],
+      "entries": [
+        {
+          "prize_id": "none",
+          "quantity": 6
+        },
+        {
+          "prize_id": "p10k",
+          "quantity": 3
+        },
+        {
+          "prize_id": "extra",
+          "quantity": 2
+        },
+        {
+          "prize_id": "p50k",
+          "quantity": 1
+        }
+      ],
+      "reserve": 3,
+      "reserve_slots": [
+        "none",
+        "none",
+        "p10k"
+      ],
+      "seed": "f2d5828646e316658c03925c63f6a543dbe849232a24b9a5bb96604a3ab3bc5a"
+    },
+    "commitment": {
+      "batch_id": "batch-v2",
+      "beacon_round": 4242424,
+      "chain_hash": "9914baacbe427068db483c628aa18580d7e774bb4e77d4e5bff106edb4331295",
+      "codes_digest": "19cf90114c2aefe6be90f5389020e69cbf4a83210571aa0937223c31031859c4",
+      "entries": [
+        {
+          "prize_id": "none",
+          "quantity": 6
+        },
+        {
+          "prize_id": "p10k",
+          "quantity": 3
+        },
+        {
+          "prize_id": "extra",
+          "quantity": 2
+        },
+        {
+          "prize_id": "p50k",
+          "quantity": 1
+        }
+      ],
+      "reserve": 3,
+      "result": "0ad8ed02ffe5eb7ade09a36a95505fcffba4c5acb448f8e4e5e35e7d306838b8",
+      "seed": "f2d5828646e316658c03925c63f6a543dbe849232a24b9a5bb96604a3ab3bc5a"
+    },
+    "mix": {
+      "batch_id": "batch-v2",
+      "beacon": "d88bc0b1b3cd3c722719eb915dbf79d306dc7eec3d53dc37edb9eb07f9a09233",
+      "result": "625aa14b50665aa1ad607fe2c9ea32a3842ee6200236ee4f6f4948907db32217",
+      "seed": "f2d5828646e316658c03925c63f6a543dbe849232a24b9a5bb96604a3ab3bc5a"
+    }
+  },
   "version": 1
 }

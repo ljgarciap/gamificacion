@@ -30,6 +30,8 @@ DOMAIN_POOL = b"gamif/v1/pool"
 DOMAIN_CODES = b"gamif/v1/codes"
 DOMAIN_COMMIT = b"gamif/v1/commit"
 DOMAIN_MIX = b"gamif/v1/mix"
+DOMAIN_COMMIT_V2 = b"gamif/v2/commit"  # lotes con reserva (R > 0); con R = 0 sigue valiendo SOLO v1
+DOMAIN_MIX_V2 = b"gamif/v2/mix"
 DOMAIN_SHUFFLE = b"gamif/v1/shuffle"
 DOMAIN_AUDIT = b"gamif/v1/audit"
 AUDIT_GENESIS = b"\x00" * 32
@@ -118,6 +120,36 @@ def commitment(batch_id: str, pool, digest: bytes, chain_hash: bytes, beacon_rou
     )
 
 
+def commitment_v2(batch_id: str, pool, reserve: int, digest: bytes, chain_hash: bytes, beacon_round: int, seed: bytes) -> bytes:
+    """Compromiso de un lote CON reserva (R >= 1): liga R de forma explícita y usa su propio dominio."""
+    if len(digest) != 32 or len(seed) != 32:
+        raise ValueError("digest y semilla deben tener 32 bytes")
+    check_reserve(pool, reserve)
+    return sha256(
+        DOMAIN_COMMIT_V2
+        + lp(batch_id.encode("utf-8"))
+        + be32(reserve)
+        + pool_hash(pool)
+        + digest
+        + lp(chain_hash)
+        + be64(beacon_round)
+        + seed
+    )
+
+
+def check_reserve(pool, reserve: int):
+    """R >= 1 y debe quedar al menos un código: el pool tiene N + R posiciones."""
+    total = sum(q for _, q in pool)
+    if not isinstance(reserve, int) or isinstance(reserve, bool) or reserve < 1 or reserve >= total:
+        raise ValueError("la reserva debe ser un entero >= 1 y menor que el total del pool")
+
+
+def mix_seed_v2(seed: bytes, beacon: bytes, batch_id: str) -> bytes:
+    if len(seed) != 32:
+        raise ValueError("la semilla debe tener 32 bytes")
+    return hmac.new(seed, DOMAIN_MIX_V2 + lp(beacon) + lp(batch_id.encode("utf-8")), hashlib.sha256).digest()
+
+
 def mix_seed(seed: bytes, beacon: bytes, batch_id: str) -> bytes:
     """S' = HMAC-SHA256(clave = S, "gamif/v1/mix" || lp(B) || lp(batch_id))."""
     return hmac.new(seed, DOMAIN_MIX + lp(beacon) + lp(batch_id.encode("utf-8")), hashlib.sha256).digest()
@@ -168,6 +200,16 @@ def shuffle(items, drbg: Drbg):
 def assign(pool, seed: bytes, beacon: bytes, batch_id: str):
     """Premio de cada índice de código (lista de ids de premio, en orden de índice)."""
     return shuffle(expand_pool(pool), Drbg(mix_seed(seed, beacon, batch_id)))
+
+
+def assign_deck(pool, reserve: int, seed: bytes, beacon: bytes, batch_id: str):
+    """(premios de los N códigos, premios de las R casillas de reserva). Con R = 0 es EXACTAMENTE `assign` (v1)."""
+    if reserve == 0:
+        return assign(pool, seed, beacon, batch_id), []
+    check_reserve(pool, reserve)
+    deck = shuffle(expand_pool(pool), Drbg(mix_seed_v2(seed, beacon, batch_id)))
+    n = len(deck) - reserve
+    return deck[:n], deck[n:]
 
 
 # --- Bitácora encadenada ----------------------------------------------------------------------------------
@@ -257,6 +299,9 @@ def verify_export(export: dict, anchor=None):
         commit_pub = bytes.fromhex(export["commitment"])
         beacon_round = int(export["beacon_round"])
         assignments = export["assignments"]
+        reserve_assignments = export.get("reserve_assignments", [])
+        reserve = len(reserve_assignments)
+        commit_version = export.get("commit_version", 1)
     except (KeyError, ValueError, TypeError) as exc:
         return [f"exportación incompleta o mal formada: {exc!r}"]
 
@@ -267,23 +312,33 @@ def verify_export(export: dict, anchor=None):
         if len(export["code_hashes"]) != len(assignments):
             failures.append("la cantidad de huellas no coincide con la de asignaciones")
 
+    # Versión canónica: R = 0 => v1 y R > 0 => v2. Cualquier otra combinación se rechaza (un lote no puede tener dos compromisos válidos).
+    if commit_version != (2 if reserve > 0 else 1):
+        failures.append(f"versión de compromiso {commit_version!r} no válida para una reserva de {reserve} casillas")
+        return failures
     try:
-        calc = commitment(batch_id, pool, digest_pub, chain_hash, beacon_round, seed)
+        if reserve == 0:
+            calc = commitment(batch_id, pool, digest_pub, chain_hash, beacon_round, seed)
+        else:
+            calc = commitment_v2(batch_id, pool, reserve, digest_pub, chain_hash, beacon_round, seed)
     except ValueError as exc:
         return failures + [f"pool inválido: {exc}"]
     if calc != commit_pub:
         failures.append("el compromiso NO se reproduce con la semilla, el pool y la baliza publicados")
 
-    expected = assign(pool, seed, beacon, batch_id)
+    expected, expected_reserve = assign_deck(pool, reserve, seed, beacon, batch_id)
     if len(expected) != len(assignments):
         failures.append(f"se esperaban {len(expected)} asignaciones y hay {len(assignments)}")
     else:
         bad = [i for i, (a, b) in enumerate(zip(expected, assignments)) if a != b]
         if bad:
             failures.append(f"{len(bad)} asignaciones difieren de la baraja recalculada (primer índice: {bad[0]})")
+    if expected_reserve != reserve_assignments:
+        bad = [i for i, (a, b) in enumerate(zip(expected_reserve, reserve_assignments)) if a != b]
+        failures.append(f"la reserva difiere de la baraja recalculada (primera casilla: {bad[0] if bad else '?'})")
 
     counts = {}
-    for p in assignments:
+    for p in list(assignments) + list(reserve_assignments):
         counts[p] = counts.get(p, 0) + 1
     for pid, qty in sorted_entries(pool):
         if counts.get(pid, 0) != qty:
@@ -327,8 +382,33 @@ def make_vectors() -> dict:
     big_pool = [("none", 700), ("p5k", 200), ("p10k", 80), ("p50k", 19), ("p100k", 1)]
     big = assign(big_pool, seed, beacon, "batch-grande")
 
+    # --- v2: lotes con reserva. Se AGREGA una clave; las demás no cambian ni un byte.
+    pool_v2 = [("none", 6), ("p10k", 3), ("extra", 2), ("p50k", 1)]  # 12 posiciones = 9 códigos + 3 de reserva
+    codes_v2, reserve_v2 = assign_deck(pool_v2, 3, seed, beacon, "batch-v2")
+    big_v2_pool = [("none", 700), ("p5k", 200), ("p10k", 80), ("p50k", 19), ("p100k", 1)]
+    big_codes, big_reserve = assign_deck(big_v2_pool, 50, seed, beacon, "batch-grande-v2")
+    v2 = {
+        "mix": {"seed": seed.hex(), "beacon": beacon.hex(), "batch_id": "batch-v2", "result": mix_seed_v2(seed, beacon, "batch-v2").hex()},
+        "commitment": {
+            "batch_id": "batch-v2", "entries": [{"prize_id": p, "quantity": q} for p, q in pool_v2], "reserve": 3,
+            "chain_hash": chain_hash.hex(), "beacon_round": 4_242_424, "seed": seed.hex(), "codes_digest": digest.hex(),
+            "result": commitment_v2("batch-v2", pool_v2, 3, digest, chain_hash, 4_242_424, seed).hex(),
+        },
+        "assign_small": {
+            "batch_id": "batch-v2", "entries": [{"prize_id": p, "quantity": q} for p, q in pool_v2], "reserve": 3,
+            "seed": seed.hex(), "beacon": beacon.hex(), "codes": codes_v2, "reserve_slots": reserve_v2,
+        },
+        "assign_big": {
+            "batch_id": "batch-grande-v2", "entries": [{"prize_id": p, "quantity": q} for p, q in big_v2_pool], "reserve": 50,
+            "seed": seed.hex(), "beacon": beacon.hex(), "n": len(big_codes),
+            "sha256_of_codes": sha256("\n".join(big_codes).encode()).hex(),
+            "sha256_of_reserve": sha256("\n".join(big_reserve).encode()).hex(), "first_reserve_10": big_reserve[:10],
+        },
+    }
+
     return {
         "version": 1,
+        "v2": v2,
         "drbg": {"key": drbg_key.hex(), "first_100_bytes": drbg_bytes.hex()},
         "uniform": uniform,
         "shuffle": {"key": shuffle_key.hex(), "items": items, "result": shuffle(items, Drbg(shuffle_key))},
