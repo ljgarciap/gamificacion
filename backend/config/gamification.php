@@ -116,6 +116,8 @@ return [
         'totp_window' => (int) env('GAMIF_ADMIN_TOTP_WINDOW', 1),
         // Caducidad de una solicitud de control dual (horas).
         'approval_ttl_hours' => (int) env('GAMIF_ADMIN_APPROVAL_TTL', 24),
+        // Minutos que el archivo de códigos generados espera su descarga única antes de destruirse.
+        'export_ttl_minutes' => (int) env('GAMIF_ADMIN_EXPORT_TTL', 60),
         'recovery_codes' => 10,
         'issuer' => env('GAMIF_ADMIN_ISSUER', 'Gamificacion'),
     ],

@@ -54,9 +54,21 @@ final class ApprovalController
     public function execute(Request $request, int $id): JsonResponse|Response
     {
         return $this->guard(function () use ($request, $id): Response {
-            $this->approvals->execute($request->attributes->get('admin_user'), $id);
+            $result = $this->approvals->execute($request->attributes->get('admin_user'), $id);
 
-            return response()->noContent();
+            return $result === null ? response()->noContent() : response()->json($result, 200, ['Cache-Control' => 'no-store']);
+        });
+    }
+
+    /** Entrega única del CSV de `codes.generate`. El archivo se destruye al terminar de enviarse. */
+    public function download(Request $request, int $id): JsonResponse|Response
+    {
+        return $this->guard(function () use ($request, $id): Response {
+            $c = $this->approvals->claimCodes($request->attributes->get('admin_user'), $id);
+
+            return response()->download($c['path'], "codigos-$id.csv", [
+                'Content-Type' => 'text/csv; charset=utf-8', 'Cache-Control' => 'no-store', 'X-Content-SHA256' => $c['sha256'],
+            ])->deleteFileAfterSend(true);
         });
     }
 

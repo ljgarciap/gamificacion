@@ -77,7 +77,7 @@ Leer y buscar: todos los roles. Crear, comprometer, cerrar y revelar: superadmin
 | `POST /codes/lookup` | `{code}` | `{batchId, batchName, batchState, index, redeemed, redeemedAt, redeemedBy, prizeId}` |
 
 La búsqueda de código es POST para que el código no quede en registros de acceso; acepta el formato que escribe una persona (minúsculas, guiones, O/0, I/L/1). **Un código sin canjear nunca revela su premio** (`prizeId: null`): la baraja es secreta hasta revelar. Cada búsqueda queda en la bitácora (`code.lookup`, sin el código).
-Errores: `422 validationFailed|codeInvalid`, `404 notFound`, `409 wrongState|batchNotReady`, `503 beaconUnavailable`, `403 forbidden`. La generación de códigos (`codes.generate`) y la exportación de auditoría (`audit.export`) llegan en P2b-2.
+Errores: `422 validationFailed|codeInvalid`, `404 notFound`, `409 wrongState|batchNotReady`, `503 beaconUnavailable`, `403 forbidden`. Los códigos se generan por control dual (`codes.generate`, ver abajo); la exportación de auditoría (`audit.export`) llega después.
 
 ## Control dual (permisos `approvals.view|request|approve`)
 Flujo: **solicitar → otro usuario aprueba con un código TOTP nuevo → el solicitante ejecuta (una sola vez)**. Se ejecutan siempre los `params` guardados al solicitar (inmutables); caducan (`admin.approval_ttl_hours`, 24 h por defecto) y se comprueba al aprobar **y** al ejecutar.
@@ -88,7 +88,9 @@ Flujo: **solicitar → otro usuario aprueba con un código TOTP nuevo → el sol
 | `POST /approvals/{id}/approve` (superadmin, operador) | `{code}` (TOTP **nuevo**, no el del inicio de sesión) | `204` |
 | `POST /approvals/{id}/execute` (solo el solicitante) | — | `204` |
 
-Acciones hoy: `batch.activate` (`{batchId}`, lote `committed`; permiso `batches.manage`) y `setting.change` (`{key, value}` de un parámetro `security`; solo superadmin). `codes.generate` y `audit.export` llegan con P2.
+`POST /approvals/{id}/execute` devuelve `204`, salvo `codes.generate`, que devuelve `200 {count, sha256, downloadUntil}`. **Entrega única:** `GET /approvals/{id}/download` (solo el solicitante) envía el CSV con la cabecera `X-Content-SHA256` y lo destruye al terminar; una segunda descarga, o pasado `admin.export_ttl_minutes` (60 por defecto), da `410 gone` y los códigos solo se recuperan recreando el lote. El servidor comprueba antes de enviar que el archivo coincide con el SHA-256 de la bitácora (`500 exportTampered` si no); el cliente debe comparar el hash de lo recibido con `sha256`. `php artisan admin:purge-exports` destruye los vencidos (también se purga al ejecutar y al descargar).
+
+Acciones hoy: `codes.generate` (`{batchId, prefix}`, borrador sin códigos; permiso `batches.manage`), `batch.activate` (`{batchId}`, lote `committed`; permiso `batches.manage`) y `setting.change` (`{key, value}` de un parámetro `security`; solo superadmin). `audit.export` llega con P2b-2.
 Errores: `422 validationFailed|invalidCode`, `404 notFound`, `403 forbidden|selfApproval|notRequester`, `409 alreadyPending|wrongState|expired|beaconNotReady` (la activación espera la ronda de drand; la aprobación sigue vigente y se reintenta). **No existe autoaprobación en ningún entorno** (CHECK en la base): en desarrollo usa dos cuentas.
 
 ## Primer superadmin

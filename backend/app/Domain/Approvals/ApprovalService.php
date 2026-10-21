@@ -7,6 +7,10 @@ use App\Domain\Admin\AdminPermissions;
 use App\Domain\Admin\LoginFailed;
 use App\Domain\Audit\AuditLog;
 use App\Domain\Batches\BatchLifecycle;
+use App\Domain\Batches\InvalidBatch;
+use App\Domain\Codes\CodeExportStore;
+use App\Domain\Codes\CodeFormat;
+use App\Domain\Codes\CodeGenerator;
 use App\Domain\Settings\Settings;
 use App\Domain\Settings\SettingsRegistry;
 use Illuminate\Support\Carbon;
@@ -22,6 +26,7 @@ final class ApprovalService
     /** Acción → permiso que debe tener QUIEN solicita, aprueba o ejecuta, y tipo de objeto. */
     private const ACTIONS = [
         'batch.activate' => ['permission' => AdminPermissions::BATCHES_MANAGE, 'subject' => 'batch'],
+        'codes.generate' => ['permission' => AdminPermissions::BATCHES_MANAGE, 'subject' => 'batch'],
         'setting.change' => ['permission' => AdminPermissions::SETTINGS_MANAGE, 'subject' => 'setting'],
     ];
 
@@ -30,6 +35,8 @@ final class ApprovalService
         private readonly AdminAccounts $accounts,
         private readonly BatchLifecycle $batches,
         private readonly Settings $settings,
+        private readonly CodeGenerator $generator,
+        private readonly CodeExportStore $exports,
     ) {}
 
     /** @return list<string> */
@@ -100,11 +107,15 @@ final class ApprovalService
      * Ejecuta lo aprobado, una sola vez. Si la ejecución falla (p. ej. la baliza aún no publica la ronda) la transacción se revierte y la
      * aprobación sigue vigente para reintentar.
      *
+     * @return array<string, mixed>|null resultado que el solicitante necesita (generación de códigos: huella y plazo de descarga)
+     *
      * @throws ApprovalException
      */
-    public function execute(object $user, int $id): void
+    public function execute(object $user, int $id): ?array
     {
-        DB::transaction(function () use ($user, $id): void {
+        $path = null;
+        try {
+            return DB::transaction(function () use ($user, $id, &$path): ?array {
             $row = $this->lock($id);
             if ((int) $row->requested_by !== (int) $user->id) {
                 throw new ApprovalException('notRequester', 'Solo quien la solicitó puede ejecutarla.', 403);
@@ -117,16 +128,78 @@ final class ApprovalService
 
             $params = json_decode($row->params, true);
             $actor = 'admin:'.$user->id;
+            $result = null;
             match ($row->action) {
                 'batch.activate' => $this->batches->activate((string) $params['batchId'], $actor),
                 'setting.change' => $this->settings->set((string) $params['key'], $params['value'], $actor),
+                'codes.generate' => $result = $this->generateCodes($id, $params, $actor, $path),
             };
 
             DB::update("UPDATE approvals SET status = 'executed', executed_at = ? WHERE id = ?", [Carbon::now()->format('Y-m-d H:i:s.uP'), $id]);
             $this->audit->append($actor, 'approval.executed', 'approval', (string) $id, [
                 'action' => $row->action, 'subject' => $row->subject_id, 'requested_by' => (int) $row->requested_by, 'approved_by' => (int) $row->approved_by,
             ]);
-        });
+
+            return $result;
+            });
+        } catch (\Throwable $e) {
+            // Si la transacción se revierte, los códigos desaparecen de la base: un archivo con códigos que ya no existen no debe quedar.
+            if ($path !== null) {
+                $this->exports->discard($path);
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Entrega ÚNICA de los códigos generados: solo el solicitante, solo mientras no caduque, y el archivo se reclama de forma atómica (renombrado),
+     * así que dos descargas simultáneas no pueden ganar las dos. Se comprueba que el archivo sigue siendo el que se registró en la bitácora.
+     *
+     * @return array{path: string, sha256: string}
+     *
+     * @throws ApprovalException
+     */
+    public function claimCodes(object $user, int $id): array
+    {
+        $row = $this->find($id);
+        if ($row->action !== 'codes.generate' || (int) $row->requested_by !== (int) $user->id) {
+            throw new ApprovalException('notFound', 'No hay descarga para esta solicitud.', 404);
+        }
+        $this->requirePermission($user, self::ACTIONS['codes.generate']['permission']);
+        $this->exports->purgeExpired();
+        $until = Carbon::parse($row->executed_at ?? '1970-01-01')->addMinutes(Settings::int('admin.export_ttl_minutes'));
+        if ($row->status !== 'executed' || $until->lte(Carbon::now())) {
+            throw new ApprovalException('gone', 'La descarga ya no está disponible. Si se perdió, hay que recrear el lote.', 410);
+        }
+        $path = $this->exports->claim($id) ?? throw new ApprovalException('gone', 'La descarga ya no está disponible. Si se perdió, hay que recrear el lote.', 410);
+
+        $params = json_decode($row->params, true);
+        $expected = DB::selectOne("SELECT data->>'export_sha256' AS sha FROM audit_log WHERE action = 'batch.codes_generated' AND subject_id = ? ORDER BY id DESC LIMIT 1", [$params['batchId']])->sha ?? null;
+        $actual = hash_file('sha256', $path);
+        if ($expected === null || ! hash_equals($expected, $actual)) {
+            throw new ApprovalException('exportTampered', 'El archivo no coincide con el registrado en la bitácora; no se entrega.', 500);
+        }
+        $this->audit->append('admin:'.$user->id, 'codes.downloaded', 'approval', (string) $id, ['batch' => $params['batchId'], 'export_sha256' => $actual]);
+
+        return ['path' => $path, 'sha256' => $actual];
+    }
+
+    /** @param array<string, mixed> $params @return array<string, mixed> */
+    private function generateCodes(int $approvalId, array $params, string $actor, ?string &$path): array
+    {
+        $this->exports->purgeExpired();
+        $path = $this->exports->path($approvalId);
+        try {
+            $g = $this->generator->generate((string) $params['batchId'], (string) $params['prefix'], $path, $actor);
+        } catch (InvalidBatch $e) {
+            $path = null; // nada se escribió
+            throw new ApprovalException('validationFailed', $e->getMessage(), 422);
+        }
+
+        return [
+            'count' => $g->count, 'sha256' => $g->sha256,
+            'downloadUntil' => Carbon::now()->addMinutes(Settings::int('admin.export_ttl_minutes'))->toIso8601String(),
+        ];
     }
 
     /** @return list<array<string, mixed>> */
@@ -172,6 +245,23 @@ final class ApprovalService
             }
 
             return [$batchId, ['batchId' => $batchId]];
+        }
+
+        if ($action === 'codes.generate') {
+            $batchId = $params['batchId'] ?? null;
+            $prefix = $params['prefix'] ?? null;
+            if (! is_string($batchId) || ! preg_match('/^[0-9a-f-]{36}$/', $batchId) || ! is_string($prefix) || ! CodeFormat::isValidPrefix($prefix)) {
+                throw new ApprovalException('validationFailed', 'Indica el lote («batchId») y un prefijo («prefix») de 2 a '.CodeFormat::MAX_PREFIX.' caracteres, mayúsculas y dígitos, empezando por letra.', 422);
+            }
+            $b = DB::table('batches')->where('id', $batchId)->first(['state']);
+            if ($b === null) {
+                throw new ApprovalException('notFound', 'El lote no existe.', 404);
+            }
+            if ($b->state !== 'draft' || DB::table('codes')->where('batch_id', $batchId)->exists()) {
+                throw new ApprovalException('validationFailed', 'Solo se generan códigos para un borrador sin códigos.', 422);
+            }
+
+            return [$batchId, ['batchId' => $batchId, 'prefix' => $prefix]];
         }
 
         // setting.change: se valida AL SOLICITAR (tipo, rango, coherencia) para no aprobar algo que luego no se pueda ejecutar.

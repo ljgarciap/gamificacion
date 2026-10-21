@@ -45,6 +45,7 @@ Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::APPROVALS_VIEW])
 Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::APPROVALS_REQUEST])->group(function (): void {
     Route::post('/approvals', [ApprovalController::class, 'store']);
     Route::post('/approvals/{id}/execute', [ApprovalController::class, 'execute'])->whereNumber('id');
+    Route::get('/approvals/{id}/download', [ApprovalController::class, 'download'])->whereNumber('id');
 });
 Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::APPROVALS_APPROVE])->post('/approvals/{id}/approve', [ApprovalController::class, 'approve'])->whereNumber('id');
 
