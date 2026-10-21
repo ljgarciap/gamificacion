@@ -36,17 +36,23 @@ final class AuditExporter
             throw new InvalidBatch("Solo se exporta un lote revelado; el lote $batchId está en estado «{$b->state}».");
         }
 
-        if ((int) $b->reserve_size > 0) {
-            // Pendiente de P6d: una exportación v1 de un lote con reserva no verificaría (falta la reserva y la versión del compromiso).
-            throw new InvalidBatch("El lote $batchId tiene reserva y su exportación todavía no está soportada.");
-        }
-
         $assignments = [];
         $codeHashes = [];
         $rows = DB::cursor("SELECT idx, encode(code_hash,'hex') AS h, encode(prize_enc,'hex') AS p FROM codes WHERE batch_id = ? ORDER BY idx", [$batchId]);
         foreach ($rows as $r) {
             $assignments[] = $this->vault->decryptPrize($batchId, (int) $r->idx, hex2bin($r->p));
             $codeHashes[] = $r->h;
+        }
+
+        // Reserva del giro extra: sus casillas, en orden, y la versión del compromiso (v2). Sin reserva no se agrega nada: la exportación
+        // es byte a byte la de siempre.
+        $reserve = [];
+        if ((int) $b->reserve_size > 0) {
+            $codes = count($assignments);
+            $slots = DB::cursor("SELECT idx, encode(prize_enc,'hex') AS p FROM reserve_slots WHERE batch_id = ? ORDER BY idx", [$batchId]);
+            foreach ($slots as $r) {
+                $reserve[] = $this->vault->decryptReservePrize($batchId, $codes + (int) $r->idx, hex2bin($r->p));
+            }
         }
 
         // El lote ya es inmutable (revelado), así que leer la cadena después de él no puede contradecirlo. Una sola sentencia = una sola foto.
@@ -69,6 +75,6 @@ final class AuditExporter
             'beacon_value' => $b->beacon, 'pool' => json_decode($b->pool, true), 'codes_digest' => $b->digest,
             'commitment' => $b->commitment, 'seed' => $b->seed, 'code_hashes' => $codeHashes, 'assignments' => $assignments,
             'audit_log' => $entries,
-        ];
+        ] + ($reserve === [] ? [] : ['commit_version' => 2, 'reserve_assignments' => $reserve]);
     }
 }

@@ -32,7 +32,7 @@ final class BatchAdminService
             throw $this->invalid('Estado desconocido.');
         }
         $rows = DB::select(
-            "SELECT b.id, b.campaign_id, b.name, b.state, b.total_codes, b.redeemable_until, b.created_at, b.committed_at, b.activated_at, b.closed_at, b.revealed_at,
+            "SELECT b.id, b.campaign_id, b.name, b.state, b.total_codes, b.reserve_size, b.redeemable_until, b.created_at, b.committed_at, b.activated_at, b.closed_at, b.revealed_at,
                     -- Sin recorrer `codes` (hasta un millón de filas por lote): fuera del borrador los códigos son todos los del pool, y cada canje es una fila de `redemptions` (índice por lote).
                     CASE WHEN b.state = 'draft' THEN (SELECT count(*) FROM codes c WHERE c.batch_id = b.id) ELSE b.total_codes END AS codes,
                     (SELECT count(*) FROM redemptions r WHERE r.batch_id = b.id) AS redeemed
@@ -42,7 +42,7 @@ final class BatchAdminService
         );
 
         return array_map(fn (object $r): array => [
-            'id' => $r->id, 'campaignId' => $r->campaign_id, 'name' => $r->name, 'state' => $r->state, 'totalCodes' => (int) $r->total_codes,
+            'id' => $r->id, 'campaignId' => $r->campaign_id, 'name' => $r->name, 'state' => $r->state, 'totalCodes' => (int) $r->total_codes, 'reserveSize' => (int) $r->reserve_size,
             'generatedCodes' => (int) $r->codes, 'redeemed' => (int) $r->redeemed, 'redeemableUntil' => $r->redeemable_until,
             'createdAt' => $r->created_at, 'committedAt' => $r->committed_at, 'activatedAt' => $r->activated_at, 'closedAt' => $r->closed_at, 'revealedAt' => $r->revealed_at,
         ], $rows);
@@ -52,7 +52,7 @@ final class BatchAdminService
     public function get(string $id): array
     {
         $b = DB::selectOne(
-            "SELECT id, campaign_id, name, state, pool::text AS pool, total_codes, redeemable_until, created_by, created_at,
+            "SELECT id, campaign_id, name, state, pool::text AS pool, total_codes, reserve_size, redeemable_until, created_by, created_at,
                     encode(pool_hash, 'hex') AS pool_hash, encode(codes_digest, 'hex') AS codes_digest, encode(chain_hash, 'hex') AS chain_hash,
                     beacon_round, encode(commitment, 'hex') AS commitment, encode(beacon_value, 'hex') AS beacon_value,
                     encode(seed_revealed, 'hex') AS seed_revealed, committed_at, activated_at, closed_at, revealed_at
@@ -62,7 +62,15 @@ final class BatchAdminService
         $redeemed = (int) DB::selectOne('SELECT count(*) AS c FROM redemptions WHERE batch_id = ?', [$b->id])->c;
         $byPrize = DB::select('SELECT prize_id, count(*) AS n FROM redemptions WHERE batch_id = ? GROUP BY prize_id ORDER BY prize_id', [$b->id]);
 
-        return [
+        // Giro extra: cuánta reserva hay, cuánta se consumió y cuántos giros siguen pendientes (caducan al cerrar el lote).
+        $reserve = (int) $b->reserve_size === 0 ? [] : [
+            'reserveSize' => (int) $b->reserve_size,
+            'reserveConsumed' => (int) (DB::selectOne('SELECT consumed FROM reserve_cursors WHERE batch_id = ?', [$b->id])->consumed ?? 0),
+            'pendingSpins' => $this->lifecycle->pendingSpins($b->id),
+            'commitVersion' => 2,
+        ];
+
+        return $reserve + [
             'id' => $b->id, 'campaignId' => $b->campaign_id, 'name' => $b->name, 'state' => $b->state,
             'pool' => json_decode($b->pool), 'poolHash' => $b->pool_hash, 'totalCodes' => (int) $b->total_codes,
             'generatedCodes' => $generated, 'redeemed' => $redeemed,
@@ -97,6 +105,10 @@ final class BatchAdminService
             }
             $entries[] = ['prize_id' => $e['prizeId'], 'quantity' => $e['quantity']];
         }
+        $reserve = $in['reserve'] ?? 0;
+        if (! is_int($reserve) || $reserve < 0) {
+            throw $this->invalid('«reserve» debe ser un entero mayor o igual a 0.');
+        }
         $until = null;
         if (($in['redeemableUntil'] ?? null) !== null) {
             try {
@@ -110,7 +122,7 @@ final class BatchAdminService
         }
 
         try {
-            return $this->lifecycle->createDraft($campaignId, $name, $entries, $actor, $until);
+            return $this->lifecycle->createDraft($campaignId, $name, $entries, $actor, $until, $reserve);
         } catch (InvalidBatch $e) {
             throw $this->invalid($e->getMessage());
         }

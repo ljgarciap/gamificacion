@@ -329,6 +329,91 @@ class AuditLogTests(unittest.TestCase):
         self.assertTrue(any("ancla mal formada" in f for f in g.verify_export(self.export, {"head_id": "x"})))
 
 
+def rechain(export):
+    """Recalcula la cadena de la bitácora tras modificar entradas: el verificador ya no ve una cadena rota, solo el contenido falso."""
+    prev = g.AUDIT_GENESIS
+    for e in export["audit_log"]:
+        e["prev_hash"] = prev.hex()
+        prev = g.audit_entry_hash(prev, e)
+        e["hash"] = prev.hex()
+    return export
+
+
+class ReserveExportTests(unittest.TestCase):
+    """Sobre una exportación REAL de un lote con reserva y giros hijos (verifier/fixtures/export-reserve-sample.json)."""
+
+    def setUp(self):
+        self.export = load_fixture("export-reserve-sample.json")
+
+    def spins(self):
+        return [e for e in self.export["audit_log"] if e["action"] == "spin.redeemed"]
+
+    def edit(self, entry, **changes):
+        data = json.loads(entry["data"])
+        data.update(changes)
+        entry["data"] = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        rechain(self.export)
+
+    def test_la_exportacion_real_con_reserva_verifica(self):
+        self.assertEqual(g.verify_export(self.export), [])
+        self.assertEqual(self.export["commit_version"], 2)
+        self.assertGreaterEqual(len(self.spins()), 1, "el fixture debe tener giros hijos")
+
+    def test_detecta_una_casilla_de_reserva_alterada(self):
+        slots = self.export["reserve_assignments"]
+        slots[0] = "p10k" if slots[0] != "p10k" else "none"
+        self.assertTrue(g.verify_export(self.export))
+
+    def test_detecta_la_version_del_compromiso_quitada_o_cambiada(self):
+        del self.export["commit_version"]
+        self.assertTrue(any("versión de compromiso" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_una_reserva_distinta_a_la_registrada_al_comprometer(self):
+        committed = next(e for e in self.export["audit_log"] if e["action"] == "batch.committed" and e["subject_id"] == self.export["batch_id"])
+        self.edit(committed, reserve=99)
+        self.assertTrue(any("registradas al comprometer" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_un_giro_que_entrego_otro_premio_que_el_de_su_casilla(self):
+        first = self.spins()[0]
+        actual = json.loads(first["data"])["prize_id"]
+        self.edit(first, prize_id="p50k" if actual != "p50k" else "none")
+        self.assertTrue(any("casilla" in f and "entregó" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_casillas_consumidas_fuera_de_orden(self):
+        first = self.spins()[0]
+        self.edit(first, reserve_idx=2)
+        self.assertTrue(any("en orden" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_mas_giros_de_los_concedidos(self):
+        first = self.spins()[0]
+        parent_id = json.loads(first["data"])["parent_redemption_id"]
+        parent = next(e for e in self.export["audit_log"] if e["subject_id"] == parent_id)
+        self.edit(parent, spins_granted=0)
+        self.assertTrue(any("de más" in f or "fuera de orden" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_un_giro_de_otro_usuario_que_su_padre(self):
+        first = self.spins()[0]
+        self.edit(first, user_ref="0000000000000000")
+        self.assertTrue(any("otro usuario" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_un_giro_con_padre_inexistente(self):
+        first = self.spins()[0]
+        self.edit(first, parent_redemption_id="00000000-0000-0000-0000-000000000000")
+        self.assertTrue(any("no es una redención previa" in f for f in g.verify_export(self.export)))
+
+    def test_detecta_que_se_consumieron_mas_casillas_que_la_reserva(self):
+        extra = dict(self.spins()[-1])
+        slots = len(self.export["reserve_assignments"])
+        data = json.loads(extra["data"])
+        data["reserve_idx"] = slots
+        extra["data"] = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        extra["subject_id"] = "99999999-9999-9999-9999-999999999999"
+        extra["id"] = int(self.export["audit_log"][-1]["id"]) + 1
+        self.export["audit_log"].append(extra)
+        rechain(self.export)
+        self.assertTrue(g.verify_export(self.export))
+
+
 class VectorsTests(unittest.TestCase):
     def test_los_vectores_publicados_estan_al_dia(self):
         # vectors.json es la fuente de verdad para otras implementaciones: debe coincidir con lo que genera el código.

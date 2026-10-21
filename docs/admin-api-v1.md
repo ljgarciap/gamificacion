@@ -68,9 +68,9 @@ Errores: `422 validationFailed`, `404 notFound`, `409 duplicate|campaignFrozen`,
 Leer y buscar: todos los roles. Crear, comprometer, cerrar y revelar: superadmin y operador. **Activar no está aquí**: es la acción de control dual `batch.activate`.
 | Ruta | Cuerpo | Respuesta |
 |---|---|---|
-| `GET /batches?campaignId=&state=` | — | `{batches: [{id, campaignId, name, state, totalCodes, generatedCodes, redeemed, redeemableUntil, …fechas}]}` (máx. 500) |
-| `GET /batches/{id}` | — | detalle: `pool`, `poolHash`, `redeemedByPrize`, compromiso público (`commitment`, `codesDigest`, `chainHash`, `beaconRound`, `beaconValue`) y `seed` **solo tras revelar** |
-| `POST /batches` | `{campaignId, name, pool: [{prizeId, quantity}], redeemableUntil?}` | `201 {id}` (borrador) |
+| `GET /batches?campaignId=&state=` | — | `{batches: [{id, campaignId, name, state, totalCodes, reserveSize, generatedCodes, redeemed, redeemableUntil, …fechas}]}` (máx. 500) |
+| `GET /batches/{id}` | — | detalle: `pool`, `poolHash`, `redeemedByPrize`, compromiso público (`commitment`, `codesDigest`, `chainHash`, `beaconRound`, `beaconValue`) y `seed` **solo tras revelar**. Con reserva añade `reserveSize`, `reserveConsumed`, `pendingSpins` (giros concedidos sin jugar: **caducan al cerrar**) y `commitVersion: 2` |
+| `POST /batches` | `{campaignId, name, pool: [{prizeId, quantity}], redeemableUntil?, reserve?}` | `201 {id}` (borrador). **`reserve` (R ≥ 0)**: casillas del mazo para los giros hijos del giro extra; el pool define `N + R` posiciones (`totalCodes = N`). Con `R > 0` el compromiso es v2 y se rechaza (422) si `R` no cubre el peor caso: `Σ cantidad × giros` de los premios de giro extra. |
 | `POST /batches/{id}/commit` | — | recibo del compromiso (requiere todos los códigos generados) |
 | `POST /batches/{id}/close` · `/reveal` | — | `204` |
 | `GET /batches/{id}/redemptions?page=&perPage=` | — | `{items: [{id, userId, prizeId, index, redeemedAt}], total, page, perPage}` (`perPage` ≤ 200) |

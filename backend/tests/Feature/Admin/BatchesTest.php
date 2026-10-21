@@ -4,8 +4,12 @@ namespace Tests\Feature\Admin;
 
 use App\Domain\Audit\AuditLog;
 use App\Domain\Beacon\BeaconClient;
+use App\Domain\Codes\CodeFormat;
 use App\Domain\Crypto\CodeHasher;
+use App\Domain\Crypto\PrizeVault;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Support\Fixtures;
 
 /** Lotes del panel (SPEC-003 RF-36/37). */
@@ -41,6 +45,40 @@ final class BatchesTest extends AdminTestCase
         $this->assertSame([$id], array_column($this->api('GET', "/batches?campaignId=$campaign&state=draft")->json('batches'), 'id'));
         $this->assertSame([], $this->api('GET', '/batches?state=active')->json('batches'));
         $this->assertNull((new AuditLog)->verifyChain());
+    }
+
+    public function test_un_lote_con_reserva_se_crea_y_el_detalle_la_muestra(): void
+    {
+        $this->login($this->makeAdmin('operator'));
+        $campaign = $this->f->campaign();
+        DB::table('prizes')->insert(['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'extraSpin', 'label' => 'Gira de nuevo', 'amount' => null, 'meta' => json_encode(['extra_spins' => 1])]);
+        $pool = [['prizeId' => 'none', 'quantity' => 6], ['prizeId' => 'p10k', 'quantity' => 3], ['prizeId' => 'extra', 'quantity' => 2]];
+
+        $r = $this->api('POST', '/batches', ['campaignId' => $campaign, 'name' => 'Con reserva', 'pool' => $pool, 'reserve' => 3]);
+        $this->assertSame(201, $r->status(), $r->getContent());
+        $b = $this->api('GET', '/batches/'.$r->json('id'))->assertOk()->json();
+        $this->assertSame([8, 3, 0, 0, 2], [$b['totalCodes'], $b['reserveSize'], $b['reserveConsumed'], $b['pendingSpins'], $b['commitVersion']]);
+        $this->assertSame(3, $this->api('GET', '/batches')->json('batches.0.reserveSize'));
+
+        // Sin reserva el detalle no trae campos de reserva.
+        $plain = $this->api('POST', '/batches', ['campaignId' => $campaign, 'name' => 'Sin', 'pool' => $this->pool()])->json('id');
+        $this->assertArrayNotHasKey('reserveConsumed', $this->api('GET', "/batches/$plain")->json());
+    }
+
+    public function test_la_reserva_se_valida(): void
+    {
+        $this->login($this->makeAdmin('operator'));
+        $campaign = $this->f->campaign();
+        DB::table('prizes')->insert(['campaign_id' => $campaign, 'prize_id' => 'extra', 'type' => 'extraSpin', 'label' => 'Gira de nuevo', 'amount' => null, 'meta' => json_encode(['extra_spins' => 1])]);
+        $ok = ['campaignId' => $campaign, 'name' => 'L', 'pool' => [['prizeId' => 'none', 'quantity' => 6], ['prizeId' => 'extra', 'quantity' => 2]]];
+
+        foreach ([['reserve' => -1], ['reserve' => '3'], ['reserve' => 1.5], ['reserve' => 8], ['reserve' => 1]] as $bad) {
+            $r = $this->api('POST', '/batches', $bad + $ok);
+            $this->assertSame(422, $r->status(), json_encode($bad).' '.$r->getContent());
+        }
+        // 2 premios de giro extra piden 2 casillas: con 1 no alcanza (error duro), con 2 sí.
+        $this->assertStringContainsString('no cubre el peor caso', $this->api('POST', '/batches', ['reserve' => 1] + $ok)->json('error.message'));
+        $this->assertSame(201, $this->api('POST', '/batches', ['reserve' => 2] + $ok)->status());
     }
 
     public function test_validacion_del_borrador(): void
@@ -135,8 +173,8 @@ final class BatchesTest extends AdminTestCase
     {
         $id = $this->f->draft();
         // El primer código (idx 0) es uno cuyo texto conocemos; los demás son de relleno.
-        $canonical = \App\Domain\Codes\CodeFormat::canonicalFromBytes(str_repeat("\x01", 7));
-        $text = \App\Domain\Codes\CodeFormat::display($canonical, 'SG');
+        $canonical = CodeFormat::canonicalFromBytes(str_repeat("\x01", 7));
+        $text = CodeFormat::display($canonical, 'SG');
         $hasher = new CodeHasher;
         $hashes = [$hasher->hash($canonical)];
         for ($i = 1; $i < 10; $i++) {
@@ -167,13 +205,13 @@ final class BatchesTest extends AdminTestCase
     {
         $this->login($this->makeAdmin('operator'));
         [$id, $text] = $this->activeWithKnownCode();
-        $canon = \App\Domain\Codes\CodeFormat::normalize($text);
+        $canon = CodeFormat::normalize($text);
         $codeId = DB::table('codes')->where('batch_id', $id)->where('idx', 0)->value('id');
-        $prize = app(\App\Domain\Crypto\PrizeVault::class)->decryptPrize($id, 0, hex2bin(DB::selectOne("SELECT encode(prize_enc,'hex') AS p FROM codes WHERE id = ?", [$codeId])->p));
+        $prize = app(PrizeVault::class)->decryptPrize($id, 0, hex2bin(DB::selectOne("SELECT encode(prize_enc,'hex') AS p FROM codes WHERE id = ?", [$codeId])->p));
         DB::update("UPDATE codes SET redeemed_at = now(), redeemed_by = 'u-77' WHERE id = ?", [$codeId]);
         DB::insert(
             "INSERT INTO redemptions (id, code_id, batch_id, user_id, idempotency_key, prize_id, response) VALUES (?, ?, ?, 'u-77', 'idem-key-0001', ?, '{}')",
-            [\Illuminate\Support\Str::uuid(), $codeId, $id, $prize],
+            [Str::uuid(), $codeId, $id, $prize],
         );
 
         $r = $this->api('POST', '/codes/lookup', ['code' => $text])->assertOk();
@@ -192,8 +230,8 @@ final class BatchesTest extends AdminTestCase
         $this->assertSame('codeInvalid', $this->api('POST', '/codes/lookup', ['code' => 'esto no es un código'])->json('error.code'));
         $this->api('POST', '/codes/lookup', ['code' => 123])->assertStatus(422);
         $this->api('POST', '/codes/lookup', ['code' => str_repeat('A', 65)])->assertStatus(422);
-        $canon = \App\Domain\Codes\CodeFormat::canonicalFromBytes(str_repeat("\x02", 7));
-        $this->api('POST', '/codes/lookup', ['code' => \App\Domain\Codes\CodeFormat::display($canon, 'SG')])->assertStatus(404);
+        $canon = CodeFormat::canonicalFromBytes(str_repeat("\x02", 7));
+        $this->api('POST', '/codes/lookup', ['code' => CodeFormat::display($canon, 'SG')])->assertStatus(404);
     }
 
     public function test_la_paginacion_de_canjes_tiene_tope(): void
@@ -208,10 +246,10 @@ final class BatchesTest extends AdminTestCase
     {
         $admin = $this->makeAdmin('auditor');
         $this->login($admin);
-        \Illuminate\Support\Facades\DB::table('settings')->insert(['key' => 'admin.lookup_per_minute', 'value' => '3', 'updated_by' => 'test', 'updated_at' => now()]);
-        \Illuminate\Support\Facades\Cache::flush();
-        $canon = \App\Domain\Codes\CodeFormat::canonicalFromBytes(str_repeat("\x03", 7));
-        $body = ['code' => \App\Domain\Codes\CodeFormat::display($canon, 'SG')];
+        DB::table('settings')->insert(['key' => 'admin.lookup_per_minute', 'value' => '3', 'updated_by' => 'test', 'updated_at' => now()]);
+        Cache::flush();
+        $canon = CodeFormat::canonicalFromBytes(str_repeat("\x03", 7));
+        $body = ['code' => CodeFormat::display($canon, 'SG')];
 
         for ($i = 0; $i < 3; $i++) {
             $this->assertSame(404, $this->api('POST', '/codes/lookup', $body)->status());

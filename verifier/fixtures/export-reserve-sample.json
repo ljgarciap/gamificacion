@@ -1,0 +1,228 @@
+{
+    "version": 2,
+    "batch_id": "12b49ee2-2de3-4e92-ba1f-a6805705d556",
+    "chain_hash": "636861696e2d64652d7072756562612d30313233343536373839616263646566",
+    "beacon_round": 5000000,
+    "beacon_value": "b3f04437bbe158e1161e74ceb6297f59438456bd86fe726c21ac311f6a524ed2",
+    "pool": [
+        {
+            "prize_id": "extra",
+            "quantity": 2
+        },
+        {
+            "prize_id": "none",
+            "quantity": 6
+        },
+        {
+            "prize_id": "p10k",
+            "quantity": 3
+        }
+    ],
+    "codes_digest": "768f3966627500a460eae470b70903096ce1ca7fa2a690e184cba7043744e7c7",
+    "commitment": "2c2d43a1ffb1e56fc83950e2b97f42af54e594cc96684d3aee286280341db1b0",
+    "seed": "352f33b2170ebed5162db7428e73cbb4a69c4388fd065db3d1639d8a5b8b766e",
+    "code_hashes": [
+        "9f8df1509ee72d2857010d0212618ea8c06e83c4f4765f0d8bbd1ecd33c3473a",
+        "655632970d9981d2fdc0f3b77cd9fadac4c24035784418c665d6d244894a4110",
+        "fccfd0fc6aa77b39ee43de593ecd82d0e4548c85ac482f933d89c2092ede69d6",
+        "93ce4d4ccba534c6ea29cbe320da38c23b564341a5db122e48b9857f10a435d3",
+        "f65e0c0b001e205c85844c64f3b8d8bfdd920f1adb909249b9ce3cb749fe21e0",
+        "6d67fe29ac81e124026bdebe54676bdec06329961d0c6cd5b77fd193269922b8",
+        "e4c58aac63c36d43889616f584600d2860f34f08ea0da9c5d077c35fdd8a3bea",
+        "ac9f0c940e88dde1928badf5377e60b47a7ace12756b2f257948d47745340b4e"
+    ],
+    "assignments": [
+        "p10k",
+        "none",
+        "extra",
+        "none",
+        "extra",
+        "none",
+        "none",
+        "none"
+    ],
+    "audit_log": [
+        {
+            "id": 37,
+            "actor": "tester",
+            "action": "batch.created",
+            "subject_type": "batch",
+            "subject_id": "12b49ee2-2de3-4e92-ba1f-a6805705d556",
+            "data": "{\"campaign_id\":\"e5437618-3da5-49f2-afe6-f20beeaa29a7\",\"name\":\"Lote con reserva\",\"pool\":[{\"prize_id\":\"extra\",\"quantity\":2},{\"prize_id\":\"none\",\"quantity\":6},{\"prize_id\":\"p10k\",\"quantity\":3}],\"reserve\":3,\"total_codes\":8}",
+            "at_micros": 1792611631647194,
+            "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "hash": "ccda30934b1a09ef26332afda2e012a5c1e874a923ce1b6460878ec41fcc4914"
+        },
+        {
+            "id": 38,
+            "actor": "tester",
+            "action": "batch.codes_generated",
+            "subject_type": "batch",
+            "subject_id": "12b49ee2-2de3-4e92-ba1f-a6805705d556",
+            "data": "{\"count\":8,\"export_sha256\":\"7434552ba8f484efd95ddffe94e4129098420d00a3489666b20cfc7b4c110ea1\",\"prefix\":\"RULETA\"}",
+            "at_micros": 1792611631653310,
+            "prev_hash": "ccda30934b1a09ef26332afda2e012a5c1e874a923ce1b6460878ec41fcc4914",
+            "hash": "9061cac879e7583bf81d1dc9e02ba04113b5acdfbbc05289283e5a1a3d58f3b2"
+        },
+        {
+            "id": 39,
+            "actor": "tester",
+            "action": "batch.committed",
+            "subject_type": "batch",
+            "subject_id": "12b49ee2-2de3-4e92-ba1f-a6805705d556",
+            "data": "{\"batch_id\":\"12b49ee2-2de3-4e92-ba1f-a6805705d556\",\"beacon_round\":5000000,\"chain_hash\":\"636861696e2d64652d7072756562612d30313233343536373839616263646566\",\"codes_digest\":\"768f3966627500a460eae470b70903096ce1ca7fa2a690e184cba7043744e7c7\",\"commit_version\":2,\"commitment\":\"2c2d43a1ffb1e56fc83950e2b97f42af54e594cc96684d3aee286280341db1b0\",\"pool\":[{\"prize_id\":\"extra\",\"quantity\":2},{\"prize_id\":\"none\",\"quantity\":6},{\"prize_id\":\"p10k\",\"quantity\":3}],\"pool_hash\":\"d24b89ead0f20efa683512072d613760f6e1b23cca3ed7c887fda3e09caaea9f\",\"prizes\":[{\"amount\":null,\"label\":\"Gira de nuevo\",\"prize_id\":\"extra\",\"type\":\"extraSpin\"},{\"amount\":null,\"label\":\"Sin premio\",\"prize_id\":\"none\",\"type\":\"none\"},{\"amount\":10000,\"label\":\"$ 10.000\",\"prize_id\":\"p10k\",\"type\":\"money\"}],\"reserve\":3}",
+            "at_micros": 1792611631658751,
+            "prev_hash": "9061cac879e7583bf81d1dc9e02ba04113b5acdfbbc05289283e5a1a3d58f3b2",
+            "hash": "d8741444f516c3836ee00e5f76fd927b66ee59739749fe49ab1724e39f0f5f43"
+        },
+        {
+            "id": 40,
+            "actor": "tester",
+            "action": "batch.activated",
+            "subject_type": "batch",
+            "subject_id": "12b49ee2-2de3-4e92-ba1f-a6805705d556",
+            "data": "{\"beacon_round\":5000000,\"beacon_value\":\"b3f04437bbe158e1161e74ceb6297f59438456bd86fe726c21ac311f6a524ed2\"}",
+            "at_micros": 1792611631663198,
+            "prev_hash": "d8741444f516c3836ee00e5f76fd927b66ee59739749fe49ab1724e39f0f5f43",
+            "hash": "8e79548731e497fd7f9110332def6259b08d0f347561d9b5941bf14c6f70cd40"
+        },
+        {
+            "id": 41,
+            "actor": "user:d59bfd03d775b7d7",
+            "action": "code.redeemed",
+            "subject_type": "redemption",
+            "subject_id": "eb6a5e6e-9a60-4b38-9d9b-46e793fb8664",
+            "data": "{\"batch_id\":\"12b49ee2-2de3-4e92-ba1f-a6805705d556\",\"prize_id\":\"p10k\",\"user_ref\":\"d59bfd03d775b7d7\"}",
+            "at_micros": 1792611631670465,
+            "prev_hash": "8e79548731e497fd7f9110332def6259b08d0f347561d9b5941bf14c6f70cd40",
+            "hash": "c78a8d8df635cff1b97225a842e2c1f1232145209c39f37737dadd2f3125fc68"
+        },
+        {
+            "id": 42,
+            "actor": "user:77a33a6613331cb9",
+            "action": "code.redeemed",
+            "subject_type": "redemption",
+            "subject_id": "6de27ef8-1d06-4f15-ab5d-8fd5d2a69466",
+            "data": "{\"batch_id\":\"12b49ee2-2de3-4e92-ba1f-a6805705d556\",\"prize_id\":\"none\",\"user_ref\":\"77a33a6613331cb9\"}",
+            "at_micros": 1792611631676958,
+            "prev_hash": "c78a8d8df635cff1b97225a842e2c1f1232145209c39f37737dadd2f3125fc68",
+            "hash": "ff3aa6b3b3c1d560ff63a860f0e55c0a8bc544e5aa5ee7f80b655c81c5851037"
+        },
+        {
+            "id": 43,
+            "actor": "user:f9d02794395f81ec",
+            "action": "code.redeemed",
+            "subject_type": "redemption",
+            "subject_id": "505dc2af-c88a-4625-ad08-a7e5459c465e",
+            "data": "{\"batch_id\":\"12b49ee2-2de3-4e92-ba1f-a6805705d556\",\"prize_id\":\"extra\",\"spins_granted\":1,\"user_ref\":\"f9d02794395f81ec\"}",
+            "at_micros": 1792611631680169,
+            "prev_hash": "ff3aa6b3b3c1d560ff63a860f0e55c0a8bc544e5aa5ee7f80b655c81c5851037",
+            "hash": "77d2b3b783cba7edaaa175318c6928764b74de912b3304429c4dc30fb8ac3aa8"
+        },
+        {
+            "id": 44,
+            "actor": "user:f9d02794395f81ec",
+            "action": "spin.redeemed",
+            "subject_type": "redemption",
+            "subject_id": "27484697-092b-4f89-912c-45f971cb8876",
+            "data": "{\"batch_id\":\"12b49ee2-2de3-4e92-ba1f-a6805705d556\",\"parent_redemption_id\":\"505dc2af-c88a-4625-ad08-a7e5459c465e\",\"prize_id\":\"none\",\"reserve_idx\":0,\"spin_no\":1,\"user_ref\":\"f9d02794395f81ec\"}",
+            "at_micros": 1792611631686471,
+            "prev_hash": "77d2b3b783cba7edaaa175318c6928764b74de912b3304429c4dc30fb8ac3aa8",
+            "hash": "5a3ea15e35b8c702f8765d08b407d2da4eea1fb5d6def52603a4ea5c5497ee9f"
+        },
+        {
+            "id": 45,
+            "actor": "user:00dd1c24e03b7978",
+            "action": "code.redeemed",
+            "subject_type": "redemption",
+            "subject_id": "71c5b610-a37b-44ea-88da-f0ad4af6d9fe",
+            "data": "{\"batch_id\":\"12b49ee2-2de3-4e92-ba1f-a6805705d556\",\"prize_id\":\"none\",\"user_ref\":\"00dd1c24e03b7978\"}",
+            "at_micros": 1792611631691395,
+            "prev_hash": "5a3ea15e35b8c702f8765d08b407d2da4eea1fb5d6def52603a4ea5c5497ee9f",
+            "hash": "ca6f2b0fbc6e3382a1620c8a5077e0bf21ac4fefcfb32e86524238bdf9d42b6e"
+        },
+        {
+            "id": 46,
+            "actor": "user:2e6e87a452c7608c",
+            "action": "code.redeemed",
+            "subject_type": "redemption",
+            "subject_id": "8bd5fbcc-8ce1-4992-92ec-bffd9af4e69d",
+            "data": "{\"batch_id\":\"12b49ee2-2de3-4e92-ba1f-a6805705d556\",\"prize_id\":\"extra\",\"spins_granted\":1,\"user_ref\":\"2e6e87a452c7608c\"}",
+            "at_micros": 1792611631694346,
+            "prev_hash": "ca6f2b0fbc6e3382a1620c8a5077e0bf21ac4fefcfb32e86524238bdf9d42b6e",
+            "hash": "2d5f2fc76894a6e1c7628fa27fcc02e86cc90154a59a34828cb76c751ae2a432"
+        },
+        {
+            "id": 47,
+            "actor": "user:2e6e87a452c7608c",
+            "action": "spin.redeemed",
+            "subject_type": "redemption",
+            "subject_id": "2f249b02-8cce-4807-aca4-b65ceec5c5ae",
+            "data": "{\"batch_id\":\"12b49ee2-2de3-4e92-ba1f-a6805705d556\",\"parent_redemption_id\":\"8bd5fbcc-8ce1-4992-92ec-bffd9af4e69d\",\"prize_id\":\"p10k\",\"reserve_idx\":1,\"spin_no\":1,\"user_ref\":\"2e6e87a452c7608c\"}",
+            "at_micros": 1792611631698224,
+            "prev_hash": "2d5f2fc76894a6e1c7628fa27fcc02e86cc90154a59a34828cb76c751ae2a432",
+            "hash": "fb601f910a0fd06b03cbd8d06ced6d0830c43010fd653ff7cc701e59081b5629"
+        },
+        {
+            "id": 48,
+            "actor": "user:b244f8cbb79f8d21",
+            "action": "code.redeemed",
+            "subject_type": "redemption",
+            "subject_id": "e1fadb4f-d0f1-41be-8774-34ec8a5c987a",
+            "data": "{\"batch_id\":\"12b49ee2-2de3-4e92-ba1f-a6805705d556\",\"prize_id\":\"none\",\"user_ref\":\"b244f8cbb79f8d21\"}",
+            "at_micros": 1792611631703242,
+            "prev_hash": "fb601f910a0fd06b03cbd8d06ced6d0830c43010fd653ff7cc701e59081b5629",
+            "hash": "1ce8532d98d5f712995a518d9c068bf2eab3221ef0affd7ab89ab2647c30bc85"
+        },
+        {
+            "id": 49,
+            "actor": "user:d2e787502595f546",
+            "action": "code.redeemed",
+            "subject_type": "redemption",
+            "subject_id": "6fa03387-17c6-4a50-bd15-a21b885a7ad6",
+            "data": "{\"batch_id\":\"12b49ee2-2de3-4e92-ba1f-a6805705d556\",\"prize_id\":\"none\",\"user_ref\":\"d2e787502595f546\"}",
+            "at_micros": 1792611631707773,
+            "prev_hash": "1ce8532d98d5f712995a518d9c068bf2eab3221ef0affd7ab89ab2647c30bc85",
+            "hash": "3d6e3bb7bdf286c66716b769a4675af7160bcdfd738ce3143ec2c06fa828768d"
+        },
+        {
+            "id": 50,
+            "actor": "user:def31d71970bf862",
+            "action": "code.redeemed",
+            "subject_type": "redemption",
+            "subject_id": "09981787-dd73-4289-ba01-90b2d2e95e41",
+            "data": "{\"batch_id\":\"12b49ee2-2de3-4e92-ba1f-a6805705d556\",\"prize_id\":\"none\",\"user_ref\":\"def31d71970bf862\"}",
+            "at_micros": 1792611631711665,
+            "prev_hash": "3d6e3bb7bdf286c66716b769a4675af7160bcdfd738ce3143ec2c06fa828768d",
+            "hash": "4824c98f97a419e50bcfb06d5dfa74780c455d4e02c5b1fd54978d46bdbf66b4"
+        },
+        {
+            "id": 51,
+            "actor": "ana",
+            "action": "batch.closed",
+            "subject_type": "batch",
+            "subject_id": "12b49ee2-2de3-4e92-ba1f-a6805705d556",
+            "data": "{\"pending_spins\":0,\"redeemed\":8,\"reserve\":3,\"total_codes\":8}",
+            "at_micros": 1792611631714272,
+            "prev_hash": "4824c98f97a419e50bcfb06d5dfa74780c455d4e02c5b1fd54978d46bdbf66b4",
+            "hash": "a403dd568515099fdbdb0dc0522bbbe4dea648e20721aef72983ae35c3bb5729"
+        },
+        {
+            "id": 52,
+            "actor": "ana",
+            "action": "batch.revealed",
+            "subject_type": "batch",
+            "subject_id": "12b49ee2-2de3-4e92-ba1f-a6805705d556",
+            "data": "{\"seed\":\"352f33b2170ebed5162db7428e73cbb4a69c4388fd065db3d1639d8a5b8b766e\"}",
+            "at_micros": 1792611631717733,
+            "prev_hash": "a403dd568515099fdbdb0dc0522bbbe4dea648e20721aef72983ae35c3bb5729",
+            "hash": "ddbcd64991926155ddce05253f0f41f237abd2e1f0470e679f3ac3dbdce275e2"
+        }
+    ],
+    "commit_version": 2,
+    "reserve_assignments": [
+        "none",
+        "p10k",
+        "p10k"
+    ]
+}

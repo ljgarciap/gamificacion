@@ -224,6 +224,47 @@ def audit_entry_hash(prev: bytes, e: dict) -> bytes:
     )
 
 
+def verify_spins(entries, batch_id, reserve_assignments):
+    """Giros hijos de la reserva, comprobados contra la cadena: las casillas se consumieron EN ORDEN (la k-ésima redención hija recibió la
+    casilla k), cada una entregó el premio de su casilla, y ningún padre jugó más giros de los que se le concedieron."""
+    failures = []
+    granted = {}   # id de redención -> giros concedidos
+    owner = {}     # id de redención -> usuario (seudónimo)
+    played = {}    # id de padre -> giros jugados
+    next_slot = 0
+    for e in entries:
+        if e["action"] not in ("code.redeemed", "spin.redeemed") or e["subject_type"] != "redemption":
+            continue
+        try:
+            data = json.loads(e["data"])
+        except ValueError:
+            continue
+        if data.get("batch_id") != batch_id:
+            continue
+        rid = e["subject_id"]
+        granted[rid] = data.get("spins_granted", 0)
+        owner[rid] = data.get("user_ref")
+        if e["action"] == "code.redeemed":
+            continue
+        idx, parent, n = data.get("reserve_idx"), data.get("parent_redemption_id"), data.get("spin_no")
+        if idx != next_slot:
+            failures.append(f"la redención hija {rid} usó la casilla {idx} y debía usar la {next_slot}: las casillas no se consumieron en orden")
+        elif not (0 <= idx < len(reserve_assignments)):
+            failures.append(f"la redención hija {rid} usó la casilla {idx}, fuera de la reserva ({len(reserve_assignments)} casillas)")
+        elif data.get("prize_id") != reserve_assignments[idx]:
+            failures.append(f"la redención hija {rid} entregó {data.get('prize_id')!r} y la casilla {idx} tenía {reserve_assignments[idx]!r}")
+        next_slot += 1
+        if parent not in granted:
+            failures.append(f"la redención hija {rid} cuelga de {parent}, que no es una redención previa de este lote")
+            continue
+        if owner[parent] != data.get("user_ref"):
+            failures.append(f"la redención hija {rid} es de otro usuario que su padre {parent}")
+        played[parent] = played.get(parent, 0) + 1
+        if n != played[parent] or played[parent] > granted[parent]:
+            failures.append(f"el padre {parent} jugó el giro {n} (de {granted[parent]} concedidos): giros fuera de orden o de más")
+    return failures
+
+
 def verify_audit_log(export: dict, anchor=None):
     """Fallos de la bitácora incluida en la exportación (lista vacía = íntegra y coherente con lo publicado)."""
     failures = []
@@ -269,6 +310,14 @@ def verify_audit_log(export: dict, anchor=None):
             failures.append(f"la bitácora no registra {action} para este lote")
         elif data.get(field) != published:
             failures.append(f"{label} de la exportación no coincide con el registrado en la bitácora ({action})")
+
+    # Giro extra: la reserva y la versión del compromiso exportadas son las que la bitácora registró al comprometer.
+    reserve_export = export.get("reserve_assignments", [])
+    committed = batch_entries.get("batch.committed")
+    if committed is not None:
+        if committed.get("reserve", 0) != len(reserve_export) or committed.get("commit_version", 1) != export.get("commit_version", 1):
+            failures.append("la reserva o la versión del compromiso de la exportación no coinciden con las registradas al comprometer")
+    failures += verify_spins(entries, batch_id, reserve_export)
 
     if anchor is not None:
         try:

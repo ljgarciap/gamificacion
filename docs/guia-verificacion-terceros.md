@@ -34,6 +34,17 @@ Salida esperada: `OK: ...`. Cualquier otra cosa lista cada fallo encontrado y te
 - **Comparar la baliza con drand.** El verificador no usa la red. Abra `https://api.drand.sh/<chain_hash>/public/<beacon_round>` (con los valores de `export.json`) y confirme que `randomness` es igual a `beacon_value`. Es lo que garantiza que el azar no lo eligió el operador.
 - **Guardar el compromiso y el ancla en su poder** cuando se publiquen, no depender de volver a pedírselos al operador después. Sin un ancla que usted conserve, el punto 6 no tiene fuerza: una bitácora truncada sigue siendo una cadena válida y el verificador avisa de ello.
 
+## Lotes con reserva (giro extra)
+
+Si la exportación trae `reserve_assignments` y `commit_version: 2`, el lote reservó casillas para los giros del premio «giro extra». El verificador, además de lo anterior:
+
+- recalcula el mazo completo de `N + R` posiciones (los `N` códigos y las `R` casillas de reserva) con la baraja del compromiso v2, y comprueba que el stock total es el del pool;
+- exige la combinación canónica: sin reserva solo vale el compromiso v1 y con reserva solo el v2 (un lote no puede tener dos compromisos válidos);
+- comprueba en la bitácora que las casillas se consumieron **en orden** (la k-ésima redención hija recibió la casilla k), que cada una entregó el premio de su casilla, y que ningún padre jugó más giros de los que se le concedieron;
+- comprueba que la reserva exportada es la registrada al comprometer.
+
+Los giros que quedaron sin jugar al cerrar caducan; la bitácora los deja anotados en `batch.closed` (`pending_spins`).
+
 ## Qué NO prueba
 
 - No prueba que cada premio se haya entregado: eso lo hace la app que acredita (el motor solo avisa).

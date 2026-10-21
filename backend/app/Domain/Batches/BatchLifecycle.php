@@ -261,7 +261,10 @@ final class BatchLifecycle
             $redeemed = (int) DB::selectOne('SELECT count(*) AS c FROM codes WHERE batch_id = ? AND redeemed_at IS NOT NULL', [$batchId])->c;
             $this->audit->append($actor, 'batch.closed', 'batch', $batchId, [
                 'redeemed' => $redeemed, 'total_codes' => (int) $b->total_codes,
-            ]);
+            ] + ((int) $b->reserve_size > 0 ? [
+                // Los giros que quedaron sin jugar caducan con el cierre (decisión de Luis, docs/seguridad-p6.md H6).
+                'reserve' => (int) $b->reserve_size, 'pending_spins' => $this->pendingSpins($batchId),
+            ] : []));
         });
     }
 
@@ -299,6 +302,15 @@ final class BatchLifecycle
             $this->audit->append($actor, 'batch.revealed', 'batch', $batchId, ['seed' => bin2hex($seed)]);
             sodium_memzero($seed);
         });
+    }
+
+    /** Giros concedidos que todavía no se jugaron. Caducan al cerrar el lote. */
+    public function pendingSpins(string $batchId): int
+    {
+        return (int) DB::selectOne(
+            'SELECT COALESCE(sum(spins_granted), 0) - count(*) FILTER (WHERE reserve_idx IS NOT NULL) AS pending FROM redemptions WHERE batch_id = ?',
+            [$batchId],
+        )->pending;
     }
 
     // --- Internos ----------------------------------------------------------------------------------------------

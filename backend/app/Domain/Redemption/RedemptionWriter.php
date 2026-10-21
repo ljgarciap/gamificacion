@@ -80,7 +80,9 @@ final class RedemptionWriter
         $ref = $this->userRef($userId);
         $this->audit->append('user:'.$ref, $child ? 'spin.redeemed' : 'code.redeemed', 'redemption', $id, [
             'batch_id' => $row->batch_id, 'prize_id' => $prizeId, 'user_ref' => $ref,
-        ] + ($child ? ['parent_redemption_id' => $source['parent'], 'spin_no' => $source['spin_no'], 'reserve_idx' => $source['reserve_idx']] : []));
+        ] + ($child ? ['parent_redemption_id' => $source['parent'], 'spin_no' => $source['spin_no'], 'reserve_idx' => $source['reserve_idx']] : [])
+            // Los giros que concede esta redención: el verificador comprueba con ellos que no se jugaron más de los concedidos.
+            + ($prize['extraSpins'] > 0 ? ['spins_granted' => $prize['extraSpins']] : []));
 
         return new RedemptionResult($json, $id, replayed: false);
     }
