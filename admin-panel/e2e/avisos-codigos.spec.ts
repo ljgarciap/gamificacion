@@ -38,7 +38,9 @@ test.describe('Avisos al host (P8, grupo 2)', () => {
     await expect(page.getByTestId('filter-failed')).toContainText(`Fallidos: ${o.counts.failed}`);
     await page.getByTestId('filter-failed').click();
     await expect(page).toHaveURL(/estado=failed/);
-    for (const badge of await page.locator('[data-testid=outbox-row] .badge').allInnerTexts()) expect(badge).toContain('Fallido');
+    await expect
+      .poll(async () => (await page.locator('[data-testid=outbox-row] .badge').allInnerTexts()).every((b) => b.includes('Fallido')), { message: 'todas las filas son fallidas' })
+      .toBe(true);
   });
 
   test('el operador reintenta un aviso fallido: va con CSRF, se avisa y sale de la lista', async ({ page }) => {

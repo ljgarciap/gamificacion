@@ -235,3 +235,35 @@ export interface RedemptionPage {
   page: number;
   perPage: number;
 }
+
+export type ApprovalAction = 'batch.activate' | 'codes.generate' | 'audit.export' | 'setting.change';
+export type ApprovalStatus = 'pending' | 'approved' | 'executed' | 'expired' | string;
+
+export interface Approval {
+  id: number;
+  action: ApprovalAction;
+  subjectType: string;
+  subjectId: string;
+  params: Record<string, unknown>;
+  status: ApprovalStatus;
+  requestedBy: { id: number; name: string };
+  approvedBy: { id: number; name: string } | null;
+  requestedAt: string;
+  expiresAt: string;
+  approvedAt: string | null;
+  executedAt: string | null;
+}
+
+export interface ApprovalList {
+  approvals: Approval[];
+  fewApprovers: boolean;
+}
+
+/** Resultado de ejecutar `codes.generate` o `audit.export`: el archivo se entrega una sola vez. */
+export interface Delivery {
+  sha256: string;
+  downloadUntil: string;
+  count?: number;
+  entries?: number;
+  anchor?: unknown;
+}

@@ -108,6 +108,7 @@ async function mockBatch(page: Page, patch: object, calls: { method: string; pat
     const req = route.request();
     const path = new URL(req.url()).pathname.replace(API, '');
     if (req.method() === 'GET' && path === `/batches/${base.id}`) return route.fulfill({ json: batch });
+    if (req.method() === 'GET' && path === '/approvals') return route.continue();
     if (req.method() === 'GET' && path.startsWith('/campaigns/')) return route.fulfill({ json: { id: base.campaignId, name: 'Campaña simulada', prizes: [{ prizeId: 'none', type: 'none', label: 'Sin premio', amount: null, meta: {} }] } });
     if (req.method() === 'GET' && path.endsWith('/redemptions')) return route.fulfill({ json: { items: [], total: 0, page: 1, perPage: 50 } });
     calls.push({ method: req.method(), path, body: req.postData() ? req.postDataJSON() : null });

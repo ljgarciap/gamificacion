@@ -1,10 +1,13 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { ApprovalsState } from '../../core/approvals-state';
 import { Auth } from '../../core/auth';
 
 interface Entry {
@@ -44,6 +47,7 @@ const WARN_SECONDS = 120;
     main { padding: 24px; max-width: 1200px; }
     .who { margin-left: auto; display: flex; align-items: center; gap: 12px; }
     .gp-banner { margin: 16px 24px 0; }
+    .badge { margin-left: 8px; background: var(--gp-primary); color: #fff; border-radius: 10px; padding: 0 8px; font-size: 12px; font-weight: 700; }
   `,
   template: `
     <mat-sidenav-container>
@@ -52,7 +56,7 @@ const WARN_SECONDS = 120;
         <mat-nav-list>
           @for (e of menu(); track e.path) {
             <a mat-list-item [routerLink]="e.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: e.path === '/' }" #rla="routerLinkActive" [attr.aria-current]="rla.isActive ? 'page' : null" [activated]="rla.isActive">
-              {{ e.label }}
+              {{ e.label }}@if (e.path === '/aprobaciones' && approvals.hasBadge()) { <span class="badge" data-testid="approvals-badge" [attr.aria-label]="approvals.awaitingMe() + ' esperan tu aprobación'">{{ approvals.awaitingMe() }}</span> }
             </a>
           }
         </mat-nav-list>
@@ -70,6 +74,9 @@ const WARN_SECONDS = 120;
             <button mat-button type="button" (click)="keepAlive()">Seguir conectado</button>
           </div>
         }
+        @if (approvals.fewApprovers()) {
+          <div class="gp-banner warning" role="alert" data-testid="few-approvers">Solo hay una persona que puede aprobar: el control dual no puede cumplirse. Crea otro operador o superadmin.</div>
+        }
         <main><router-outlet /></main>
       </mat-sidenav-content>
     </mat-sidenav-container>
@@ -77,6 +84,8 @@ const WARN_SECONDS = 120;
 })
 export class Shell implements OnInit, OnDestroy {
   protected readonly auth = inject(Auth);
+  protected readonly approvals = inject(ApprovalsState);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
   private timer?: ReturnType<typeof setInterval>;
 
@@ -87,6 +96,8 @@ export class Shell implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.timer = setInterval(() => this.tick(), 1000);
+    void this.approvals.refresh();
+    this.router.events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.approvals.refresh());
   }
 
   ngOnDestroy(): void {
