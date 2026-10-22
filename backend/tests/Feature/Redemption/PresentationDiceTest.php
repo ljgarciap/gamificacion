@@ -110,6 +110,18 @@ final class PresentationDiceTest extends DbTestCase
 
     // --- Construcción (propiedades) ---------------------------------------------------------------------------------
 
+    public function test_el_rival_simulado_solo_se_acepta_como_booleano_y_solo_se_envia_si_esta_activo(): void
+    {
+        $this->rejects($this->cfg(['rival' => 'si']), 'rival');
+        $this->rejects($this->cfg(['rival' => 1]), 'rival');
+        Presentation::assertRepresentable($this->f->campaign('dice'), 'dice', $this->cfg(['rival' => true]), $this->pool());
+
+        $p = new Presentation;
+        $this->assertTrue($p->build('dice', $this->cfg(['rival' => true]), $this->defs(), 'p50k')['gameConfig']['rival']);
+        $this->assertArrayNotHasKey('rival', $p->build('dice', $this->cfg(['rival' => false]), $this->defs(), 'p50k')['gameConfig']);
+        $this->assertArrayNotHasKey('rival', $p->build('dice', $this->cfg(), $this->defs(), 'p50k')['gameConfig']);
+    }
+
     public function test_la_combinacion_siempre_pertenece_al_premio_decidido(): void
     {
         $rolls = Fixtures::diceRolls();

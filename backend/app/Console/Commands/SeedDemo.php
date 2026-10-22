@@ -134,6 +134,7 @@ class SeedDemo extends Command
         }
         $campaign = $this->campaign('Dados de la suerte', 'dice', 'showPrevious', [
             'rolls' => ['dnone' => $none, 'd10k' => [[2, 2], [3, 3], [4, 4], [5, 5]], 'd50k' => [[1, 1], [6, 6]]],
+            'rival' => true,
         ], [
             ['dnone', 'none', 'Sin premio', null, []],
             ['d10k', 'money', '$ 10.000', 10000, []],

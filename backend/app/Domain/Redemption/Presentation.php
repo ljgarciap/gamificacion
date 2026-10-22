@@ -163,6 +163,9 @@ final class Presentation
         if (! is_int($roll) || $roll < 500 || $roll > 5000) {
             throw new InvalidBatch('rollDurationMs de Dados debe estar entre 500 y 5000.');
         }
+        if (isset($cfg['rival']) && ! is_bool($cfg['rival'])) {
+            throw new InvalidBatch('rival de Dados debe ser true o false (game_config.rival).');
+        }
         $rolls = $cfg['rolls'] ?? null;
         if (! is_array($rolls) || $rolls === [] || array_is_list($rolls)) {
             throw new InvalidBatch('Dados necesita game_config.rolls: un mapa premio → lista de combinaciones [a, b].');
@@ -350,7 +353,12 @@ final class Presentation
 
         return [
             'gameResult' => ['dice' => array_values($dice)],
-            'gameConfig' => ['diceCount' => 2, 'rollDurationMs' => (int) ($cfg['rollDurationMs'] ?? self::DICE_DEFAULT_ROLL_MS), 'legend' => $legend],
+            'gameConfig' => [
+                'diceCount' => 2,
+                'rollDurationMs' => (int) ($cfg['rollDurationMs'] ?? self::DICE_DEFAULT_ROLL_MS),
+                'legend' => $legend,
+                // Rival simulado (solo animación); solo se envía si se activa, las campañas anteriores no cambian.
+            ] + (($cfg['rival'] ?? false) === true ? ['rival' => true] : []),
         ];
     }
 
