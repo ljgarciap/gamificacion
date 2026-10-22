@@ -1,0 +1,791 @@
+openapi: 3.1.0
+info:
+  title: API del panel de administración — Gamificación
+  version: 1.0.0
+  description: |
+    Superficie del panel (SPEC-003): sesión por cookie `HttpOnly` + CSRF (`X-XSRF-TOKEN`, valor de la cookie `XSRF-TOKEN`). Nada de esto usa el JWT de los
+    hosts. Cada operación declara el permiso que exige en `x-permission` (la prueba de contrato lo compara con el middleware real de cada ruta).
+    Los cuerpos marcados `Free` se describen en prosa en `docs/admin-api-v1.md`; los esquemas tipados cubren las respuestas que el panel consume más.
+servers:
+  - url: /admin/api/v1
+security:
+  - sessionCookie: []
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: laravel_session
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: {type: integer}
+  schemas:
+    Free:
+      type: object
+      description: Forma descrita en docs/admin-api-v1.md.
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: {$ref: '#/components/schemas/ErrorCode'}
+            message: {type: string}
+            retryAfter: {type: integer}
+    ErrorCode:
+      type: string
+      enum: [unauthenticated, forbidden, csrfMismatch, invalidCredentials, invalidCode, weakPassword, rateLimited, validationFailed, notFound, duplicate, wrongState, campaignFrozen, lastSuperadmin, approvalRequired, alreadyPending, selfApproval, notRequester, expired, beaconNotReady, beaconUnavailable, batchNotReady, codeInvalid, gone, exportTampered, serverError]
+    IdResponse:
+      type: object
+      required: [id]
+      properties: {id: {}}
+    NextStep:
+      type: object
+      required: [next]
+      properties:
+        next: {type: string, enum: [password, enroll, mfa]}
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties: {email: {type: string}, password: {type: string}}
+    PasswordRequest:
+      type: object
+      required: [current, new]
+      properties: {current: {type: string}, new: {type: string}}
+    CodeRequest:
+      type: object
+      required: [code]
+      properties: {code: {type: string}}
+    EnrollStart:
+      type: object
+      required: [secret, uri]
+      properties: {secret: {type: string}, uri: {type: string}}
+    EnrollDone:
+      type: object
+      required: [recoveryCodes, user]
+      properties:
+        recoveryCodes: {type: array, items: {type: string}}
+        user: {$ref: '#/components/schemas/Me'}
+    SessionUser:
+      type: object
+      required: [user]
+      properties: {user: {$ref: '#/components/schemas/Me'}}
+    Me:
+      type: object
+      required: [id, email, name, role, permissions]
+      properties:
+        id: {type: integer}
+        email: {type: string}
+        name: {type: string}
+        role: {type: string, enum: [superadmin, operator, auditor]}
+        permissions: {type: array, items: {type: string}}
+    UserList:
+      type: object
+      required: [users]
+      properties: {users: {type: array, items: {$ref: '#/components/schemas/User'}}}
+    User:
+      type: object
+      required: [id, email, name, role, active, mfaEnrolled, mustChangePassword, lastLoginAt]
+    UserCreate:
+      type: object
+      required: [email, name, role]
+      properties: {email: {type: string}, name: {type: string}, role: {type: string, enum: [superadmin, operator, auditor]}}
+    UserPatch:
+      type: object
+      properties: {role: {type: string}, active: {type: boolean}, name: {type: string}}
+    TempPassword:
+      type: object
+      required: [tempPassword]
+      properties: {tempPassword: {type: string}}
+    SettingList:
+      type: object
+      required: [settings]
+    SettingValue:
+      type: object
+      required: [value]
+      properties: {value: {type: integer}}
+    SettingHistory:
+      type: object
+      required: [history]
+    ApprovalList:
+      type: object
+      required: [approvals, fewApprovers]
+      properties: {approvals: {type: array, items: {type: object}}, fewApprovers: {type: boolean}}
+    ApprovalCreate:
+      type: object
+      required: [action, params]
+      properties:
+        action: {type: string, enum: [audit.export, codes.generate, batch.activate, setting.change]}
+        params: {type: object}
+    ExecuteResult:
+      type: object
+      description: 204 sin cuerpo salvo codes.generate ({count, sha256, downloadUntil}) y audit.export ({sha256, entries, anchor, downloadUntil}).
+    File:
+      description: Entrega única; cabecera X-Content-SHA256. Una segunda descarga es 410 gone.
+    CampaignList:
+      type: object
+      required: [campaigns]
+    BatchList:
+      type: object
+      required: [batches]
+    BatchCreate:
+      type: object
+      required: [campaignId, name, pool]
+      properties:
+        campaignId: {type: string}
+        name: {type: string}
+        pool: {type: array, items: {type: object, required: [prizeId, quantity], properties: {prizeId: {type: string}, quantity: {type: integer}}}}
+        redeemableUntil: {type: [string, 'null']}
+        reserve: {type: integer, minimum: 0}
+    CodeLookup:
+      type: object
+      required: [code]
+      properties: {code: {type: string}}
+    SecretResponse:
+      type: object
+      required: [secret]
+      properties: {secret: {type: string}}
+    Dashboard:
+      type: object
+      required: [campaigns, batches, activeCodes, redemptions, outbox, approvals, admins, stockByBatch, redemptionsByDay]
+      properties:
+        stockByBatch:
+          type: array
+          items:
+            type: object
+            required: [batchId, name, prizes]
+            properties:
+              prizes:
+                type: array
+                items:
+                  type: object
+                  required: [prizeId, total, delivered, remaining]
+        redemptionsByDay:
+          type: array
+          description: Los últimos 14 días (día de Bogotá), con ceros.
+          items:
+            type: object
+            required: [day, count]
+    AuditEntry:
+      type: object
+      required: [id, occurredAt, actor, action, subjectType, subjectId, data]
+    AuditPage:
+      type: object
+      required: [items, nextBeforeId, perPage]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/AuditEntry'}}
+        nextBeforeId: {type: [integer, 'null'], description: Pasarlo como beforeId para la página siguiente; null = no hay más.}
+    VerifySegment:
+      type: object
+      required: [checked, brokenAt, lastId, lastHash, done]
+      description: Recorrer desde afterId=0 pasando lastId como afterId hasta done. brokenAt != null = la cadena se rompe en esa entrada.
+    AnchorResponse:
+      type: object
+      required: [anchor]
+      properties:
+        anchor:
+          type: [object, 'null']
+          properties: {version: {type: integer}, head_id: {type: integer}, head_hash: {type: string}, created_at: {type: string}}
+paths:
+  /auth/csrf:
+    get:
+      operationId: getAuthCsrf
+      summary: "Entrega la cookie XSRF-TOKEN"
+      x-permission: null
+      security: []
+      responses:
+        '204': {description: Sin contenido}
+  /auth/login:
+    post:
+      operationId: postAuthLogin
+      summary: "Paso 1: correo y contraseña"
+      x-permission: null
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginRequest'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/NextStep'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /auth/password:
+    post:
+      operationId: postAuthPassword
+      summary: "Paso 2: cambio de contraseña (temporal o voluntario)"
+      x-permission: null
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PasswordRequest'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/NextStep'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /auth/mfa/enroll:
+    post:
+      operationId: postAuthMfaEnroll
+      summary: "Paso 3: empieza el enrolamiento del segundo factor"
+      x-permission: null
+      security: []
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/EnrollStart'}}}}
+  /auth/mfa/enroll/confirm:
+    post:
+      operationId: postAuthMfaEnrollConfirm
+      summary: "Paso 3b: confirma el enrolamiento y entrega los códigos de recuperación"
+      x-permission: null
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CodeRequest'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/EnrollDone'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /auth/mfa:
+    post:
+      operationId: postAuthMfa
+      summary: "Paso 4: segundo factor (TOTP o código de recuperación)"
+      x-permission: null
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CodeRequest'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/SessionUser'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /auth/logout:
+    post:
+      operationId: postAuthLogout
+      summary: "Cierra la sesión"
+      x-permission: account.self
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /auth/me:
+    get:
+      operationId: getAuthMe
+      summary: "Usuario y permisos de la sesión"
+      x-permission: account.self
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Me'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /users:
+    get:
+      operationId: getUsers
+      summary: "Lista de usuarios del panel"
+      x-permission: users.manage
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/UserList'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    post:
+      operationId: postUsers
+      summary: "Alta de usuario (contraseña temporal una vez)"
+      x-permission: users.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UserCreate'}
+      responses:
+        '201': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/TempPassword'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /users/{id}:
+    patch:
+      operationId: patchUsersId
+      summary: "Cambia rol, estado o nombre"
+      x-permission: users.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UserPatch'}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /users/{id}/reset-mfa:
+    post:
+      operationId: postUsersIdResetMfa
+      summary: "Quita el 2FA del usuario"
+      x-permission: users.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /users/{id}/reset-password:
+    post:
+      operationId: postUsersIdResetPassword
+      summary: "Contraseña temporal nueva (una vez)"
+      x-permission: users.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/TempPassword'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /settings:
+    get:
+      operationId: getSettings
+      summary: "Parámetros administrables"
+      x-permission: settings.manage
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/SettingList'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /settings/{key}:
+    put:
+      operationId: putSettingsKey
+      summary: "Cambia un parámetro no sensible"
+      x-permission: settings.manage
+      parameters:
+        - {name: key, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SettingValue'}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /settings/{key}/history:
+    get:
+      operationId: getSettingsKeyHistory
+      summary: "Historial de un parámetro"
+      x-permission: settings.manage
+      parameters:
+        - {name: key, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/SettingHistory'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /approvals:
+    get:
+      operationId: getApprovals
+      summary: "Solicitudes de control dual"
+      x-permission: approvals.view
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/ApprovalList'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    post:
+      operationId: postApprovals
+      summary: "Solicita una acción de control dual"
+      x-permission: approvals.request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ApprovalCreate'}
+      responses:
+        '201': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/IdResponse'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /approvals/{id}/approve:
+    post:
+      operationId: postApprovalsIdApprove
+      summary: "Aprueba con un código TOTP nuevo"
+      x-permission: approvals.approve
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CodeRequest'}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /approvals/{id}/execute:
+    post:
+      operationId: postApprovalsIdExecute
+      summary: "Ejecuta una acción aprobada (solo quien la pidió)"
+      x-permission: approvals.request
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/ExecuteResult'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /approvals/{id}/download:
+    get:
+      operationId: getApprovalsIdDownload
+      summary: "Descarga única del archivo generado"
+      x-permission: approvals.request
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '200': {description: Archivo, content: {application/octet-stream: {schema: {$ref: '#/components/schemas/File'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /campaigns:
+    get:
+      operationId: getCampaigns
+      summary: "Lista de campañas"
+      x-permission: campaigns.view
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/CampaignList'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    post:
+      operationId: postCampaigns
+      summary: "Crea una campaña con sus premios"
+      x-permission: campaigns.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Free'}
+      responses:
+        '201': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/IdResponse'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /campaigns/{id}:
+    get:
+      operationId: getCampaignsId
+      summary: "Detalle de campaña"
+      x-permission: campaigns.view
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Free'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    patch:
+      operationId: patchCampaignsId
+      summary: "Edita una campaña"
+      x-permission: campaigns.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Free'}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /campaigns/{id}/prizes:
+    post:
+      operationId: postCampaignsIdPrizes
+      summary: "Agrega un premio"
+      x-permission: campaigns.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Free'}
+      responses:
+        '201': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /campaigns/{id}/prizes/{prizeId}:
+    patch:
+      operationId: patchCampaignsIdPrizesPrizeid
+      summary: "Edita un premio"
+      x-permission: campaigns.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+        - {name: prizeId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Free'}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    delete:
+      operationId: deleteCampaignsIdPrizesPrizeid
+      summary: "Quita un premio"
+      x-permission: campaigns.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+        - {name: prizeId, in: path, required: true, schema: {type: string}}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /batches:
+    get:
+      operationId: getBatches
+      summary: "Lista de lotes"
+      x-permission: batches.view
+      parameters:
+        - {name: campaignId, in: query, schema: {type: string}}
+        - {name: state, in: query, schema: {type: string}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/BatchList'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    post:
+      operationId: postBatches
+      summary: "Crea un lote en borrador (con reserva opcional)"
+      x-permission: batches.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BatchCreate'}
+      responses:
+        '201': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/IdResponse'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /batches/{id}:
+    get:
+      operationId: getBatchesId
+      summary: "Detalle del lote y su compromiso"
+      x-permission: batches.view
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Free'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /batches/{id}/commit:
+    post:
+      operationId: postBatchesIdCommit
+      summary: "Compromete el lote"
+      x-permission: batches.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Free'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /batches/{id}/close:
+    post:
+      operationId: postBatchesIdClose
+      summary: "Cierra el lote"
+      x-permission: batches.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /batches/{id}/reveal:
+    post:
+      operationId: postBatchesIdReveal
+      summary: "Revela la semilla"
+      x-permission: batches.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /batches/{id}/redemptions:
+    get:
+      operationId: getBatchesIdRedemptions
+      summary: "Canjes del lote (paginado)"
+      x-permission: batches.view
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+        - {name: page, in: query, schema: {type: integer}}
+        - {name: perPage, in: query, schema: {type: integer}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Free'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /codes/lookup:
+    post:
+      operationId: postCodesLookup
+      summary: "Busca un código (el premio sigue oculto hasta revelar)"
+      x-permission: batches.view
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CodeLookup'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Free'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /dashboard:
+    get:
+      operationId: getDashboard
+      summary: "Resumen operativo"
+      x-permission: dashboard.view
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Dashboard'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /outbox:
+    get:
+      operationId: getOutbox
+      summary: "Avisos de acreditación al host"
+      x-permission: outbox.view
+      parameters:
+        - {name: status, in: query, schema: {type: string}}
+        - {name: page, in: query, schema: {type: integer}}
+        - {name: perPage, in: query, schema: {type: integer}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Free'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /outbox/{id}/retry:
+    post:
+      operationId: postOutboxIdRetry
+      summary: "Reintenta un aviso agotado"
+      x-permission: outbox.retry
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /hosts:
+    get:
+      operationId: getHosts
+      summary: "Hosts registrados (nunca el secreto)"
+      x-permission: hosts.manage
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Free'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    post:
+      operationId: postHosts
+      summary: "Registra un host (secreto una vez)"
+      x-permission: hosts.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Free'}
+      responses:
+        '201': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/SecretResponse'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /hosts/{id}:
+    patch:
+      operationId: patchHostsId
+      summary: "Edita URL o estado"
+      x-permission: hosts.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Free'}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /hosts/{id}/rotate-secret:
+    post:
+      operationId: postHostsIdRotateSecret
+      summary: "Rota el secreto (una vez)"
+      x-permission: hosts.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/SecretResponse'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /hosts/{id}/retire-previous-secret:
+    post:
+      operationId: postHostsIdRetirePreviousSecret
+      summary: "Retira el secreto anterior"
+      x-permission: hosts.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '204': {description: Sin contenido}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /audit:
+    get:
+      operationId: getAudit
+      summary: "Bitácora, la más nueva primero (paginación por clave)"
+      x-permission: audit.view
+      parameters:
+        - {name: action, in: query, schema: {type: string}}
+        - {name: subjectType, in: query, schema: {type: string}}
+        - {name: subjectId, in: query, schema: {type: string}}
+        - {name: actor, in: query, schema: {type: string}}
+        - {name: from, in: query, schema: {type: string}}
+        - {name: to, in: query, schema: {type: string}}
+        - {name: beforeId, in: query, schema: {type: integer}}
+        - {name: perPage, in: query, schema: {type: integer}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/AuditPage'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /audit/verify:
+    get:
+      operationId: getAuditVerify
+      summary: "Verifica un tramo de la cadena"
+      x-permission: audit.view
+      parameters:
+        - {name: afterId, in: query, schema: {type: integer}}
+        - {name: limit, in: query, schema: {type: integer}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/VerifySegment'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /audit/anchor:
+    get:
+      operationId: getAuditAnchor
+      summary: "Último hash para publicar fuera de la base"
+      x-permission: audit.view
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/AnchorResponse'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}

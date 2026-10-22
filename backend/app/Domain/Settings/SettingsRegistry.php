@@ -45,6 +45,7 @@ final class SettingsRegistry
             'admin.approval_ttl_hours' => $d('Caducidad de una solicitud de control dual', 'h', 1, 168, true),
             'admin.export_ttl_minutes' => $d('Tiempo para descargar los códigos generados', 'min', 5, 1440, true),
             'admin.lookup_per_minute' => $d('Búsquedas de código por minuto y por usuario del panel', 'búsquedas', 1, 300, true),
+            'admin.audit_verify_per_minute' => $d('Verificaciones de la bitácora por minuto y por usuario del panel', 'verificaciones', 1, 120, false),
             'admin.totp_window' => $d('Ventana de tolerancia del código TOTP', 'pasos', 0, 1, true),
         ];
 

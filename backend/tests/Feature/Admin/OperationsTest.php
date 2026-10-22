@@ -88,4 +88,31 @@ final class OperationsTest extends AdminTestCase
         $this->assertSame(1, $d['admins']);
         $this->assertSame(['pending' => 0, 'awaitingExecution' => 0], $d['approvals']);
     }
+
+    public function test_el_resumen_trae_el_stock_por_premio_de_los_lotes_activos_y_los_canjes_por_dia(): void
+    {
+        $this->login($this->makeAdmin('auditor'));
+        $this->notice('pending');
+        $this->notice('pending');
+
+        $d = $this->api('GET', '/dashboard')->assertOk()->json();
+        $this->assertCount(2, $d['stockByBatch']);
+        foreach ($d['stockByBatch'] as $b) {
+            $this->assertSame('active', DB::table('batches')->where('id', $b['batchId'])->value('state'));
+            $pool = json_decode((string) DB::table('batches')->where('id', $b['batchId'])->value('pool'), true);
+            $this->assertSame(array_column($pool, 'prize_id'), array_column($b['prizes'], 'prizeId'));
+            foreach ($b['prizes'] as $p) {
+                $this->assertSame($p['total'] - $p['delivered'], $p['remaining']);
+            }
+        }
+        $p10k = collect($d['stockByBatch'])->flatMap(fn ($b) => $b['prizes'])->where('prizeId', 'p10k')->all();
+        $this->assertSame(2, array_sum(array_column($p10k, 'delivered')), 'cada canje descuenta del stock de su premio');
+
+        $days = $d['redemptionsByDay'];
+        $this->assertCount(14, $days);
+        $this->assertSame(array_values(array_unique(array_column($days, 'day'))), array_column($days, 'day'), 'días distintos y en orden');
+        $this->assertSame(2, array_sum(array_column($days, 'count')));
+        $this->assertSame(2, end($days)['count'], 'hoy');
+        $this->assertSame(0, $days[0]['count'], 'los días sin canjes salen en cero');
+    }
 }

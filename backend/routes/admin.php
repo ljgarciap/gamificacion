@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ApprovalController;
+use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\BatchController;
 use App\Http\Controllers\Admin\CampaignController;
@@ -90,4 +91,11 @@ Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::HOSTS_MANAGE])->
     Route::patch('/hosts/{id}', [HostController::class, 'update'])->whereNumber('id');
     Route::post('/hosts/{id}/rotate-secret', [HostController::class, 'rotate'])->whereNumber('id');
     Route::post('/hosts/{id}/retire-previous-secret', [HostController::class, 'retirePrevious'])->whereNumber('id');
+});
+
+// Bitácora (RF-38): solo lectura para todos los roles; verificar recalcula hashes y se limita por usuario. Exportar un lote es la acción dual `audit.export`.
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::AUDIT_VIEW])->group(function (): void {
+    Route::get('/audit', [AuditController::class, 'index']);
+    Route::get('/audit/verify', [AuditController::class, 'verify']);
+    Route::get('/audit/anchor', [AuditController::class, 'anchor']);
 });

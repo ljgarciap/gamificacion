@@ -81,6 +81,46 @@ final class AuditLog
         return null;
     }
 
+    /**
+     * Verifica un tramo de la cadena (para recorrerla por partes desde el panel sin cargar toda la bitácora): las hasta `$limit` entradas con
+     * id > `$afterId`. La primera debe colgar del hash de la entrada `$afterId` (0 = génesis); ese hash se toma de la base porque el tramo
+     * anterior ya lo comprobó. Un tramo suelto NO prueba la bitácora entera: hay que recorrerla de 0 hasta `done`.
+     *
+     * @return array{checked: int, brokenAt: int|null, lastId: int, lastHash: string|null, done: bool}
+     */
+    public function verifySegment(int $afterId, int $limit): array
+    {
+        $expectedPrev = self::GENESIS;
+        if ($afterId > 0) {
+            $anchor = DB::selectOne("SELECT encode(hash, 'hex') AS h FROM audit_log WHERE id = ?", [$afterId]);
+            if ($anchor === null) {
+                throw new \InvalidArgumentException('afterId no existe en la bitácora.');
+            }
+            $expectedPrev = hex2bin($anchor->h);
+        }
+        $rows = DB::select("SELECT id, actor, action, subject_type, subject_id, data::text AS data,
+                                   encode(prev_hash, 'hex') AS prev_hash, encode(hash, 'hex') AS hash,
+                                   (extract(epoch from occurred_at) * 1000000)::bigint AS micros
+                            FROM audit_log WHERE id > ? ORDER BY id LIMIT ?", [$afterId, $limit]);
+        $lastId = $afterId;
+        $lastHash = $afterId > 0 ? bin2hex($expectedPrev) : null;
+        $checked = 0;
+        foreach ($rows as $r) {
+            $prev = hex2bin($r->prev_hash);
+            $json = Canonical::json(json_decode($r->data, true, 512, JSON_THROW_ON_ERROR));
+            $calc = self::entryHash($prev, $r->actor, $r->action, $r->subject_type, $r->subject_id, $json, (int) $r->micros);
+            if ($prev !== $expectedPrev || $calc !== hex2bin($r->hash)) {
+                return ['checked' => $checked, 'brokenAt' => (int) $r->id, 'lastId' => $lastId, 'lastHash' => $lastHash, 'done' => true];
+            }
+            $expectedPrev = $calc;
+            $lastId = (int) $r->id;
+            $lastHash = $r->hash;
+            $checked++;
+        }
+
+        return ['checked' => $checked, 'brokenAt' => null, 'lastId' => $lastId, 'lastHash' => $lastHash, 'done' => count($rows) < $limit];
+    }
+
     private static function entryHash(
         string $prev, string $actor, string $action, string $subjectType, string $subjectId, string $json, int $micros,
     ): string {

@@ -32,6 +32,49 @@ final class Dashboard
             'outbox' => $outbox + ['oldestPendingAt' => $oldest->t],
             'approvals' => ['pending' => (int) $approvals->pending, 'awaitingExecution' => (int) $approvals->approved],
             'admins' => (int) DB::selectOne('SELECT count(*) AS n FROM admin_users WHERE active')->n,
+            'stockByBatch' => $this->stockByBatch(),
+            'redemptionsByDay' => $this->redemptionsByDay(),
         ];
+    }
+
+    /**
+     * Posiciones del mazo sin entregar por premio en cada lote ACTIVO (pool − canjes de código − giros jugados). Es lo que el detalle del lote ya
+     * muestra por separado; no revela qué código tiene qué premio. Con reserva, las casillas sin consumir cuentan como restantes.
+     *
+     * @return list<array{batchId: string, name: string, prizes: list<array{prizeId: string, total: int, delivered: int, remaining: int}>}>
+     */
+    private function stockByBatch(): array
+    {
+        $out = [];
+        foreach (DB::select("SELECT id, name, pool::text AS pool FROM batches WHERE state = 'active' ORDER BY activated_at, id") as $b) {
+            $delivered = [];
+            foreach (DB::select('SELECT prize_id, count(*) AS n FROM redemptions WHERE batch_id = ? GROUP BY prize_id', [$b->id]) as $r) {
+                $delivered[$r->prize_id] = (int) $r->n;
+            }
+            $prizes = [];
+            foreach (json_decode($b->pool, true) as $e) {
+                $total = (int) $e['quantity'];
+                $done = $delivered[$e['prize_id']] ?? 0;
+                $prizes[] = ['prizeId' => $e['prize_id'], 'total' => $total, 'delivered' => $done, 'remaining' => max(0, $total - $done)];
+            }
+            $out[] = ['batchId' => $b->id, 'name' => $b->name, 'prizes' => $prizes];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Canjes (códigos y giros) de los últimos 14 días, por día de Bogotá, con ceros en los días sin canjes.
+     *
+     * @return list<array{day: string, count: int}>
+     */
+    private function redemptionsByDay(): array
+    {
+        $rows = DB::select("SELECT d::date AS day, count(r.id) AS n
+            FROM generate_series((now() AT TIME ZONE 'America/Bogota')::date - 13, (now() AT TIME ZONE 'America/Bogota')::date, interval '1 day') d
+            LEFT JOIN redemptions r ON r.created_at >= now() - interval '15 days' AND (r.created_at AT TIME ZONE 'America/Bogota')::date = d::date
+            GROUP BY d ORDER BY d");
+
+        return array_map(static fn (object $r): array => ['day' => $r->day, 'count' => (int) $r->n], $rows);
     }
 }

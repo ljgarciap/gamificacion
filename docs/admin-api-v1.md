@@ -1,7 +1,7 @@
 # API del panel de administración — v1 (SPEC-003)
 
 Superficie **separada** de la API de jugadores (`/v1`, JWT de hosts): prefijo **`/admin/api/v1`**, sesión por cookie + CSRF. Un JWT de host no sirve aquí ni la sesión del panel en `/v1`.
-Esta página crece con cada bloque; hoy cubre **P1** (cuentas, 2FA, usuarios). El contrato máquina-legible llegará con P2 (`docs/openapi-admin.yaml`).
+Esta página crece con cada bloque; hoy cubre **P1** (cuentas, 2FA, usuarios). El contrato máquina-legible es `docs/openapi-admin.yaml` (rutas, permiso de cada una y esquemas de las respuestas del panel); `AdminOpenApiContractTest` lo compara con las rutas reales y con respuestas reales.
 
 ## Convenciones
 - **Sesión:** cookie `HttpOnly`, `SameSite=Lax` (y `Secure` en producción). Vence por inactividad (30 min por defecto) y por antigüedad absoluta (12 h).
@@ -82,7 +82,7 @@ Errores: `422 validationFailed|codeInvalid`, `404 notFound`, `409 wrongState|bat
 ## Resumen y outbox (permisos `dashboard.view`, `outbox.view`, `outbox.retry`)
 | Ruta | Respuesta |
 |---|---|
-| `GET /dashboard` (todos los roles) | conteos: `campaigns`, `batches` por estado, `activeCodes {total, redeemed}`, `redemptions {total, last24h}`, `outbox {pending, sent, failed, oldestPendingAt}`, `approvals {pending, awaitingExecution}`, `admins` |
+| `GET /dashboard` (todos los roles) | `stockByBatch` (por lote activo y premio: `total`, `delivered`, `remaining`; con reserva, las casillas sin consumir cuentan como restantes), `redemptionsByDay` (últimos 14 días, día de Bogotá, con ceros) y conteos: `campaigns`, `batches` por estado, `activeCodes {total, redeemed}`, `redemptions {total, last24h}`, `outbox {pending, sent, failed, oldestPendingAt}`, `approvals {pending, awaitingExecution}`, `admins` |
 | `GET /outbox?status=&page=&perPage=` (todos los roles) | `{items: [{id, redemptionId, status, attempts, nextAttemptAt, lastError, userId, batchId, prizeId, prizeType, …}], total, counts, page, perPage}` |
 | `POST /outbox/{id}/retry` (superadmin, operador) | `204`; solo un aviso `failed` (agotado) vuelve a `pending` con 0 intentos → `409 wrongState` en otro caso, `404` si no existe |
 Un reintento puede reenviar un aviso que el host ya recibió sin confirmar: el host debe tratar `redemption_id` como clave de idempotencia. Queda en la bitácora (`outbox.retried`).
@@ -110,6 +110,14 @@ Flujo: **solicitar → otro usuario aprueba con un código TOTP nuevo → el sol
 
 Acciones hoy: `audit.export` (`{batchId}`, lote **revelado**; permiso `audit.export`, superadmin y operador; entrega única igual que los códigos, JSON del verificador independiente), `codes.generate` (`{batchId, prefix}`, borrador sin códigos; permiso `batches.manage`), `batch.activate` (`{batchId}`, lote `committed`; permiso `batches.manage`) y `setting.change` (`{key, value}` de un parámetro `security`; solo superadmin). 
 Errores: `422 validationFailed|invalidCode`, `404 notFound`, `403 forbidden|selfApproval|notRequester`, `409 alreadyPending|wrongState|expired|beaconNotReady` (la activación espera la ronda de drand; la aprobación sigue vigente y se reintenta). **No existe autoaprobación en ningún entorno** (CHECK en la base): en desarrollo usa dos cuentas.
+
+## Bitácora (permiso `audit.view`, todos los roles; solo lectura)
+| Ruta | Respuesta |
+|---|---|
+| `GET /audit?action=&subjectType=&subjectId=&actor=&from=&to=&beforeId=&perPage=` | `{items: [{id, occurredAt, actor, action, subjectType, subjectId, data}], nextBeforeId, perPage}`: la más nueva primero; `nextBeforeId` se pasa como `beforeId` para la página siguiente (`null` = no hay más). `perPage` ≤ 200 |
+| `GET /audit/verify?afterId=0&limit=1000` | `{checked, brokenAt, lastId, lastHash, done}`: verifica un tramo de la cadena (≤ 5000 entradas). Se recorre desde `afterId=0` pasando `lastId` hasta `done`; `brokenAt` ≠ null es la primera entrada que no cuadra. Un tramo suelto no prueba la bitácora entera. Limitada por usuario (`admin.audit_verify_per_minute`) → `429` |
+| `GET /audit/anchor` | `{anchor: {version, head_id, head_hash, created_at} \| null}`: último hash, para publicarlo FUERA de la base (defensa contra el recorte de la cola) |
+Exportar la auditoría de un lote sigue siendo la acción dual `audit.export`.
 
 ## Primer superadmin
 Solo por consola (no hay usuarios por defecto ni ruta de registro):
