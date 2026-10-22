@@ -23,13 +23,13 @@ use Illuminate\Support\Str;
 class SeedDemo extends Command
 {
     /** Juegos de la demo, con su nombre visible en la descripción de cada código. */
-    private const GAMES = ['roulette' => 'Ruleta', 'scratch' => 'Raspa', 'memory' => 'Concéntrese', 'dice' => 'Dados', 'bomb' => 'Bomba 8', 'bingo' => 'Bingo en vivo'];
+    private const GAMES = ['roulette' => 'Ruleta', 'scratch' => 'Raspa', 'memory' => 'Concéntrese', 'dice' => 'Dados', 'bomb' => 'Bomba 8', 'bingo' => 'Bingo en vivo', 'poker' => 'Póker del crupier'];
 
     protected $signature = 'gamification:demo:seed
         {--actor=demo : Quién lo ejecuta, para la bitácora}
-        {--only= : Solo estos juegos, separados por comas (roulette, scratch, memory, dice, bomb, bingo); por defecto todos}';
+        {--only= : Solo estos juegos, separados por comas (roulette, scratch, memory, dice, bomb, bingo, poker); por defecto todos}';
 
-    protected $description = 'Crea campañas de demostración (ruleta, raspa, Concéntrese, dados, Bomba 8 y Bingo) con códigos reales, solo en desarrollo local';
+    protected $description = 'Crea campañas de demostración (ruleta, raspa, Concéntrese, dados, Bomba 8, Bingo y Póker) con códigos reales, solo en desarrollo local';
 
     public function handle(): int
     {
@@ -182,6 +182,31 @@ class SeedDemo extends Command
         return $this->batch($lifecycle, $generator, $actor, $campaign, 'bingo', 'BINGO', [
             ['prize_id' => 'gnone', 'quantity' => 14], ['prize_id' => 'g10k', 'quantity' => 10],
             ['prize_id' => 'g50k', 'quantity' => 5], ['prize_id' => 'g100k', 'quantity' => 1],
+        ]);
+    }
+
+    /**
+     * Póker del crupier: gana la mejor mano de 5 entre las 7 cartas (2 propias y 5 comunes que abre el crupier).
+     *
+     * @return list<array{code: string, game: string, description: string, batch_id: string}>
+     */
+    private function poker(BatchLifecycle $lifecycle, CodeGenerator $generator, string $actor): array
+    {
+        $campaign = $this->campaign('Póker del crupier', 'poker', 'showPrevious', [
+            'hands' => [
+                'three_of_a_kind' => 'k10k', 'straight' => 'k10k', 'flush' => 'k10k',
+                'full_house' => 'k50k', 'four_of_a_kind' => 'k100k', 'straight_flush' => 'k100k',
+            ],
+        ], [
+            ['knone', 'none', 'Sin premio', null, []],
+            ['k10k', 'money', '$ 10.000', 10000, []],
+            ['k50k', 'money', '$ 50.000', 50000, []],
+            ['k100k', 'money', '$ 100.000', 100000, []],
+        ]);
+
+        return $this->batch($lifecycle, $generator, $actor, $campaign, 'poker', 'POKER', [
+            ['prize_id' => 'knone', 'quantity' => 14], ['prize_id' => 'k10k', 'quantity' => 10],
+            ['prize_id' => 'k50k', 'quantity' => 5], ['prize_id' => 'k100k', 'quantity' => 1],
         ]);
     }
 

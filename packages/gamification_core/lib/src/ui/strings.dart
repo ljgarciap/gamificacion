@@ -71,6 +71,20 @@ abstract class GamificationStrings {
   String get bingoFree;
   String bingoLabel(int draws);
 
+  /// Póker del crupier (SPEC-005 §5).
+  String get pokerHint;
+  String get pokerStart;
+  String get pokerNext;
+  String get pokerDealer;
+  String get pokerYourCards;
+  String get pokerTable;
+  String get pokerPrizes;
+  String pokerHand(String category);
+  String pokerCurrent(String category);
+  String pokerWon(String category);
+  String pokerNoWin(String category);
+  String pokerCardName(String card);
+
   /// Rival simulado de Concéntrese (solo animación: el resultado del código ya está decidido).
   String get rivalNote;
   String get rivalTurnYou;
@@ -228,6 +242,71 @@ class EsStrings extends GamificationStrings {
 
   @override
   String bingoLabel(int draws) => 'Cartón de Bingo; saldrán $draws bolas';
+
+  @override
+  String get pokerHint => 'Tus cartas están listas. Toca ABRIR y el crupier abre las de la mesa';
+
+  @override
+  String get pokerStart => 'ABRIR';
+
+  @override
+  String get pokerNext => 'Siguiente';
+
+  @override
+  String get pokerDealer => 'El crupier abre las cartas';
+
+  @override
+  String get pokerYourCards => 'Tus cartas';
+
+  @override
+  String get pokerTable => 'La mesa';
+
+  @override
+  String get pokerPrizes => 'Premios por mano';
+
+  @override
+  String pokerHand(String category) => switch (category) {
+    'high_card' => 'Carta alta',
+    'pair' => 'Pareja',
+    'two_pair' => 'Doble pareja',
+    'three_of_a_kind' => 'Trío',
+    'straight' => 'Escalera',
+    'flush' => 'Color',
+    'full_house' => 'Full',
+    'four_of_a_kind' => 'Póker',
+    'straight_flush' => 'Escalera de color',
+    _ => category,
+  };
+
+  @override
+  String pokerCurrent(String category) => 'Tienes: ${pokerHand(category)}';
+
+  @override
+  String pokerWon(String category) => '¡${pokerHand(category)}!';
+
+  @override
+  String pokerNoWin(String category) => 'Tu mejor mano: ${pokerHand(category)}. No paga premio';
+
+  @override
+  String pokerCardName(String card) {
+    const ranks = {
+      '2': 'Dos',
+      '3': 'Tres',
+      '4': 'Cuatro',
+      '5': 'Cinco',
+      '6': 'Seis',
+      '7': 'Siete',
+      '8': 'Ocho',
+      '9': 'Nueve',
+      'T': 'Diez',
+      'J': 'Jota',
+      'Q': 'Reina',
+      'K': 'Rey',
+      'A': 'As',
+    };
+    const suits = {'S': 'picas', 'H': 'corazones', 'D': 'diamantes', 'C': 'tréboles'};
+    return '${ranks[card[0]] ?? card[0]} de ${suits[card[1]] ?? card[1]}';
+  }
 
   @override
   String get rivalNote => 'Juegas contra una máquina simulada: es solo una animación, tu resultado ya está decidido.';
@@ -409,6 +488,71 @@ class EnStrings extends GamificationStrings {
 
   @override
   String bingoLabel(int draws) => 'Bingo card; $draws balls will be drawn';
+
+  @override
+  String get pokerHint => 'Your cards are ready. Tap OPEN and the dealer opens the table cards';
+
+  @override
+  String get pokerStart => 'OPEN';
+
+  @override
+  String get pokerNext => 'Next';
+
+  @override
+  String get pokerDealer => 'The dealer opens the cards';
+
+  @override
+  String get pokerYourCards => 'Your cards';
+
+  @override
+  String get pokerTable => 'The table';
+
+  @override
+  String get pokerPrizes => 'Prizes by hand';
+
+  @override
+  String pokerHand(String category) => switch (category) {
+    'high_card' => 'High card',
+    'pair' => 'Pair',
+    'two_pair' => 'Two pair',
+    'three_of_a_kind' => 'Three of a kind',
+    'straight' => 'Straight',
+    'flush' => 'Flush',
+    'full_house' => 'Full house',
+    'four_of_a_kind' => 'Four of a kind',
+    'straight_flush' => 'Straight flush',
+    _ => category,
+  };
+
+  @override
+  String pokerCurrent(String category) => 'You have: ${pokerHand(category)}';
+
+  @override
+  String pokerWon(String category) => '${pokerHand(category)}!';
+
+  @override
+  String pokerNoWin(String category) => 'Your best hand: ${pokerHand(category)}. It does not pay';
+
+  @override
+  String pokerCardName(String card) {
+    const ranks = {
+      '2': 'Two',
+      '3': 'Three',
+      '4': 'Four',
+      '5': 'Five',
+      '6': 'Six',
+      '7': 'Seven',
+      '8': 'Eight',
+      '9': 'Nine',
+      'T': 'Ten',
+      'J': 'Jack',
+      'Q': 'Queen',
+      'K': 'King',
+      'A': 'Ace',
+    };
+    const suits = {'S': 'spades', 'H': 'hearts', 'D': 'diamonds', 'C': 'clubs'};
+    return '${ranks[card[0]] ?? card[0]} of ${suits[card[1]] ?? card[1]}';
+  }
 
   @override
   String get rivalNote =>

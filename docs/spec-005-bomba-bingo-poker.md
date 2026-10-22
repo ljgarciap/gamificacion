@@ -1,6 +1,6 @@
 # SPEC-005 — Tres juegos nuevos: Bomba 8, Bingo en vivo y Póker del crupier
 
-Estado: **APROBADA por Luis (2026-10-22). H1 (Bomba 8) y H2 (Bingo en vivo) implementados.** Incluye el diseño de UX (sección 8). Origen: petición de Luis 2026-10-22, tras ver las raspas de susuerte.com: «la idea no es copiar el concepto de raspar sino armarlo un poco diferente». Se toman tres ideas: Bingo (bolas una a una), Joker Loco (cartas contra el crupier) y 8S (con una bomba que se consume). **Nombres y arte propios**: no se usan «Joker Loco» ni «8S» ni nada del arte de esa página.
+Estado: **APROBADA por Luis (2026-10-22). H1 (Bomba 8), H2 (Bingo en vivo) y H3 (Póker del crupier) implementados.** Incluye el diseño de UX (sección 8). Origen: petición de Luis 2026-10-22, tras ver las raspas de susuerte.com: «la idea no es copiar el concepto de raspar sino armarlo un poco diferente». Se toman tres ideas: Bingo (bolas una a una), Joker Loco (cartas contra el crupier) y 8S (con una bomba que se consume). **Nombres y arte propios**: no se usan «Joker Loco» ni «8S» ni nada del arte de esa página.
 
 ## 1. Objetivo y límites
 - Tres `gameType` nuevos: `bomb`, `bingo`, `poker`. Mismo patrón que Concéntrese y Dados (SPEC-004): **el premio ya está decidido por el motor en el canje**; el servidor además decide la **presentación** (qué se ve) y la guarda con la redención; el cliente solo la anima. No cambia el motor de sorteo, los vectores ni el esquema de la base.
@@ -45,16 +45,18 @@ Se construye con muestreo y se **verifica simulando la partida** antes de guarda
 **Validación al comprometer:** `draws` de 24 a 60; `drawIntervalMs` de 400 a 3000; `minWinDraw` de 5 a `draws`; cada premio ganador del pool aparece en exactamente un patrón, ningún patrón se repite y el cartón lleno (si está) va primero; `draws` ≥ las casillas que exige el patrón (`line`=4, `corners`=4, `full`=24 sin contar el centro libre).
 
 ## 5. Póker del crupier (`poker`)
-**Mecánica.** El jugador recibe **2 cartas**; el crupier abre **5 cartas comunes** una a una (3, 1 y 1, con una pausa entre cada una). Cuenta la **mejor mano de 5** entre las 7. Cada categoría que paga se asocia a un premio. Al terminar se resaltan las 5 cartas de la mano. El crupier **solo abre cartas**: no tiene mano propia ni es un rival.
+**Mecánica.** El jugador recibe **2 cartas** (a la vista desde el inicio); con ABRIR el crupier abre las **5 cartas comunes**: el flop (3), el turn (1) y el river (1), solo o a toque. Cuenta la **mejor mano de 5** entre las 7. Mientras se abren se muestra la mejor mano que ya se tiene («Tienes: Trío») y al terminar se resaltan las 5 cartas de la mejor mano. El crupier **solo abre cartas**: no tiene mano propia ni es un rival.
 
-**Categorías** (de menor a mayor): `high_card`, `pair`, `two_pair`, `three_of_a_kind`, `straight`, `flush`, `full_house`, `four_of_a_kind`, `straight_flush` (la escalera real cuenta como `straight_flush`). La campaña dice cuáles pagan y con qué premio; las demás no pagan.
+**Categorías** (de menor a mayor): `high_card`, `pair`, `two_pair`, `three_of_a_kind`, `straight`, `flush`, `full_house`, `four_of_a_kind`, `straight_flush` (la escalera real y la «rueda» A-2-3-4-5 cuentan como escalera). Pueden pagar de `three_of_a_kind` en adelante.
 
-**Qué decide el servidor.** Dado el premio, elige la categoría y construye 7 cartas de una baraja de 52 (CSPRNG) cuya **mejor mano es exactamente esa categoría**; sin premio, una mano **por debajo de la categoría mínima que paga** (se favorece pareja y doble pareja, que dan el «casi»). Cada construcción se **verifica con el evaluador** antes de guardarla (el evaluador está probado contra manos conocidas y por propiedades). Qué cartas quedan en la mano del jugador y cuáles en la mesa es aleatorio.
+**Tabla de premios (`hands`): categoría → premio.** Varias categorías pueden dar el mismo premio (p. ej. trío, escalera y color → $ 10.000). **Sin saltos:** si una categoría paga, todas las mejores también (se rechaza al comprometer). Una mano que no está en la tabla no paga (incluida «sin premio»).
+
+**Qué decide el servidor.** Dado el premio, elige una de las categorías que le corresponden y construye 7 cartas de una baraja de 52 (CSPRNG) cuya mejor mano es **exactamente** esa categoría; sin premio, cualquier mano cuya categoría no esté en la tabla (queda la distribución natural: carta alta, pareja y doble pareja, que dan el «casi»). Cada construcción se **verifica con el evaluador** antes de guardarla. Qué cartas son del jugador y cuáles de la mesa es aleatorio.
 
 **Contrato.**
-`gameConfig`: `{ "revealIntervalMs": 900, "hands": { "p50k": "four_of_a_kind", "p10k": "full_house" } }` (`hands` obligatorio).
-`gameResult`: `{ "hole": ["AS","KD"], "board": ["2H","7C","TD","JS","QS"], "hand": "full_house" | null, "best": ["…" ×5] | null }`. Cartas: rango `2-9 T J Q K A` + palo `S H D C`.
-**Validación al comprometer:** `revealIntervalMs` de 400 a 3000; `hands` con categorías de `three_of_a_kind` en adelante, sin repetir categoría, un premio por categoría, y todo premio ganador del pool presente.
+`gameConfig`: `{ "revealIntervalMs": 900, "hands": { "three_of_a_kind": "p10k", "straight": "p10k", "flush": "p10k", "full_house": "p50k", "four_of_a_kind": "p100k", "straight_flush": "p100k" } }` (`hands` obligatorio). El servidor devuelve al cliente `legend` (cada mano con su premio completo, de la mejor a la peor) y `revealIntervalMs`.
+`gameResult`: `{ "hole": ["AS","KD"], "board": ["2H","7C","TD","JS","QS"], "stages": ["pair","pair","full_house"], "category": "full_house", "hand": "full_house" | null, "best": ["…" ×5] }`. Cartas: rango `2-9 T J Q K A` + palo `S H D C`. `stages` es la mejor mano tras el flop, el turn y el river; `hand` es la categoría si paga (null si no); `best` son las 5 cartas de la mejor mano (siempre, para resaltarlas).
+**Validación al comprometer:** `revealIntervalMs` de 400 a 3000; `hands` con categorías de `three_of_a_kind` en adelante, sin saltos, cada premio con valor y de la campaña, y todo premio ganador del pool presente.
 
 ## 6. Cliente, backend y panel (qué se toca)
 | Capa | Trabajo |

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
  *  - Raspa: la cuadrícula (premio = 3 símbolos del premio; relleno sin ningún otro símbolo repetido 3 veces).
  *  - Concéntrese: la disposición de las cartas (premio = una pareja con el símbolo del premio; sin premio, ninguna).
  *  - Dados: la combinación de los dos dados (la campaña dice qué combinaciones corresponden a cada premio).
+ *  - Póker del crupier: 2 cartas del jugador y 5 comunes cuya mejor mano es la categoría del premio, verificada con el evaluador. Ver `Poker`.
  *  - Bingo en vivo: el cartón y la secuencia de bolas, verificados por simulación (el patrón del premio se completa en `winAt`). Ver `Bingo`.
  *  - Bomba 8: las caras en orden de volteo (premio = tres «8», el último entre las finales; sin premio, 0 a 2 «8»). Ver `Bomb`.
  *
@@ -65,6 +66,7 @@ final class Presentation
             'memory' => self::assertMemory($gameConfig, $prizeIds),
             'dice' => self::assertDice($gameConfig, $prizeIds, $inPool),
             'bomb' => Bomb::assert($gameConfig, $prizeIds),
+            'poker' => Poker::assert($gameConfig, $winPrizeIds, array_values(array_intersect($inPool, $winPrizeIds))),
             'bingo' => Bingo::assert($gameConfig, $winPrizeIds, array_values(array_intersect($inPool, $winPrizeIds))),
             default => throw new InvalidBatch("No hay presentación para el juego «{$gameType}»."),
         };
@@ -235,6 +237,7 @@ final class Presentation
             'dice' => $this->buildDice($gameConfig, $prizeDefs, $prizeId),
             'bomb' => (new Bomb($this->randomInt))->build($gameConfig, $prizeDefs, $prizeId),
             'bingo' => (new Bingo($this->randomInt))->build($gameConfig, $prizeDefs, $prizeId),
+            'poker' => (new Poker($this->randomInt))->build($gameConfig, $prizeDefs, $prizeId),
             default => throw new \LogicException("Sin presentación para el juego «{$gameType}»"),
         };
     }

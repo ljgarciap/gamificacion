@@ -125,7 +125,7 @@ final class OpenApiContractTest extends TestCase
     {
         $prizeProps = array_keys($this->schema('Prize')['properties']);
         $campaignProps = array_keys($this->schema('Campaign')['properties']);
-        foreach (['redemption-roulette-win', 'redemption-roulette-coupon', 'redemption-roulette-points', 'redemption-roulette-extra-spin', 'redemption-scratch-win', 'redemption-scratch-already-played', 'redemption-memory-win', 'redemption-memory-none', 'redemption-dice-win', 'redemption-dice-none', 'redemption-bomb-win', 'redemption-bomb-none', 'redemption-bingo-win', 'redemption-bingo-none'] as $name) {
+        foreach (['redemption-roulette-win', 'redemption-roulette-coupon', 'redemption-roulette-points', 'redemption-roulette-extra-spin', 'redemption-scratch-win', 'redemption-scratch-already-played', 'redemption-memory-win', 'redemption-memory-none', 'redemption-dice-win', 'redemption-dice-none', 'redemption-bomb-win', 'redemption-bomb-none', 'redemption-bingo-win', 'redemption-bingo-none', 'redemption-poker-win', 'redemption-poker-none'] as $name) {
             $r = $this->example($name);
             $this->assertSame([], array_diff(array_keys($r['campaign']), $campaignProps), "$name: campaign");
             $this->assertSame([], array_diff(array_keys($r['outcome']['prize']), $prizeProps), "$name: prize");
@@ -187,6 +187,19 @@ final class OpenApiContractTest extends TestCase
         $none = $this->example('redemption-bingo-none')['outcome']['gameResult'];
         $this->assertSame([], $none['events']);
         $this->assertNull($none['winAt']);
+    }
+
+    public function test_el_resultado_del_poker_cumple_su_esquema(): void
+    {
+        $poker = $this->example('redemption-poker-win');
+        $this->assertSame($this->sorted($this->schema('PokerResult')['required']), $this->sorted(array_keys($poker['outcome']['gameResult'])));
+        $this->assertSame($this->sorted($this->schema('PokerConfig')['required']), $this->sorted(array_keys($poker['campaign']['gameConfig'])));
+        $r = $poker['outcome']['gameResult'];
+        $this->assertSame($r['category'], $r['hand'], 'con premio la mano que paga es la categoría');
+        $this->assertSame($r['category'], $r['stages'][2], 'la última etapa es la mano final');
+        $this->assertSame($poker['outcome']['prize']['id'], collect($poker['campaign']['gameConfig']['legend'])->firstWhere('hand', $r['hand'])['prize']['id'], 'la mano paga el premio de la redención');
+        $none = $this->example('redemption-poker-none')['outcome']['gameResult'];
+        $this->assertNull($none['hand']);
     }
 
     public function test_el_patron_de_la_idempotency_key_coincide_con_el_del_controlador(): void

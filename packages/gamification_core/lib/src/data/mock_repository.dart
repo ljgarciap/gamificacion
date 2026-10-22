@@ -57,6 +57,8 @@ class MockRepository implements GamificationRepository {
     'BOMBA-NADA': 'Bomba 8: la mecha se acaba',
     'BINGO-GANA': 'Bingo: línea, gana \$ 10.000',
     'BINGO-NADA': 'Bingo: sin premio',
+    'POKER-GANA': 'Póker: full, gana \$ 50.000',
+    'POKER-NADA': 'Póker: carta alta, sin premio',
     'VENCIDO': 'Error: código vencido',
     'INACTIVA': 'Error: campaña inactiva',
     'LIMITE': 'Error: demasiados intentos',
@@ -350,6 +352,50 @@ class MockRepository implements GamificationRepository {
                 : null,
             'endAt': 24,
           },
+        ),
+      );
+    }
+
+    if (code == 'POKER-GANA' || code == 'POKER-NADA') {
+      final win = code == 'POKER-GANA';
+      const prize10k = Prize(id: 'p10k', type: PrizeType.money, label: r'$ 10.000', amount: 10000);
+      const prize50k = Prize(id: 'p50k', type: PrizeType.money, label: r'$ 50.000', amount: 50000);
+      const noPrize = Prize(id: 'none', type: PrizeType.none, label: 'Sin premio');
+      final campaign = Campaign(
+        id: 'demo-poker',
+        name: 'Póker del crupier',
+        gameType: 'poker',
+        title: 'Póker del crupier',
+        gameConfig: {
+          'revealIntervalMs': 400,
+          'legend': [
+            {'hand': 'full_house', 'prize': prize50k.toJson()},
+            {'hand': 'three_of_a_kind', 'prize': prize10k.toJson()},
+          ],
+        },
+      );
+      // 7 cartas decididas por el servidor. Con premio: KH KD en la mano; la mesa abre trío (flop), trío (turn) y full con el 2 del river.
+      return (
+        campaign: campaign,
+        outcome: Outcome(
+          prize: win ? prize50k : noPrize,
+          gameResult: win
+              ? {
+                  'hole': ['KH', 'KD'],
+                  'board': ['2S', '9D', 'KC', '2C', '2H'],
+                  'stages': ['three_of_a_kind', 'three_of_a_kind', 'full_house'],
+                  'category': 'full_house',
+                  'hand': 'full_house',
+                  'best': ['KH', 'KD', 'KC', '2S', '2C'],
+                }
+              : {
+                  'hole': ['AH', '7D'],
+                  'board': ['2S', '9C', 'KD', '4C', 'JH'],
+                  'stages': ['high_card', 'high_card', 'high_card'],
+                  'category': 'high_card',
+                  'hand': null,
+                  'best': ['AH', 'KD', 'JH', '9C', '7D'],
+                },
         ),
       );
     }

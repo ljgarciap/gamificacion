@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
  */
 final class CampaignService
 {
-    public const GAMES = ['roulette', 'scratch', 'memory', 'dice', 'bomb', 'bingo'];
+    public const GAMES = ['roulette', 'scratch', 'memory', 'dice', 'bomb', 'bingo', 'poker'];
 
     public const PRIZE_TYPES = ['money', 'coupon', 'points', 'extraSpin', 'none'];
 

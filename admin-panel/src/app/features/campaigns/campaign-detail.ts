@@ -23,6 +23,7 @@ const EXAMPLES: Record<GameType, unknown> = {
   memory: { pairs: 6, columns: 4, flipBackMs: 900, rival: true },
   dice: { rolls: { none: [[1, 2], [1, 3]], p10k: [[2, 2]], p50k: [[1, 1]] } },
   bomb: { cards: 12, columns: 4, lateWindow: 4 },
+  poker: { revealIntervalMs: 900, hands: { three_of_a_kind: 'p10k', straight: 'p10k', flush: 'p10k', full_house: 'p50k', four_of_a_kind: 'p100k', straight_flush: 'p100k' } },
   bingo: { draws: 30, drawIntervalMs: 1200, minWinDraw: 10, patterns: [{ pattern: 'full', prize: 'p100k' }, { pattern: 'corners', prize: 'p50k' }, { pattern: 'line', prize: 'p10k' }] },
 };
 

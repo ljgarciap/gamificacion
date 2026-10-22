@@ -48,6 +48,8 @@ dependencies:
     path: ../../packages/game_bomb
   game_bingo:
     path: ../../packages/game_bingo
+  game_poker:
+    path: ../../packages/game_poker
   gamification_http:
     path: ../../packages/gamification_http
   http: ^1.6.0

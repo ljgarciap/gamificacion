@@ -320,7 +320,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        gameType: { type: string, enum: [roulette, scratch, memory, dice, bomb, bingo] }
+        gameType: { type: string, enum: [roulette, scratch, memory, dice, bomb, bingo, poker] }
         usedCodeBehavior: { type: string, enum: [rejectOnly, showPrevious] }
         title: { type: [string, 'null'] }
         theme:
@@ -335,6 +335,7 @@ components:
             - { $ref: '#/components/schemas/DiceConfig' }
             - { $ref: '#/components/schemas/BombConfig' }
             - { $ref: '#/components/schemas/BingoConfig' }
+            - { $ref: '#/components/schemas/PokerConfig' }
 
     RouletteConfig:
       type: object
@@ -390,6 +391,21 @@ components:
               pattern: { type: string, enum: [line, corners, full] }
               prize: { $ref: '#/components/schemas/Prize' }
 
+    PokerConfig:
+      type: object
+      required: [revealIntervalMs, legend]
+      properties:
+        revealIntervalMs: { type: integer, minimum: 400, maximum: 3000, description: "Cada cuánto abre el crupier la siguiente carta en modo automático." }
+        legend:
+          type: array
+          description: Manos que pagan, de la mejor a la peor, con su premio.
+          items:
+            type: object
+            required: [hand, prize]
+            properties:
+              hand: { type: string, enum: [three_of_a_kind, straight, flush, full_house, four_of_a_kind, straight_flush] }
+              prize: { $ref: '#/components/schemas/Prize' }
+
     DiceConfig:
       type: object
       required: [diceCount, rollDurationMs, legend]
@@ -427,6 +443,7 @@ components:
             - { $ref: '#/components/schemas/DiceResult' }
             - { $ref: '#/components/schemas/BombResult' }
             - { $ref: '#/components/schemas/BingoResult' }
+            - { $ref: '#/components/schemas/PokerResult' }
 
     RouletteResult:
       type: object
@@ -485,6 +502,32 @@ components:
         pattern: { type: [string, 'null'], enum: [line, corners, full, null], description: "Patrón que paga (null sin premio)." }
         cells: { type: [array, 'null'], items: { type: array, items: { type: integer } }, description: "Casillas del patrón que paga, para resaltarlas." }
         endAt: { type: integer, minimum: 1, description: "Bola en que termina la partida: con el patrón de mayor prioridad es winAt; en los demás casos, la última bola." }
+
+    PokerResult:
+      type: object
+      required: [hole, board, stages, category, hand, best]
+      properties:
+        hole:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: { type: string, pattern: '^[2-9TJQKA][SHDC]$' }
+          description: "Las 2 cartas del jugador (rango 2-9 T J Q K A y palo S H D C)."
+        board:
+          type: array
+          minItems: 5
+          maxItems: 5
+          items: { type: string, pattern: '^[2-9TJQKA][SHDC]$' }
+          description: "Las 5 cartas comunes en el orden en que el crupier las abre (3, 1 y 1)."
+        stages:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { type: string, enum: [high_card, pair, two_pair, three_of_a_kind, straight, flush, full_house, four_of_a_kind, straight_flush] }
+          description: "Mejor mano tras el flop (5 cartas), el turn (6) y el river (7): lo que el jugador va viendo."
+        category: { type: string, enum: [high_card, pair, two_pair, three_of_a_kind, straight, flush, full_house, four_of_a_kind, straight_flush], description: "La mejor mano de 5 entre las 7 cartas." }
+        hand: { type: [string, 'null'], description: "La categoría si paga (premio de la redención); null si no paga." }
+        best: { type: array, minItems: 5, maxItems: 5, items: { type: string }, description: "Las 5 cartas de la mejor mano, para resaltarlas." }
 
     DiceResult:
       type: object

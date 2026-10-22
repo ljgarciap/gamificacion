@@ -156,7 +156,7 @@ test.describe('Campañas (P8, grupo 3)', () => {
     await expect(page.getByText('No tienes acceso a esta sección')).toBeVisible();
   });
 
-  for (const [key, label] of [['bomb', 'Bomba 8'], ['bingo', 'Bingo en vivo']] as const) {
+  for (const [key, label] of [['bomb', 'Bomba 8'], ['bingo', 'Bingo en vivo'], ['poker', 'Póker del crupier']] as const) {
     test(`${label} (SPEC-005): se puede crear la campaña y la lista y el filtro la muestran con su nombre`, async ({ page }) => {
       await login(page, 'operator');
       const name = unique();

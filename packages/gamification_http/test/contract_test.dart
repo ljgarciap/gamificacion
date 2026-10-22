@@ -6,6 +6,7 @@ import 'package:game_bingo/game_bingo.dart';
 import 'package:game_bomb/game_bomb.dart';
 import 'package:game_dice/game_dice.dart';
 import 'package:game_memory/game_memory.dart';
+import 'package:game_poker/game_poker.dart';
 import 'package:game_roulette/game_roulette.dart';
 import 'package:game_scratch/game_scratch.dart';
 import 'package:gamification_core/gamification_core.dart';
@@ -64,6 +65,8 @@ void main() {
     'redemption-bomb-none',
     'redemption-bingo-win',
     'redemption-bingo-none',
+    'redemption-poker-win',
+    'redemption-poker-none',
   ];
   const errorExamples = <String, (int, FailureReason)>{
     'error-invalid-code': (422, FailureReason.invalidCode),
@@ -97,7 +100,7 @@ void main() {
         expect(viaHttp.redemptionId, viaModel.redemptionId);
         expect(viaModel.redemptionId, isNotEmpty);
         expect(viaModel.playedAt, isNotNull, reason: 'playedAt es una fecha ISO 8601 válida');
-        expect(viaModel.campaign.gameType, anyOf('roulette', 'scratch', 'memory', 'dice', 'bomb', 'bingo'));
+        expect(viaModel.campaign.gameType, anyOf('roulette', 'scratch', 'memory', 'dice', 'bomb', 'bingo', 'poker'));
         expect(viaModel.outcome.prize.label, isNotEmpty);
         expect(
           viaModel.outcome.prize.type,
@@ -297,6 +300,30 @@ void main() {
       expect(config.events, isEmpty);
       expect(config.winAt, isNull);
       expect(config.endAt, config.draws);
+    });
+  });
+
+  group('Póker entiende el contrato', () {
+    test('premio: la mano que paga es la categoría final y la tabla va de la mejor a la peor', () {
+      final r = Redemption.fromJson(_example('redemption-poker-win'));
+      final c = PokerConfig.fromRedemption(r);
+      expect({...c.hole, ...c.board}, hasLength(7));
+      expect(c.hand, c.category);
+      expect(c.stages.last, c.category);
+      final ranks = [for (final l in c.legend) PokerConfig.categories.indexOf(l.hand)];
+      expect(ranks, [...ranks]..sort((a, b) => b.compareTo(a)), reason: 'de la mejor mano a la peor');
+      // La mesa reproduce lo que dijo el servidor: al abrir todo se llega a la categoría final.
+      final t = PokerTable(c);
+      while (t.next()) {}
+      expect(t.current, c.category);
+    });
+
+    test('sin premio: no hay mano que pague y se ve igual la mejor mano que se tiene', () {
+      final r = Redemption.fromJson(_example('redemption-poker-none'));
+      final c = PokerConfig.fromRedemption(r);
+      expect(r.outcome.prize.isWin, isFalse);
+      expect(c.hand, isNull);
+      expect(PokerConfig.categories, contains(c.category));
     });
   });
 

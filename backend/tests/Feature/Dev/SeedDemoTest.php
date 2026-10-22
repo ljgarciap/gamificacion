@@ -33,19 +33,19 @@ final class SeedDemoTest extends DbTestCase
         parent::tearDown();
     }
 
-    public function test_crea_los_seis_juegos_con_sus_lotes_activos(): void
+    public function test_crea_los_siete_juegos_con_sus_lotes_activos(): void
     {
         $this->artisan('gamification:demo:seed')->assertSuccessful();
 
         $campaigns = DB::table('campaigns')->orderBy('name')->get();
-        $this->assertSame(['Bingo en vivo', 'Bomba 8', 'Concéntrese', 'Dados de la suerte', 'Gira y Gana', 'Raspa y Gana'], $campaigns->pluck('name')->all());
-        $this->assertSame(['bingo', 'bomb', 'memory', 'dice', 'roulette', 'scratch'], $campaigns->pluck('game_type')->all());
-        $this->assertSame(['showPrevious', 'showPrevious', 'showPrevious', 'showPrevious', 'rejectOnly', 'showPrevious'], $campaigns->pluck('used_code_behavior')->all());
+        $this->assertSame(['Bingo en vivo', 'Bomba 8', 'Concéntrese', 'Dados de la suerte', 'Gira y Gana', 'Póker del crupier', 'Raspa y Gana'], $campaigns->pluck('name')->all());
+        $this->assertSame(['bingo', 'bomb', 'memory', 'dice', 'roulette', 'poker', 'scratch'], $campaigns->pluck('game_type')->all());
+        $this->assertSame(['showPrevious', 'showPrevious', 'showPrevious', 'showPrevious', 'rejectOnly', 'showPrevious', 'showPrevious'], $campaigns->pluck('used_code_behavior')->all());
 
-        $this->assertSame(['active', 'active', 'active', 'active', 'active', 'active'], DB::table('batches')->pluck('state')->all());
-        $this->assertSame(198, DB::table('codes')->count());
-        $this->assertCount(198, DemoCodes::load());
-        $this->assertSame(['bingo' => 30, 'bomb' => 30, 'dice' => 30, 'memory' => 30, 'roulette' => 38, 'scratch' => 40], array_map('count', $this->byGame()));
+        $this->assertSame(['active', 'active', 'active', 'active', 'active', 'active', 'active'], DB::table('batches')->pluck('state')->all());
+        $this->assertSame(228, DB::table('codes')->count());
+        $this->assertCount(228, DemoCodes::load());
+        $this->assertSame(['bingo' => 30, 'bomb' => 30, 'dice' => 30, 'memory' => 30, 'poker' => 30, 'roulette' => 38, 'scratch' => 40], array_map('count', $this->byGame()));
         $this->assertNull((new AuditLog)->verifyChain());
     }
 
@@ -72,7 +72,7 @@ final class SeedDemoTest extends DbTestCase
             }
             $r = $service->redeem('host-a:u'.$i, 'clave-'.str_pad((string) $i, 8, '0', STR_PAD_LEFT), $entry['code'])->toArray();
             $this->assertSame(
-                preg_replace('/^(Ruleta|Raspa|Concéntrese|Dados|Bomba 8|Bingo en vivo): /', '', $entry['description']),
+                preg_replace('/^(Ruleta|Raspa|Concéntrese|Dados|Bomba 8|Bingo en vivo|Póker del crupier): /', '', $entry['description']),
                 $r['outcome']['prize']['label'],
                 "la descripción de {$entry['code']} debe coincidir con su premio",
             );
@@ -156,7 +156,7 @@ final class SeedDemoTest extends DbTestCase
         $this->artisan('gamification:demo:seed', ['--only' => 'dice'])->assertSuccessful();
         $this->assertSame(['dice'], DB::table('campaigns')->pluck('game_type')->all());
 
-        $this->artisan('gamification:demo:seed', ['--only' => 'poker'])->expectsOutputToContain('Juego desconocido: poker')->assertFailed();
+        $this->artisan('gamification:demo:seed', ['--only' => 'ajedrez'])->expectsOutputToContain('Juego desconocido: ajedrez')->assertFailed();
         $this->assertSame(1, DB::table('campaigns')->count());
     }
 
@@ -173,9 +173,9 @@ final class SeedDemoTest extends DbTestCase
     {
         $this->artisan('gamification:demo:seed')->assertSuccessful();
         $this->artisan('gamification:demo:seed')->assertSuccessful();
-        $this->assertSame(12, DB::table('batches')->count());
-        $this->assertCount(396, DemoCodes::load());
-        $this->assertCount(396, array_unique(array_column(DemoCodes::load(), 'code')));
+        $this->assertSame(14, DB::table('batches')->count());
+        $this->assertCount(456, DemoCodes::load());
+        $this->assertCount(456, array_unique(array_column(DemoCodes::load(), 'code')));
     }
 
     public function test_se_niega_a_correr_fuera_de_desarrollo(): void

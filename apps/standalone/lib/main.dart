@@ -3,6 +3,7 @@ import 'package:game_bingo/game_bingo.dart';
 import 'package:game_bomb/game_bomb.dart';
 import 'package:game_dice/game_dice.dart';
 import 'package:game_memory/game_memory.dart';
+import 'package:game_poker/game_poker.dart';
 import 'package:game_roulette/game_roulette.dart';
 import 'package:game_scratch/game_scratch.dart';
 import 'package:gamification_core/gamification_core.dart';
@@ -54,7 +55,8 @@ class _GamificationAppState extends State<GamificationApp> {
     ..register(MemoryModule())
     ..register(DiceModule())
     ..register(BombModule())
-    ..register(BingoModule());
+    ..register(BingoModule())
+    ..register(PokerModule());
   final _events = GamificationEvents();
 
   @override

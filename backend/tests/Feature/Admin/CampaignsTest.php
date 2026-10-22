@@ -104,7 +104,7 @@ final class CampaignsTest extends AdminTestCase
             'sin nombre' => ['name' => ''],
             'nombre largo' => ['name' => str_repeat('a', 121)],
             'nombre con control' => ['name' => "Hola\x00mundo"],
-            'juego desconocido' => ['gameType' => 'poker'],
+            'juego desconocido' => ['gameType' => 'ajedrez'],
             'comportamiento' => ['usedCodeBehavior' => 'otro'],
             'theme lista' => ['theme' => [1, 2]],
             'theme enorme' => ['theme' => ['x' => str_repeat('a', 20000)]],
