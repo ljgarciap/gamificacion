@@ -16,3 +16,4 @@ deploy/prod.env
 deploy/demo.env
 deploy/demo-credentials.txt
 deploy/seed.log
+deploy/.seeded

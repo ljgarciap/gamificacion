@@ -5,6 +5,7 @@
 #   automático. Para un dominio propio, define DEMO_DOMAIN y ADMIN_DOMAIN en el entorno antes de correrlo.
 # - Genera deploy/demo.env con secretos aleatorios SOLO si no existe (nunca pisa uno existente: perder GAMIF_PRIZE_MAP_KEY deja ilegibles los
 #   lotes comprometidos) y guarda la clave de la compuerta y la contraseña temporal del superadmin en deploy/demo-credentials.txt (0600).
+# - Es idempotente: en los despliegues siguientes conserva secretos y datos, reconstruye lo que cambió y no vuelve a sembrar (ver CI/CD en docs/ci-cd.md).
 # - Construye las imágenes de una en una (un servidor chico no aguanta las compilaciones de Flutter y Angular en paralelo), migra, crea el
 #   superadmin y siembra los códigos de prueba (espera a la baliza real: ~1 minuto por juego) en segundo plano.
 set -euo pipefail
@@ -67,10 +68,24 @@ if [ -n "$ADMIN_EMAIL" ]; then
   { echo "Superadmin: ${ADMIN_EMAIL}"; echo "$OUT" | grep "Contraseña temporal" || echo "(ya existía o falló: ver la salida)"; } >> "$CREDS"
 fi
 
-echo "==> Sembrando los códigos de prueba en segundo plano (tarda varios minutos: espera a la baliza real)"
-setsid nohup "${COMPOSE[@]}" exec -T app php artisan gamification:demo:seed < /dev/null > deploy/seed.log 2>&1 &
-echo "    avance: tail -f deploy/seed.log"
+# La siembra crea lotes NUEVOS cada vez: solo se hace en el primer despliegue (marca deploy/.seeded) o si se pide con DEMO_SEED=1.
+if [ "${DEMO_SEED:-auto}" = "1" ] || { [ "${DEMO_SEED:-auto}" = "auto" ] && [ ! -f deploy/.seeded ]; }; then
+  echo "==> Sembrando los códigos de prueba en segundo plano (tarda varios minutos: espera a la baliza real)"
+  touch deploy/.seeded
+  setsid nohup "${COMPOSE[@]}" exec -T app php artisan gamification:demo:seed < /dev/null > deploy/seed.log 2>&1 &
+  echo "    avance: tail -f deploy/seed.log"
+else
+  echo "==> Códigos de prueba: ya sembrados (DEMO_SEED=1 para sembrar más)"
+fi
+
+echo "==> Comprobando que la API responde"
+for i in $(seq 1 30); do
+  if "${COMPOSE[@]}" exec -T api wget -qO- http://127.0.0.1:8080/up > /dev/null 2>&1; then echo "    /up responde"; break; fi
+  [ "$i" = 30 ] && { echo "    la API no respondió: revisar docker compose logs" >&2; exit 1; }
+  sleep 2
+done
 
 echo
-echo "Listo. Credenciales en $CREDS:"
-cat "$CREDS"
+echo "Listo."
+# Las credenciales solo se muestran si es el primer despliegue (en uno de CI no se imprimen secretos en el registro).
+if [ -t 1 ] && [ -f "$CREDS" ]; then echo "Credenciales en $CREDS:"; cat "$CREDS"; fi

@@ -26,6 +26,7 @@ Juegos: Ruleta, Raspa y Gana, Concéntrese (memoria de parejas) y Dados (SPEC-00
 - `flutter pub get` (raíz) · `melos run analyze` · `melos run test` · `dart format .` (ancho 120 fijado en el `analysis_options.yaml` de cada paquete: `formatter: page_width: 120`)
 
 ## Despliegue de demostración
+- **CI/CD:** `.github/workflows/ci-cd.yml` (guía en `docs/ci-cd.md`): pruebas de backend, verificador, Flutter y panel en cada PR/push; push a `master` con todo en verde despliega por SSH a la demo (`deploy/demo-up.sh`, idempotente, no re-siembra). Sin los secretos `DEPLOY_SSH_KEY`, `DEPLOY_HOST` y `DEPLOY_KNOWN_HOSTS` solo avisa. El repositorio es PÚBLICO: nunca versionar secretos ni IPs de servidores con credenciales.
 - `docs/despliegue-demo.md`: local, teléfono (LAN) y VPS (`deploy/compose.demo.yml` + `deploy/Caddyfile.demo`). **Modo demo** (`GAMIF_DEMO_MODE=true`): rutas `/v1/demo/token` y `/v1/demo/codes`, válidas en cualquier entorno pero solo si se activan; `/v1/dev/*` sigue existiendo solo en local. Es un emisor de tokens abierto: solo detrás de la compuerta de Caddy y sin campañas reales en el mismo servidor. La web se compila con `GAMIF_DEMO_MODE=true` y `GAMIF_API_URL=https://<dominio>`.
 
 ## Docker (local)

@@ -1,0 +1,142 @@
+# CI/CD: cada cambio se prueba (backend, juegos Flutter, panel Angular, verificador) y, si es un push a master y pasa todo, se despliega a la
+# demostración por SSH. Guía y configuración de los secretos: docs/ci-cd.md.
+name: CI/CD
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch: # «Run workflow» sobre una rama/etiqueta/commit: sirve para volver a una versión anterior (rollback)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (PHP 8.3 + PostgreSQL 16)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      # Mismas piezas que en local: la base y el backend de docker-compose (las pruebas corren contra PostgreSQL real, con concurrencia real).
+      - name: Configuración mínima
+        run: |
+          cp backend/.env.example backend/.env
+          docker compose up -d db
+      - name: Pruebas del backend
+        run: docker compose run --rm backend php artisan test
+
+  verifier:
+    name: Verificador independiente (Python) y vectores
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover verifier
+      - name: Los vectores publicados son los que genera el verificador
+        run: python3 -I verifier/gamif_verify.py vectors | diff - verifier/vectors.json
+
+  flutter:
+    name: Juegos y SDK (Flutter)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.32.8
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Formato y análisis
+        run: |
+          dart format --set-exit-if-changed packages apps
+          flutter analyze
+      - name: Pruebas de cada paquete
+        run: |
+          set -e
+          for d in packages/*/ apps/standalone; do
+            if [ -d "$d/test" ]; then
+              echo "::group::$d"
+              (cd "$d" && flutter test)
+              echo "::endgroup::"
+            fi
+          done
+
+  panel:
+    name: Panel de administración (Angular)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: admin-panel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: admin-panel/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Pruebas unitarias
+        run: npx ng test --watch=false
+      - name: Compilación de producción
+        run: npx ng build --configuration production
+      - name: Dependencias sin vulnerabilidades conocidas (solo producción)
+        run: npm audit --omit=dev --audit-level=high
+
+  deploy:
+    name: Desplegar a la demostración
+    needs: [backend, verifier, flutter, panel]
+    # Solo desde master (push o ejecución manual), nunca desde un pull request ni desde un fork.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # El entorno «demo» permite exigir una aprobación manual antes de desplegar (Settings → Environments).
+    environment: demo
+    concurrency:
+      group: deploy-demo
+      cancel-in-progress: false
+    env:
+      HAS_DEPLOY_SECRETS: ${{ secrets.DEPLOY_SSH_KEY != '' && secrets.DEPLOY_HOST != '' && secrets.DEPLOY_KNOWN_HOSTS != '' }}
+    steps:
+      - name: Faltan los secretos del despliegue
+        if: env.HAS_DEPLOY_SECRETS != 'true'
+        run: |
+          echo "::warning::No se despliega. Configura DEPLOY_SSH_KEY, DEPLOY_HOST y DEPLOY_KNOWN_HOSTS (ver docs/ci-cd.md)."
+
+      - uses: actions/checkout@v4
+        if: env.HAS_DEPLOY_SECRETS == 'true'
+
+      - name: Preparar SSH
+        if: env.HAS_DEPLOY_SECRETS == 'true'
+        # Los secretos entran por variables de entorno (no se interpolan dentro del script).
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host demo\n  HostName %s\n  User root\n  IdentityFile ~/.ssh/deploy_key\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' "$SSH_HOST" > ~/.ssh/config
+
+      - name: Subir el código (lo mismo que pasó las pruebas)
+        if: env.HAS_DEPLOY_SECRETS == 'true'
+        run: |
+          # Se conservan los secretos y datos del servidor (demo.env, credenciales, marca de siembra) y se borra lo que ya no existe en el repositorio.
+          rsync -az --delete \
+            --exclude '.git/' --exclude '.github/' \
+            --exclude 'deploy/demo.env' --exclude 'deploy/demo-credentials.txt' --exclude 'deploy/seed.log' --exclude 'deploy/.seeded' \
+            ./ demo:/opt/gamificacion/
+
+      - name: Construir y levantar en el servidor
+        if: env.HAS_DEPLOY_SECRETS == 'true'
+        env:
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh demo "cd /opt/gamificacion && chmod +x deploy/demo-up.sh && deploy/demo-up.sh '$SSH_HOST'"
