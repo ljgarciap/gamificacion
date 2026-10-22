@@ -102,3 +102,39 @@ export interface CodeLookup {
   redeemedBy: string | null;
   prizeId: string | null;
 }
+
+export type GameType = 'roulette' | 'scratch' | 'memory' | 'dice';
+export type PrizeType = 'money' | 'coupon' | 'points' | 'extraSpin' | 'none';
+
+export interface CampaignRow {
+  id: string;
+  name: string;
+  gameType: GameType;
+  usedCodeBehavior: 'showPrevious' | 'rejectOnly';
+  title: string | null;
+  prizeCount: number;
+  batchCount: number;
+  frozen: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CampaignPrize {
+  prizeId: string;
+  type: PrizeType;
+  label: string;
+  amount: number | null;
+  meta: Record<string, unknown> | unknown[] | null;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  gameType: GameType;
+  usedCodeBehavior: 'showPrevious' | 'rejectOnly';
+  title: string | null;
+  theme: Record<string, string>;
+  gameConfig: Record<string, unknown>;
+  frozen: boolean;
+  prizes: CampaignPrize[];
+}

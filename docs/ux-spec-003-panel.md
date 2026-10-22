@@ -14,7 +14,7 @@ Estado: **borrador para aprobación de Luis.** Cubre P7 (base, acceso, guardas) 
 Reutiliza los tokens de `ux-spec-001` (primary `#0B4EF0`, navy `#14235C`, accent `#FFC800`, background `#F2F4F7`, surface `#FFFFFF`, error `#D32F2F`, success `#1B9E5A`) más:
 | Token | Valor | Uso |
 |---|---|---|
-| warning | `#B26A00` sobre `#FFF4DB` | avisos de control dual, pendientes que caducan |
+| warning | `#8F5600` sobre `#FFF4DB` (5,5:1; el `#B26A00` original daba 3,9:1 y no cumplía AA) | avisos de control dual, pendientes que caducan |
 | danger-surface | `#FDECEC` | confirmaciones destructivas |
 | muted | `#5B6478` | texto secundario (AA sobre blanco: 5.9:1) |
 Tipografía Inter 14/16 px; tablas densas 13 px. Radio 12 en tarjetas, 8 en controles. Espaciado base 8.

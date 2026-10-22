@@ -34,6 +34,14 @@ export class Api {
     return this.run(this.http.post<T>(Api.BASE + path, body));
   }
 
+  patch<T>(path: string, body: unknown): Promise<T> {
+    return this.run(this.http.patch<T>(Api.BASE + path, body));
+  }
+
+  delete<T>(path: string): Promise<T> {
+    return this.run(this.http.delete<T>(Api.BASE + path));
+  }
+
   private async run<T>(request: import('rxjs').Observable<T>): Promise<T> {
     try {
       return await firstValueFrom(request);

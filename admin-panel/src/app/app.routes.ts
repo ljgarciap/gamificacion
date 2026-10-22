@@ -5,6 +5,8 @@ import { authGuard, permissionGuard } from './core/guards';
 const soon = () => import('./features/shell/soon').then((m) => m.Soon);
 const dashboard = () => import('./features/dashboard/dashboard').then((m) => m.DashboardPage);
 const audit = () => import('./features/audit/audit').then((m) => m.AuditScreen);
+const campaigns = () => import('./features/campaigns/campaign-list').then((m) => m.CampaignList);
+const campaign = () => import('./features/campaigns/campaign-detail').then((m) => m.CampaignDetail);
 const outbox = () => import('./features/outbox/outbox').then((m) => m.OutboxScreen);
 const codes = () => import('./features/codes/codes').then((m) => m.CodesScreen);
 
@@ -16,7 +18,9 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', pathMatch: 'full', loadComponent: dashboard, canActivate: [permissionGuard], data: { permission: 'dashboard.view', title: 'Resumen' }, title: 'Resumen' },
-      { path: 'campanas', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'campaigns.view', title: 'Campañas' }, title: 'Campañas' },
+      { path: 'campanas', loadComponent: campaigns, canActivate: [permissionGuard], data: { permission: 'campaigns.view', title: 'Campañas' }, title: 'Campañas' },
+      { path: 'campanas/nueva', loadComponent: campaign, canActivate: [permissionGuard], data: { permission: 'campaigns.manage', title: 'Nueva campaña' }, title: 'Nueva campaña' },
+      { path: 'campanas/:id', loadComponent: campaign, canActivate: [permissionGuard], data: { permission: 'campaigns.view', title: 'Campaña' }, title: 'Campaña' },
       { path: 'lotes', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Lotes' }, title: 'Lotes' },
       { path: 'aprobaciones', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'approvals.view', title: 'Aprobaciones' }, title: 'Aprobaciones' },
       { path: 'avisos', loadComponent: outbox, canActivate: [permissionGuard], data: { permission: 'outbox.view', title: 'Avisos al host' }, title: 'Avisos al host' },
