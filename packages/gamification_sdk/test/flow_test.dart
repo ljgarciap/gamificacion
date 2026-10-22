@@ -509,6 +509,12 @@ void main() {
     await _pump(t, repo: repo, demoCodes: MockRepository.demoCodes);
     await t.tap(find.text('Códigos de prueba'));
     await t.pumpAndSettle();
+    // Un bloque por juego y, dentro, «Con premio» y «Sin premio»: se abren de a uno.
+    expect(find.text('RULETA-50K'), findsNothing, reason: 'todo empieza cerrado');
+    await t.tap(find.byKey(const ValueKey('demo-group-Ruleta')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('demo-block-Ruleta-win')));
+    await t.pumpAndSettle();
     await t.tap(find.text('RULETA-50K'));
     await t.pump();
     expect(t.widget<TextField>(find.byType(TextField)).controller!.text, 'RULETA-50K');

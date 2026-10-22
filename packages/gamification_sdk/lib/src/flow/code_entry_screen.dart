@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 import 'flow_controller.dart';
+import 'demo_codes_panel.dart';
 import 'flow_state.dart';
 
 /// Pantalla 1 (ux-spec-001): ingreso y validación del código.
@@ -213,13 +214,12 @@ class _CodeEntryScreenState extends ConsumerState<CodeEntryScreen> {
           ],
         ),
         children: [
-          for (final entry in (_loadedDemoCodes ?? widget.demoCodes)!.entries)
-            ListTile(
-              dense: true,
-              title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text(entry.value),
-              onTap: () => _controller.text = entry.key,
-            ),
+          DemoCodesPanel(
+            codes: (_loadedDemoCodes ?? widget.demoCodes)!,
+            strings: s,
+            theme: theme,
+            onPick: (code) => _controller.text = code,
+          ),
         ],
       ),
     );

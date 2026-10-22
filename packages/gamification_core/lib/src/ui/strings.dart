@@ -21,6 +21,10 @@ abstract class GamificationStrings {
   String get balanceLabel;
   String get demoBadge;
   String get demoCodes;
+  String demoWithPrize(int n);
+  String demoWithoutPrize(int n);
+  String demoShowAll(int n);
+  String get demoShowLess;
   String get close;
   String get resultWon;
   String get resultNone;
@@ -127,6 +131,18 @@ class EsStrings extends GamificationStrings {
   String get demoBadge => 'DEMO';
   @override
   String get demoCodes => 'Códigos de prueba';
+
+  @override
+  String demoWithPrize(int n) => 'Con premio ($n)';
+
+  @override
+  String demoWithoutPrize(int n) => 'Sin premio ($n)';
+
+  @override
+  String demoShowAll(int n) => 'Ver los $n';
+
+  @override
+  String get demoShowLess => 'Ver menos';
   @override
   String get close => 'Cerrar';
   @override
@@ -373,6 +389,18 @@ class EnStrings extends GamificationStrings {
   String get demoBadge => 'DEMO';
   @override
   String get demoCodes => 'Test codes';
+
+  @override
+  String demoWithPrize(int n) => 'With prize ($n)';
+
+  @override
+  String demoWithoutPrize(int n) => 'No prize ($n)';
+
+  @override
+  String demoShowAll(int n) => 'Show all $n';
+
+  @override
+  String get demoShowLess => 'Show less';
   @override
   String get close => 'Close';
   @override

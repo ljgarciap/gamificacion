@@ -54,7 +54,7 @@ class MockRepository implements GamificationRepository {
     'DADOS-GANA': 'Dados: dobles seis, gana \$ 50.000',
     'DADOS-NADA': 'Dados: sin premio',
     'BOMBA-GANA': 'Bomba 8: tres 8, gana \$ 50.000',
-    'BOMBA-NADA': 'Bomba 8: la mecha se acaba',
+    'BOMBA-NADA': 'Bomba 8: sin premio (la mecha se acaba)',
     'BINGO-GANA': 'Bingo: línea, gana \$ 10.000',
     'BINGO-NADA': 'Bingo: sin premio',
     'POKER-GANA': 'Póker: full, gana \$ 50.000',
