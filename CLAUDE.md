@@ -8,6 +8,7 @@ Juegos: Ruleta, Raspa y Gana, Concéntrese (memoria de parejas) y Dados (SPEC-00
 - `docs/ux-spec-001.md` — spec visual APROBADA
 - `docs/arquitectura-y-plan.md` — estructura y desglose T1–T12
 - `docs/spec-004-concentrese-y-dados.md` + `docs/ux-spec-002.md` — APROBADAS e implementadas: Concéntrese y Dados, sin tocar motor ni base
+- `docs/spec-005-bomba-bingo-poker.md` — BORRADOR para aprobación: tres juegos nuevos (Bomba 8, Bingo en vivo, Póker del crupier), mismo patrón que SPEC-004; incluye UX y decisiones D12–D20
 - `docs/spec-003-administracion-y-host.md` — APROBADA (en curso): panel Angular con 2FA y roles, control dual, host real firmado + simulador, giro extra por reserva. Diseño: `docs/diseno-spec-003.md`; amenazas: `docs/amenazas-spec-003.md` (T1–T33, cada bloque dice cuáles revisar)
 - `docs/spec-002-motor-de-premios.md` — motor de premios y backend, APROBADA (pre-asignado, stock exacto, compromiso + baliza drand, verificable por terceros)
 
