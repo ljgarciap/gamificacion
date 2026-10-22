@@ -3,9 +3,9 @@
 ## Suites
 | Suite | Resultado |
 |---|---|
-| Backend PHP | **874 pasan**, 4 omitidas (2 son las mediciones `GAMIF_BENCH`), 0 fallan — 48 pruebas nuevas de presentación y contrato |
+| Backend PHP | **874 pasan**, 4 omitidas (2 son las mediciones `GAMIF_BENCH`), 0 fallan — con las pruebas nuevas de presentación, contrato y demo de los tres juegos |
 | Vectores del motor | **idénticos** (CA-67): el motor, el verificador y los vectores no cambiaron |
-| Verificador Python | todas las pruebas OK |
+| Verificador Python | 62 de 62 |
 | Flutter | core 38 · http 113 · sdk 73 · standalone 6 · roulette 27 · scratch 34 · memory 32 · dice 21 · **bomb 13 · bingo 15 · poker 13** |
 | `flutter analyze` / `dart format` | sin avisos, formato estable |
 | E2E del panel | las pruebas de campañas crean y filtran campañas de los tres juegos nuevos |
@@ -13,7 +13,7 @@
 
 ## E2E en navegador real (Playwright, Chromium; web :8080 de Docker + backend :8000, códigos reales)
 Antes los E2E de los juegos eran scripts manuales fuera del repositorio. Ahora `juegos.spec.ts` los cubre a todos (`npx playwright test e2e/juegos.spec.ts`, con `docker compose up -d db backend web` y `gamification:demo:seed`). Para cada uno de los **7 juegos × {con premio, sin premio}**:
-- lee la respuesta **real** del servidor al canjear (interceptada en el navegador) y comprueba que es coherente con el premio: ruleta (segmento válido), raspa (3 símbolos del premio o ninguno), Concéntrese (pareja premio o ninguna), dados (solo los dobles pagan), **Bomba** (tres 8 con premio, el tercero entre los últimos 4; menos de tres sin él), **Bingo** (50 bolas únicas por tabla, patrón y `winAt` solo con premio, el patrón corresponde al premio de la tabla) y **Póker** (7 cartas distintas, la mano que paga es la categoría final y corresponde al premio);
+- lee la respuesta **real** del servidor al canjear (interceptada en el navegador) y comprueba que es coherente con el premio: ruleta (segmento válido), raspa (3 símbolos del premio o ninguno), Concéntrese (pareja premio o ninguna), dados (solo los dobles pagan), **Bomba** (tres 8 con premio, el tercero entre los últimos 4; menos de tres sin él), **Bingo** (tantas bolas únicas como `draws`, patrón y `winAt` solo con premio, el patrón corresponde al premio de la tabla) y **Póker** (7 cartas distintas, la mano que paga es la categoría final y corresponde al premio);
 - juega la partida de punta a punta con el botón del juego («Revelar todo», «GIRAR» o «TIRAR») y llega a la pantalla de resultado;
 - comprueba que el **saldo, leído de la API**, cambió exactamente el premio (o nada sin premio);
 - exige cero errores de página y de consola;
