@@ -1,0 +1,31 @@
+# Proxy de la demostración: TLS automático (Let's Encrypt) y compuerta con usuario/clave. Variables (de demo.env): DEMO_DOMAIN, ADMIN_DOMAIN,
+# DEMO_USER, DEMO_PASSWORD_HASH (genera el hash con: docker run --rm caddy:2-alpine caddy hash-password --plaintext 'tu-clave').
+#
+# Juegos + API en el MISMO origen (sin CORS). Todo pide usuario/clave del navegador, EXCEPTO las llamadas de la API que ya traen un token
+# `Authorization: Bearer …` (esas las valida la propia API): así la app funciona después de que el navegador pasó la compuerta, y quien no
+# tenga la clave no puede ni pedir un token de demostración ni listar los códigos.
+{$DEMO_DOMAIN} {
+	encode zstd gzip
+
+	@api path /v1/*
+	handle @api {
+		@sinToken not header Authorization Bearer*
+		basic_auth @sinToken {
+			{$DEMO_USER} {$DEMO_PASSWORD_HASH}
+		}
+		reverse_proxy api:8080
+	}
+
+	handle {
+		basic_auth {
+			{$DEMO_USER} {$DEMO_PASSWORD_HASH}
+		}
+		reverse_proxy web:80
+	}
+}
+
+# Panel de administración: tiene su propio acceso (contraseña + 2FA), no lleva la compuerta del navegador.
+{$ADMIN_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy panel:8080
+}

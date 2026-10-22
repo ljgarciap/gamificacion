@@ -1,0 +1,91 @@
+# Despliegue de DEMOSTRACIÓN en un servidor (VPS): juegos + API en {DEMO_DOMAIN} y panel en {ADMIN_DOMAIN}, con TLS automático y compuerta con clave.
+# Guía paso a paso: docs/despliegue-demo.md.
+#   docker compose -f deploy/compose.demo.yml --env-file deploy/demo.env up -d --build
+# Nada se publica salvo Caddy (80/443); todo lo demás va por la red interna. No hay puertos de la base ni del backend abiertos.
+name: gamificacion-demo
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gamification
+      POSTGRES_USER: gamification
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?define DB_PASSWORD}
+    volumes: [db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gamification -d gamification"]
+      interval: 5s
+      retries: 20
+
+  app:
+    build: { context: ../backend, dockerfile: deploy/Dockerfile, target: app }
+    env_file: [demo.env]
+    environment: { DB_HOST: db, DB_DATABASE: gamification, DB_USERNAME: gamification, DB_PASSWORD: "${DB_PASSWORD}" }
+    read_only: true
+    tmpfs: [/tmp, "/var/www/html/bootstrap/cache:uid=10001,gid=10001"]
+    volumes: [app-storage:/var/www/html/storage]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: { db: { condition: service_healthy } }
+
+  # Avisos al host y purga de exportaciones (sin esto no sale nada hacia un host real).
+  worker:
+    build: { context: ../backend, dockerfile: deploy/Dockerfile, target: app }
+    command: ["php", "artisan", "schedule:work"]
+    env_file: [demo.env]
+    environment: { DB_HOST: db, DB_DATABASE: gamification, DB_USERNAME: gamification, DB_PASSWORD: "${DB_PASSWORD}" }
+    read_only: true
+    tmpfs: [/tmp, "/var/www/html/bootstrap/cache:uid=10001,gid=10001"]
+    volumes: [app-storage:/var/www/html/storage]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: { db: { condition: service_healthy } }
+
+  api:
+    build: { context: ../backend, dockerfile: deploy/Dockerfile, target: web }
+    environment: { FPM_UPSTREAM: "app:9000" }
+    read_only: true
+    tmpfs: [/tmp, "/etc/nginx/conf.d:uid=101,gid=101"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: [app]
+
+  # Juegos (Flutter web). Se compila con la URL pública de la API (la ve el navegador) y en modo demo (/v1/demo/*).
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: web
+      args:
+        GAMIF_API_URL: https://${DEMO_DOMAIN:?define DEMO_DOMAIN}
+        GAMIF_DEMO_MODE: "true"
+    environment:
+      ALLOWED_FRAME_ANCESTORS: "'self'"
+
+  panel:
+    build: { context: ../admin-panel, dockerfile: deploy/Dockerfile }
+    environment: { ADMIN_UPSTREAM: "api:8080" }
+    read_only: true
+    tmpfs: [/tmp, "/etc/nginx/conf.d:uid=101,gid=101"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: [api]
+
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443"]
+    environment:
+      DEMO_DOMAIN: ${DEMO_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?define ADMIN_DOMAIN}
+      DEMO_USER: ${DEMO_USER:?define DEMO_USER}
+      DEMO_PASSWORD_HASH: ${DEMO_PASSWORD_HASH:?define DEMO_PASSWORD_HASH}
+    volumes:
+      - ./Caddyfile.demo:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [api, web, panel]
+
+volumes:
+  db-data:
+  app-storage:
+  caddy-data:
+  caddy-config:

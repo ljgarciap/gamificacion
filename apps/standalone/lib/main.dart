@@ -14,15 +14,25 @@ const _apiUrlFromEnv = String.fromEnvironment('GAMIF_API_URL');
 /// Usuario de desarrollo con el que se pide el token al backend (solo modo backend real, solo desarrollo local).
 const _devUserFromEnv = String.fromEnvironment('GAMIF_DEV_USER', defaultValue: 'demo-user');
 
+/// Modo demo del servidor (`GAMIF_DEMO_MODE=true`): usa /v1/demo/* en vez de /v1/dev/*. Se fija al compilar: `--dart-define=GAMIF_DEMO_MODE=true`.
+const _demoModeFromEnv = bool.fromEnvironment('GAMIF_DEMO_MODE');
+
 void main() => runApp(const GamificationApp());
 
 /// App independiente y host de demostración. Con [apiUrl] vacío usa el backend simulado; con una URL, el backend real:
 /// el token lo pide al endpoint de desarrollo y los códigos de prueba salen del servidor (los que aún no se han canjeado).
 class GamificationApp extends StatefulWidget {
-  const GamificationApp({super.key, this.apiUrl = _apiUrlFromEnv, this.devUser = _devUserFromEnv, this.httpClient});
+  const GamificationApp({
+    super.key,
+    this.apiUrl = _apiUrlFromEnv,
+    this.devUser = _devUserFromEnv,
+    this.demoMode = _demoModeFromEnv,
+    this.httpClient,
+  });
 
   final String apiUrl;
   final String devUser;
+  final bool demoMode;
 
   /// Solo para pruebas.
   final http.Client? httpClient;
@@ -47,7 +57,7 @@ class _GamificationAppState extends State<GamificationApp> {
   void initState() {
     super.initState();
     if (widget.usesBackend) {
-      final dev = DevClient(baseUrl: widget.apiUrl, client: widget.httpClient);
+      final dev = DevClient(baseUrl: widget.apiUrl, client: widget.httpClient, demoMode: widget.demoMode);
       _repository = HttpRepository(
         baseUrl: widget.apiUrl,
         tokenProvider: DevTokenProvider(client: dev, userId: widget.devUser),

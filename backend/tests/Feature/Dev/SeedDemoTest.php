@@ -181,8 +181,19 @@ final class SeedDemoTest extends DbTestCase
     public function test_se_niega_a_correr_fuera_de_desarrollo(): void
     {
         $this->app->detectEnvironment(fn () => 'production');
-        $this->artisan('gamification:demo:seed')->expectsOutputToContain('solo se ejecuta en entornos local/testing')->assertFailed();
+        $this->artisan('gamification:demo:seed')->expectsOutputToContain('solo se ejecuta en local/testing o con GAMIF_DEMO_MODE=true')->assertFailed();
         $this->assertSame(0, DB::table('campaigns')->count());
         $this->assertFileDoesNotExist(DemoCodes::path());
+    }
+
+    public function test_con_el_modo_demo_el_comando_pasa_la_comprobacion_de_entorno_y_solo_la_baliza_local_lo_frena(): void
+    {
+        $this->app->detectEnvironment(fn () => 'production');
+        config(['gamification.demo.enabled' => true]);
+        // La comprobación de entorno ya no lo detiene: lo que lo frena es que estas pruebas usan la baliza local, que en producción el
+        // contenedor se niega a construir (en un servidor de demostración se usa drand).
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('GAMIF_BEACON=local');
+        $this->artisan('gamification:demo:seed', ['--only' => 'dice']);
     }
 }

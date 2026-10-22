@@ -6,12 +6,23 @@ import 'package:http/http.dart' as http;
 
 import 'token_provider.dart';
 
-/// Utilidades SOLO de desarrollo local contra `/v1/dev/*` (esas rutas no existen en producción). Sirven para que la app independiente se
-/// pueda autenticar y mostrar códigos de prueba sin una app host.
+/// Utilidades de la app independiente para autenticarse y mostrar códigos de prueba sin una app host.
+///
+/// Dos modos del servidor: desarrollo local (`/v1/dev/*`, solo existen con APP_ENV=local) y modo demo ([demoMode], `/v1/demo/*`, el servidor
+/// los activa a propósito con GAMIF_DEMO_MODE=true y vale también en un servidor de demostración).
 class DevClient {
-  DevClient({required String baseUrl, http.Client? client, this.timeout = const Duration(seconds: 10)})
-    : _base = Uri.parse(baseUrl.trim()),
-      _client = client ?? http.Client();
+  DevClient({
+    required String baseUrl,
+    http.Client? client,
+    this.timeout = const Duration(seconds: 10),
+    this.demoMode = false,
+  }) : _base = Uri.parse(baseUrl.trim()),
+       _client = client ?? http.Client();
+
+  /// Usa las rutas `/v1/demo/*` en lugar de `/v1/dev/*`.
+  final bool demoMode;
+  String get _tokenPath => demoMode ? '/v1/demo/token' : '/v1/dev/token';
+  String get _codesPath => demoMode ? '/v1/demo/codes' : '/v1/dev/demo-codes';
 
   final Uri _base;
   final http.Client _client;
@@ -26,7 +37,7 @@ class DevClient {
   Future<DevToken> requestToken(String userId) async {
     final response = await _call(
       () => _client.post(
-        _url('/v1/dev/token'),
+        _url(_tokenPath),
         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
         body: jsonEncode({'userId': userId}),
       ),
@@ -47,9 +58,7 @@ class DevClient {
   /// Códigos de demostración que todavía se pueden canjear: código -> descripción. Si falla, devuelve un mapa vacío (es solo una ayuda).
   Future<Map<String, String>> demoCodes() async {
     try {
-      final response = await _call(
-        () => _client.get(_url('/v1/dev/demo-codes'), headers: {'Accept': 'application/json'}),
-      );
+      final response = await _call(() => _client.get(_url(_codesPath), headers: {'Accept': 'application/json'}));
       if (response.statusCode != 200) return const {};
       final list = (jsonDecode(response.body) as Map<String, dynamic>)['codes'] as List;
       return {for (final c in list) (c as Map)['code'] as String: c['description'] as String};

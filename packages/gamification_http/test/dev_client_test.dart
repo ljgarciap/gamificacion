@@ -34,6 +34,27 @@ void main() {
       expect((t.token, t.expiresIn, t.userId), ('jwt', const Duration(seconds: 300), 'standalone-dev:maria'));
     });
 
+    test('en modo demo usa /v1/demo/token y /v1/demo/codes (y el modo desarrollo sigue con /v1/dev/*)', () async {
+      final seen = <String>[];
+      final demo = DevClient(
+        baseUrl: 'https://demo.test',
+        demoMode: true,
+        client: MockClient((r) async {
+          seen.add('${r.method} ${r.url.path}');
+          return r.url.path.endsWith('/token')
+              ? _json(200, {'token': 'jwt', 'expiresIn': 300, 'userId': 'standalone-dev:x'})
+              : _json(200, {
+                  'codes': [
+                    {'code': 'RULETA-AAAA-BBBB-CCC', 'game': 'roulette', 'description': 'Ruleta: Sin premio'},
+                  ],
+                });
+        }),
+      );
+      await demo.requestToken('x');
+      expect(await demo.demoCodes(), {'RULETA-AAAA-BBBB-CCC': 'Ruleta: Sin premio'});
+      expect(seen, ['POST /v1/demo/token', 'GET /v1/demo/codes']);
+    });
+
     test('un error del servidor es unauthorized; sin conexión es network; una respuesta rota es unknown', () async {
       Future<GamificationException> fails(http.Response Function() r) async {
         try {

@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
 
 /**
  * Crea campañas de demostración con códigos REALES (los genera el generador de verdad, el sorteo es el del motor), para probar el flujo completo
- * desde la app. SOLO en local/testing. Con GAMIF_BEACON=local no espera a drand; con drand espera ~1 minuto por lote (es la baliza real).
+ * desde la app. Solo en local/testing o con GAMIF_DEMO_MODE=true. Con GAMIF_BEACON=local no espera a drand; con drand espera ~1 minuto por lote (es la baliza real).
  *
  * Los lotes comprometidos son inmutables y no se pueden borrar: para empezar de cero, `php artisan migrate:fresh`.
  */
@@ -33,8 +33,8 @@ class SeedDemo extends Command
 
     public function handle(): int
     {
-        if (! $this->laravel->environment('local', 'testing')) {
-            $this->error('Este comando solo se ejecuta en entornos local/testing.');
+        if (! $this->laravel->environment('local', 'testing') && ! config('gamification.demo.enabled')) {
+            $this->error('Este comando solo se ejecuta en local/testing o con GAMIF_DEMO_MODE=true (servidor de demostración).');
 
             return self::FAILURE;
         }
@@ -61,7 +61,7 @@ class SeedDemo extends Command
         DemoCodes::save($entries);
 
         $this->info(count($entries).' códigos de demostración disponibles en '.DemoCodes::path());
-        $this->line('La app independiente los muestra en su panel "Códigos de prueba" (GET /v1/dev/demo-codes).');
+        $this->line('La app independiente los muestra en su panel "Códigos de prueba" (GET /v1/dev/demo-codes o /v1/demo/codes).');
 
         return self::SUCCESS;
     }

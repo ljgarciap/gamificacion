@@ -78,6 +78,10 @@ return [
     /* Solo para el modo independiente/demostración: saldo inicial de cada usuario. Una app host real tiene su propia billetera. */
     'demo' => [
         'initial_balance' => (int) env('GAMIF_DEMO_INITIAL_BALANCE', 0),
+        // MODO DEMO (a diferencia de `dev`, funciona en CUALQUIER entorno, p. ej. un servidor de demostración): expone /v1/demo/token y
+        // /v1/demo/codes. Es un emisor de tokens abierto: solo detrás de una compuerta (clave en el proxy), nunca junto a una campaña real.
+        // Ver docs/despliegue-demo.md.
+        'enabled' => filter_var(env('GAMIF_DEMO_MODE', false), FILTER_VALIDATE_BOOLEAN),
     ],
 
     /*
