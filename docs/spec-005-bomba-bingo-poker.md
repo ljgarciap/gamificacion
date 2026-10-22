@@ -1,6 +1,6 @@
 # SPEC-005 — Tres juegos nuevos: Bomba 8, Bingo en vivo y Póker del crupier
 
-Estado: **APROBADA por Luis (2026-10-22). H1 (Bomba 8), H2 (Bingo en vivo) y H3 (Póker del crupier) implementados.** Incluye el diseño de UX (sección 8). Origen: petición de Luis 2026-10-22, tras ver las raspas de susuerte.com: «la idea no es copiar el concepto de raspar sino armarlo un poco diferente». Se toman tres ideas: Bingo (bolas una a una), Joker Loco (cartas contra el crupier) y 8S (con una bomba que se consume). **Nombres y arte propios**: no se usan «Joker Loco» ni «8S» ni nada del arte de esa página.
+Estado: **APROBADA por Luis (2026-10-22). H1 (Bomba 8), H2 (Bingo en vivo), H3 (Póker del crupier) y H4 (QA, `docs/qa-spec-005.md`) hechos.** Incluye el diseño de UX (sección 8). Origen: petición de Luis 2026-10-22, tras ver las raspas de susuerte.com: «la idea no es copiar el concepto de raspar sino armarlo un poco diferente». Se toman tres ideas: Bingo (bolas una a una), Joker Loco (cartas contra el crupier) y 8S (con una bomba que se consume). **Nombres y arte propios**: no se usan «Joker Loco» ni «8S» ni nada del arte de esa página.
 
 ## 1. Objetivo y límites
 - Tres `gameType` nuevos: `bomb`, `bingo`, `poker`. Mismo patrón que Concéntrese y Dados (SPEC-004): **el premio ya está decidido por el motor en el canje**; el servidor además decide la **presentación** (qué se ve) y la guarda con la redención; el cliente solo la anima. No cambia el motor de sorteo, los vectores ni el esquema de la base.
