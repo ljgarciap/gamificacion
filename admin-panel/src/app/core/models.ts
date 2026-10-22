@@ -182,3 +182,56 @@ export interface SettingChange {
   actor: string;
   changedAt: string;
 }
+
+export type BatchState = 'draft' | 'committed' | 'active' | 'closed' | 'revealed';
+
+export interface BatchRow {
+  id: string;
+  campaignId: string;
+  name: string;
+  state: BatchState;
+  totalCodes: number;
+  reserveSize: number;
+  generatedCodes: number;
+  redeemed: number;
+  redeemableUntil: string | null;
+  createdAt: string;
+  committedAt: string | null;
+  activatedAt: string | null;
+  closedAt: string | null;
+  revealedAt: string | null;
+}
+
+export interface BatchDetail extends BatchRow {
+  pool: { prize_id: string; quantity: number }[];
+  poolHash: string;
+  redeemedByPrize: { prizeId: string; count: number }[];
+  createdBy: string;
+  commitment: string | null;
+  codesDigest: string | null;
+  chainHash: string | null;
+  beaconRound: number | null;
+  beaconValue: string | null;
+  seed: string | null;
+  reserveConsumed?: number;
+  pendingSpins?: number;
+  spinsPlayed?: number;
+  commitVersion?: number;
+}
+
+export interface BatchRedemption {
+  id: string;
+  userId: string;
+  prizeId: string;
+  index: number | null;
+  reserveIndex: number | null;
+  parentRedemptionId: string | null;
+  redeemedAt: string;
+}
+
+export interface RedemptionPage {
+  items: BatchRedemption[];
+  total: number;
+  page: number;
+  perPage: number;
+}

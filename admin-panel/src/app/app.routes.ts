@@ -10,6 +10,9 @@ const campaign = () => import('./features/campaigns/campaign-detail').then((m) =
 const users = () => import('./features/users/users').then((m) => m.UsersScreen);
 const hosts = () => import('./features/hosts/hosts').then((m) => m.HostsScreen);
 const settings = () => import('./features/settings/settings').then((m) => m.SettingsScreen);
+const batches = () => import('./features/batches/batch-list').then((m) => m.BatchList);
+const wizard = () => import('./features/batches/batch-wizard').then((m) => m.BatchWizard);
+const batch = () => import('./features/batches/batch-detail').then((m) => m.BatchDetail);
 const outbox = () => import('./features/outbox/outbox').then((m) => m.OutboxScreen);
 const codes = () => import('./features/codes/codes').then((m) => m.CodesScreen);
 
@@ -24,7 +27,9 @@ export const routes: Routes = [
       { path: 'campanas', loadComponent: campaigns, canActivate: [permissionGuard], data: { permission: 'campaigns.view', title: 'Campañas' }, title: 'Campañas' },
       { path: 'campanas/nueva', loadComponent: campaign, canActivate: [permissionGuard], data: { permission: 'campaigns.manage', title: 'Nueva campaña' }, title: 'Nueva campaña' },
       { path: 'campanas/:id', loadComponent: campaign, canActivate: [permissionGuard], data: { permission: 'campaigns.view', title: 'Campaña' }, title: 'Campaña' },
-      { path: 'lotes', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Lotes' }, title: 'Lotes' },
+      { path: 'lotes', loadComponent: batches, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Lotes' }, title: 'Lotes' },
+      { path: 'lotes/nuevo', loadComponent: wizard, canActivate: [permissionGuard], data: { permission: 'batches.manage', title: 'Nuevo lote' }, title: 'Nuevo lote' },
+      { path: 'lotes/:id', loadComponent: batch, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Lote' }, title: 'Lote' },
       { path: 'aprobaciones', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'approvals.view', title: 'Aprobaciones' }, title: 'Aprobaciones' },
       { path: 'avisos', loadComponent: outbox, canActivate: [permissionGuard], data: { permission: 'outbox.view', title: 'Avisos al host' }, title: 'Avisos al host' },
       { path: 'codigos', loadComponent: codes, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Buscar código' }, title: 'Buscar código' },

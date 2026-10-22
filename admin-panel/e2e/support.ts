@@ -23,3 +23,16 @@ export async function login(page: Page, role: keyof Fixtures['users'], volver?: 
   await page.getByRole('button', { name: 'Verificar' }).click();
   await expect(page.getByTestId('who')).toBeVisible();
 }
+
+/** Llamada a la API del panel con la sesión (y el token CSRF) del navegador: para preparar datos de una prueba sin pasar por la interfaz. */
+export async function apiCall<T = unknown>(page: Page, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
+  const cookies = await page.context().cookies();
+  const xsrf = decodeURIComponent(cookies.find((c) => c.name === 'XSRF-TOKEN')?.value ?? '');
+  const res = await page.request.fetch(`/admin/api/v1${path}`, {
+    method,
+    headers: { 'X-XSRF-TOKEN': xsrf, Accept: 'application/json' },
+    data: body === undefined ? undefined : body,
+  });
+  if (!res.ok()) throw new Error(`${method} ${path} → ${res.status()} ${await res.text()}`);
+  return (res.status() === 204 ? undefined : await res.json()) as T;
+}
