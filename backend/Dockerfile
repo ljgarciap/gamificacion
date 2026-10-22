@@ -14,7 +14,8 @@ COPY composer.json composer.lock ./
 RUN composer install --no-interaction --no-scripts --prefer-dist --no-progress
 
 COPY . .
-RUN composer dump-autoload --optimize --no-interaction
+# La comprobación de proxies de producción (GAMIF_TRUSTED_PROXIES) no aplica al construir la imagen de desarrollo.
+RUN GAMIF_TRUSTED_PROXIES=none composer dump-autoload --optimize --no-interaction
 
 EXPOSE 8000
 # Servidor integrado de PHP (no `artisan serve`: no pasa las variables de entorno al servidor). Solo desarrollo.

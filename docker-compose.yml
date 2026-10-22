@@ -102,6 +102,19 @@ services:
       # Contrato (OpenAPI y ejemplos): las pruebas lo comparan con el código y, con UPDATE_CONTRACT_EXAMPLES=1, regeneran los ejemplos.
       - ./docs:/docs
 
+  # --- Panel de administración (SPEC-003): la imagen de producción (nginx sin root, CSP estricta) apuntando al backend de este compose. ---
+  #   docker compose up -d --build panel   -> http://localhost:4200  (la API del panel sale por el mismo origen: sin CORS)
+  panel:
+    build:
+      context: ./admin-panel
+      dockerfile: deploy/Dockerfile
+    environment:
+      ADMIN_UPSTREAM: backend:8000
+    ports:
+      - "4200:8080"
+    depends_on:
+      - backend
+
   # --- Host simulador (SPEC-003 RF-53): SOLO desarrollo. Implementa docs/contrato-host.md con una billetera de juguete. ---
   #   docker compose up -d host-sim        -> http://localhost:8095  (estado: GET /__sim/state; fallos: POST /__sim/mode)
   #   En el backend (APP_ENV=local y GAMIF_HOST_ALLOW_LOCAL=true): GAMIF_FULFILLMENT=http GAMIF_BALANCE=http y registrar el host en el panel con
