@@ -22,7 +22,7 @@ Mientras no termina, la sesión está **pendiente** (caduca a los 10 min) y no d
 | 3b | `POST /auth/mfa/enroll/confirm` | `{code}` | `{recoveryCodes: [10], user}` (los códigos de recuperación se muestran **una vez**) y entra |
 | 4 | `POST /auth/mfa` | `{code}` (TOTP de 6 dígitos **o** código de recuperación) | `{user}` y entra |
 | — | `POST /auth/logout` | — | `204` |
-| — | `GET /auth/me` | — | `{id, email, name, role, permissions}` |
+| — | `GET /auth/me` | — | `{id, email, name, role, permissions, session: {idleMinutes}}` (`idleMinutes` permite avisar antes de que venza la sesión) |
 
 **Errores del inicio de sesión:** `401 invalidCredentials` (contraseña/correo/cuenta bloqueada o desactivada: **idénticos**), `401 invalidCode` (segundo factor), `422 weakPassword` (la política dice qué falta), `429 rateLimited` (con `retryAfter`), `419 csrfMismatch`.
 

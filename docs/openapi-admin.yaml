@@ -84,6 +84,17 @@ components:
         name: {type: string}
         role: {type: string, enum: [superadmin, operator, auditor]}
         permissions: {type: array, items: {type: string}}
+    MeResponse:
+      description: El usuario más los datos de la sesión.
+      allOf:
+        - $ref: '#/components/schemas/Me'
+        - type: object
+          required: [session]
+          properties:
+            session:
+              type: object
+              required: [idleMinutes]
+              properties: {idleMinutes: {type: integer, description: Minutos de inactividad tras los que vence la sesión.}}
     UserList:
       type: object
       required: [users]
@@ -279,7 +290,7 @@ paths:
       summary: "Usuario y permisos de la sesión"
       x-permission: account.self
       responses:
-        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/Me'}}}}
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/MeResponse'}}}}
         '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
         '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
   /users:

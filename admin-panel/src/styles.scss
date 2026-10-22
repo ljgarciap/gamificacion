@@ -1,0 +1,84 @@
+@use '@angular/material' as mat;
+
+// Tokens de docs/ux-spec-003-panel.md §2 (misma identidad que la app de jugadores).
+:root {
+  --gp-primary: #0b4ef0;
+  --gp-navy: #14235c;
+  --gp-accent: #ffc800;
+  --gp-background: #f2f4f7;
+  --gp-surface: #ffffff;
+  --gp-error: #d32f2f;
+  --gp-success: #1b9e5a;
+  --gp-warning: #b26a00;
+  --gp-warning-surface: #fff4db;
+  --gp-danger-surface: #fdecec;
+  --gp-muted: #5b6478;
+}
+
+html {
+  color-scheme: light;
+  @include mat.theme(
+    (
+      color: mat.$azure-palette,
+      // Pila del sistema: sin fuentes externas (CSP estricta, RNF-32).
+      typography: (
+        plain-family: (system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif),
+        brand-family: (system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif),
+      ),
+      density: -1,
+    )
+  );
+  @include mat.theme-overrides(
+    (
+      primary: #0b4ef0,
+      on-primary: #ffffff,
+      background: #f2f4f7,
+      surface: #ffffff,
+      on-surface: #14235c,
+      on-surface-variant: #5b6478,
+      error: #d32f2f,
+    )
+  );
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--gp-background);
+  color: var(--gp-navy);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+}
+
+.gp-muted {
+  color: var(--gp-muted);
+}
+
+.gp-banner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  border-radius: 8px;
+  &.warning {
+    background: var(--gp-warning-surface);
+    color: var(--gp-warning);
+  }
+  &.error {
+    background: var(--gp-danger-surface);
+    color: var(--gp-error);
+  }
+}
+
+.gp-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

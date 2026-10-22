@@ -91,9 +91,10 @@ final class AdminOpenApiContractTest extends AdminTestCase
 
         $me = $this->api('GET', '/auth/me')->assertOk()->json();
         $this->assertSame(
-            $this->sorted($this->doc['components']['schemas']['Me']['required']),
+            $this->sorted([...$this->doc['components']['schemas']['Me']['required'], 'session']),
             $this->sorted(array_keys($me)),
         );
+        $this->assertSame(['idleMinutes'], array_keys($me['session']));
 
         $d = $this->api('GET', '/dashboard')->assertOk()->json();
         $this->assertSame($this->sorted($this->doc['components']['schemas']['Dashboard']['required']), $this->sorted(array_keys($d)));

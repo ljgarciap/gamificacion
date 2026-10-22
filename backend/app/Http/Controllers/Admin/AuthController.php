@@ -161,7 +161,11 @@ final class AuthController
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json($this->userPayload($request->attributes->get('admin_user')), 200, ['Cache-Control' => 'no-store']);
+        // `session.idleMinutes` deja al panel avisar antes de que la sesión venza por inactividad (el servidor sigue siendo quien la vence).
+        return response()->json(
+            $this->userPayload($request->attributes->get('admin_user')) + ['session' => ['idleMinutes' => (int) config('session.lifetime')]],
+            200, ['Cache-Control' => 'no-store'],
+        );
     }
 
     // --- Internos ---------------------------------------------------------------------------------------------------------

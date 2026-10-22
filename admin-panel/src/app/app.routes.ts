@@ -1,0 +1,29 @@
+import { Routes } from '@angular/router';
+import { authGuard, permissionGuard } from './core/guards';
+
+/** Rutas y permisos de docs/ux-spec-003-panel.md §3. P8 reemplaza cada «Pronto» por su pantalla. */
+const soon = () => import('./features/shell/soon').then((m) => m.Soon);
+
+export const routes: Routes = [
+  { path: 'acceso', loadComponent: () => import('./features/login/login').then((m) => m.Login), title: 'Acceso' },
+  {
+    path: '',
+    loadComponent: () => import('./features/shell/shell').then((m) => m.Shell),
+    canActivate: [authGuard],
+    children: [
+      { path: '', pathMatch: 'full', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'dashboard.view', title: 'Resumen' }, title: 'Resumen' },
+      { path: 'campanas', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'campaigns.view', title: 'Campañas' }, title: 'Campañas' },
+      { path: 'lotes', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Lotes' }, title: 'Lotes' },
+      { path: 'aprobaciones', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'approvals.view', title: 'Aprobaciones' }, title: 'Aprobaciones' },
+      { path: 'avisos', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'outbox.view', title: 'Avisos al host' }, title: 'Avisos al host' },
+      { path: 'codigos', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Buscar código' }, title: 'Buscar código' },
+      { path: 'auditoria', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'audit.view', title: 'Bitácora' }, title: 'Bitácora' },
+      { path: 'hosts', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'hosts.manage', title: 'Hosts' }, title: 'Hosts' },
+      { path: 'parametros', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'settings.manage', title: 'Parámetros' }, title: 'Parámetros' },
+      { path: 'usuarios', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'users.manage', title: 'Usuarios' }, title: 'Usuarios' },
+      { path: 'cuenta', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'account.self', title: 'Mi cuenta' }, title: 'Mi cuenta' },
+      { path: 'sin-acceso', loadComponent: () => import('./features/shell/no-access').then((m) => m.NoAccess), title: 'Sin acceso' },
+    ],
+  },
+  { path: '**', redirectTo: '' },
+];
