@@ -44,7 +44,6 @@ El servidor decide **la disposición** de las cartas (qué símbolo hay en cada 
 Se rechaza al comprometer (igual que la ruleta y el raspa) si: los símbolos de relleno no alcanzan para `pairs` parejas, repiten, o coinciden con el id de un premio; o `pairs` está fuera de rango.
 
 ## 4. Dados
-**Rival simulado (opcional, `game_config.rival`, decisión de Luis 2026-10-22):** después de la tirada del jugador tira una máquina; es solo animación y la interfaz lo dice. Si el jugador gana, la máquina muestra una combinación que NO paga; si no gana, una que SÍ paga (siempre tomada de la tabla de premios de la campaña). Sin tabla coherente no hay rival. Apagado por defecto; el servidor solo valida y reenvía el campo cuando es `true`. Dados con relieve (degradado, sombra, puntos con brillo) y mini dados en la tabla de premios.
 
 ### 4.1 Mecánica
 El jugador pulsa "TIRAR" y se animan **2 dados** de 6 caras que se detienen en la combinación decidida por el servidor. La campaña define qué combinaciones corresponden a cada premio (como los segmentos de la ruleta): un premio puede tener varias combinaciones, y el servidor elige una al azar entre las suyas.

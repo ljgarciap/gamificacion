@@ -371,7 +371,6 @@ components:
       properties:
         diceCount: { type: integer, const: 2 }
         rollDurationMs: { type: integer, minimum: 500, maximum: 5000 }
-        rival: { type: boolean, description: "Solo si es true: el juego muestra una máquina que tira después del jugador. Es un rival SIMULADO (animación); no influye en el premio, ya decidido." }
         legend:
           type: array
           description: Tabla de premios para mostrar en pantalla. Cada combinación pertenece a un solo premio.

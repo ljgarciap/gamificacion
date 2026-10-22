@@ -50,70 +50,28 @@ class _DicePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.width;
-    final rect = Rect.fromLTWH(3, 2, s - 6, s - 6);
-    final body = RRect.fromRectAndRadius(rect, Radius.circular(s * 0.2));
-
+    final body = RRect.fromRectAndRadius(Rect.fromLTWH(2, 2, s - 4, s - 4), Radius.circular(s * 0.19));
     if (glow != null) {
       canvas.drawRRect(
-        body.inflate(3),
+        body.inflate(2),
         Paint()
-          ..color = glow!.withValues(alpha: 0.7)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+          ..color = glow!.withValues(alpha: 0.55)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       );
     }
-    // Sombra sobre la mesa.
-    canvas.drawRRect(
-      body.shift(Offset(0, s * 0.06)),
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.22)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.06),
-    );
-    // Cuerpo con degradado (luz arriba a la izquierda) para que se vea volumen.
+    canvas.drawRRect(body, Paint()..color = color);
     canvas.drawRRect(
       body,
       Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color.lerp(color, Colors.white, 0.55)!, color, Color.lerp(color, Colors.black, 0.14)!],
-          stops: const [0, 0.5, 1],
-        ).createShader(rect),
-    );
-    // Brillo del borde superior.
-    canvas.drawRRect(
-      body.deflate(1.5),
-      Paint()
+        ..color = border
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.white.withValues(alpha: 0.9), Colors.white.withValues(alpha: 0)],
-        ).createShader(rect),
+        ..strokeWidth = 3,
     );
-    canvas.drawRRect(
-      body,
-      Paint()
-        ..color = border.withValues(alpha: 0.85)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
-    );
-
-    final inset = s * 0.25;
-    final step = (s - 6 - inset * 2) / 2;
-    final r = s * 0.078;
-    for (final (c, row) in _pips[value.clamp(1, 6)]!) {
-      final center = Offset(3 + inset + c * step, 2 + inset + row * step);
-      // Punto hundido: degradado radial con un toque de luz.
-      canvas.drawCircle(
-        center,
-        r,
-        Paint()
-          ..shader = RadialGradient(
-            center: const Alignment(-0.35, -0.35),
-            colors: [Color.lerp(pip, Colors.white, 0.35)!, pip],
-          ).createShader(Rect.fromCircle(center: center, radius: r)),
-      );
+    final inset = s * 0.24;
+    final step = (s - inset * 2) / 2;
+    final paint = Paint()..color = pip;
+    for (final (c, r) in _pips[value.clamp(1, 6)]!) {
+      canvas.drawCircle(Offset(inset + c * step, inset + r * step), s * 0.075, paint);
     }
   }
 

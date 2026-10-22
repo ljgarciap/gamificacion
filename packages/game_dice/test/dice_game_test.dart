@@ -1,9 +1,6 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_dice/game_dice.dart';
-import 'package:game_dice/src/dice_rival.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 class _FakeFeedback implements GameFeedback {
@@ -27,7 +24,6 @@ Future<void> _pump(
   _Harness h, {
   bool reduceMotion = false,
   Size size = const Size(400, 800),
-  DiceRival? rival,
 }) async {
   t.view.physicalSize = size;
   t.view.devicePixelRatio = 1;
@@ -49,7 +45,6 @@ Future<void> _pump(
                 onFinished: () => h.finished++,
               ),
               feedbackFactory: (_) => h.feedback,
-              rival: rival,
             ),
           ),
         ),
@@ -217,115 +212,5 @@ void main() {
     expect(t.takeException(), isNull);
     expect(find.byKey(_roll), findsOneWidget);
     expect(t.getRect(find.byKey(_roll)).bottom, lessThanOrEqualTo(480));
-  });
-
-  group('rival simulado (gameConfig.rival)', () {
-    // Tabla coherente con la regla del demo: los dobles 1-1 y 6-6 pagan; el resto no.
-    const legend = [
-      {
-        'prize': {'id': 'd50k', 'type': 'money', 'label': r'$ 50.000', 'amount': 50000},
-        'rolls': [
-          [1, 1],
-          [6, 6],
-        ],
-      },
-      {
-        'prize': {'id': 'dnone', 'type': 'none', 'label': 'Sin premio'},
-        'rolls': [
-          [1, 2],
-          [3, 5],
-          [2, 6],
-        ],
-      },
-    ];
-
-    Future<Redemption> withRival(String code) async {
-      final r = await _redeem(code);
-      return Redemption(
-        redemptionId: r.redemptionId,
-        outcome: r.outcome,
-        campaign: Campaign(
-          id: r.campaign.id,
-          name: r.campaign.name,
-          gameType: r.campaign.gameType,
-          gameConfig: {...r.campaign.gameConfig, 'rival': true, 'legend': legend},
-        ),
-      );
-    }
-
-    String status(WidgetTester t) => t.widget<Text>(find.byKey(const ValueKey('dice-rival-status'))).data!;
-    (int, int) machine(WidgetTester t) => (
-      t.widget<DiceFace>(find.byKey(const ValueKey('machine-dice-0'))).value,
-      t.widget<DiceFace>(find.byKey(const ValueKey('machine-dice-1'))).value,
-    );
-
-    testWidgets('sin la bandera no hay máquina', (t) async {
-      await _pump(t, await _redeem('DADOS-GANA'), _Harness());
-      expect(find.byKey(const ValueKey('dice-rival-note')), findsNothing);
-      expect(find.byKey(const ValueKey('dice-machine')), findsNothing);
-    });
-
-    testWidgets('si el jugador gana, la máquina tira DESPUÉS y saca una combinación que no paga', (t) async {
-      final h = _Harness();
-      await _pump(t, await withRival('DADOS-GANA'), h, rival: DiceRival(random: Random(1)));
-      expect(find.byKey(const ValueKey('dice-rival-note')), findsOneWidget);
-      expect(status(t), 'Tu turno');
-
-      await t.tap(find.byKey(_roll));
-      await t.pump();
-      await _advance(t, 1900); // el jugador se detiene en 6-6
-      expect(_faces(t), (6, 6));
-      expect(status(t), 'Turno de la máquina…');
-      expect(h.finished, 0, reason: 'todavía falta la tirada de la máquina');
-
-      await _advance(t, 2200);
-      expect(status(t), '¡Le ganaste a la máquina!');
-      final (a, b) = machine(t);
-      expect(a == b, isFalse, reason: 'ni 1-1 ni 6-6: no es una combinación que pague');
-      await _advance(t, 2500);
-      expect(h.finished, 1);
-      expect(h.feedback.wins, 1);
-    });
-
-    testWidgets('sin premio, la máquina saca una combinación que SÍ paga y dice que ganó', (t) async {
-      final h = _Harness();
-      await _pump(t, await withRival('DADOS-NADA'), h, rival: DiceRival(random: Random(2)));
-      await t.tap(find.byKey(_roll));
-      await t.pump();
-      await _advance(t, 4200);
-      expect(status(t), 'Esta vez ganó la máquina.');
-      final (a, b) = machine(t);
-      expect({a, b}.length == 1 && (a == 1 || a == 6), isTrue, reason: 'un doble que paga: $a-$b');
-      expect(h.feedback.loses, 1);
-    });
-
-    test('la tirada de la máquina siempre es coherente con la tabla (miles de semillas)', () {
-      final cfg = DiceConfig.fromRedemption(
-        Redemption.fromJson({
-          'redemptionId': 'r',
-          'campaign': {
-            'id': 'c',
-            'name': 'n',
-            'gameType': 'dice',
-            'gameConfig': {'diceCount': 2, 'legend': legend},
-          },
-          'outcome': {
-            'prize': {'id': 'dnone', 'type': 'none', 'label': 'Sin premio'},
-            'extraSpins': 0,
-            'gameResult': {
-              'dice': [3, 5],
-            },
-          },
-        }),
-      );
-      for (var seed = 0; seed < 2000; seed++) {
-        final r = DiceRival(random: Random(seed));
-        final win = r.pick(playerWins: false, legend: cfg.legend)!;
-        expect(win.$1 == win.$2 && (win.$1 == 1 || win.$1 == 6), isTrue, reason: 'semilla $seed: $win');
-        final lose = r.pick(playerWins: true, legend: cfg.legend)!;
-        expect(lose.$1 == lose.$2, isFalse, reason: 'semilla $seed: $lose');
-      }
-      expect(DiceRival().pick(playerWins: true, legend: const []), isNull, reason: 'sin tabla no hay rival');
-    });
   });
 }

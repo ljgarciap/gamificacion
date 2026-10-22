@@ -21,7 +21,7 @@ const EXAMPLES: Record<GameType, unknown> = {
   roulette: { segments: ['p50k', 'none', 'p10k', 'none', 'p50k', 'none', 'p10k', 'none'] },
   scratch: { rows: 3, cols: 3 },
   memory: { pairs: 6, columns: 4, flipBackMs: 900, rival: true },
-  dice: { rolls: { none: [[1, 2], [1, 3]], p10k: [[2, 2]], p50k: [[1, 1]] }, rival: true },
+  dice: { rolls: { none: [[1, 2], [1, 3]], p10k: [[2, 2]], p50k: [[1, 1]] } },
 };
 
 interface PrizeDraft { prizeId: string; type: PrizeType; label: string; amount: number | null; spins: number; rest: Record<string, unknown> }

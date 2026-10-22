@@ -11,7 +11,7 @@ class DiceLegendEntry {
 /// Configuración de Dados, leída de `Campaign.gameConfig` (duración, tabla de premios) y de
 /// `Outcome.gameResult` (la combinación que decidió el servidor).
 class DiceConfig {
-  const DiceConfig({required this.dice, required this.rollDuration, required this.legend, this.rival = false});
+  const DiceConfig({required this.dice, required this.rollDuration, required this.legend});
 
   static const minDuration = 500;
   static const maxDuration = 5000;
@@ -22,9 +22,6 @@ class DiceConfig {
 
   /// Tabla de premios para mostrar en pantalla. Opcional: si falta o viene rota, la tabla simplemente no se muestra.
   final List<DiceLegendEntry> legend;
-
-  /// La campaña pide un rival simulado (`gameConfig.rival == true`): solo animación, no cambia el resultado.
-  final bool rival;
 
   /// Lanza [FormatException] si la campaña no trae unos dados usables.
   factory DiceConfig.fromRedemption(Redemption redemption) {
@@ -42,7 +39,6 @@ class DiceConfig {
       dice: (raw[0] as int, raw[1] as int),
       rollDuration: Duration(milliseconds: ms),
       legend: _parseLegend(cfg['legend']),
-      rival: cfg['rival'] == true,
     );
   }
 
