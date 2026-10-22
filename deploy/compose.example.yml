@@ -1,0 +1,56 @@
+# EJEMPLO de despliegue (SPEC-003 P9). No es el compose de desarrollo: aquí nada se publica salvo el punto de entrada, nada corre como root
+# y el código es de solo lectura. TLS lo termina el balanceador delante de `panel` y `api` (cookies Secure + HSTS lo suponen).
+#   docker compose -f deploy/compose.example.yml --env-file deploy/prod.env up -d --build
+# Variables obligatorias en prod.env: ver docs/hardening-p9.md (sección «Lista de verificación de producción»).
+name: gamificacion-ejemplo
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gamification
+      POSTGRES_USER: gamification
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?define DB_PASSWORD}
+    volumes: [db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gamification -d gamification"]
+      interval: 5s
+      retries: 20
+
+  app:
+    build: { context: ../backend, dockerfile: deploy/Dockerfile, target: app }
+    env_file: [prod.env]
+    environment: { DB_HOST: db, DB_DATABASE: gamification, DB_USERNAME: gamification, DB_PASSWORD: "${DB_PASSWORD}" }
+    read_only: true
+    # Solo storage/ y el caché de configuración son escribibles; el código y el resto del sistema de archivos, no.
+    tmpfs: [/tmp, "/var/www/html/bootstrap/cache:uid=10001,gid=10001"]
+    volumes: [app-storage:/var/www/html/storage]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: { db: { condition: service_healthy } }
+
+  # API para los hosts y para el panel (el panel solo la alcanza a través de su propio nginx).
+  api:
+    build: { context: ../backend, dockerfile: deploy/Dockerfile, target: web }
+    environment: { FPM_UPSTREAM: "app:9000" }
+    read_only: true
+    # nginx genera su configuración desde la plantilla al arrancar.
+    tmpfs: [/tmp, "/etc/nginx/conf.d:uid=101,gid=101"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    ports: ["127.0.0.1:8081:8080"]
+    depends_on: [app]
+
+  panel:
+    build: { context: ../admin-panel, dockerfile: deploy/Dockerfile }
+    environment: { ADMIN_UPSTREAM: "api:8080" }
+    read_only: true
+    # nginx genera su configuración desde la plantilla al arrancar.
+    tmpfs: [/tmp, "/etc/nginx/conf.d:uid=101,gid=101"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    ports: ["127.0.0.1:8082:8080"]
+    depends_on: [api]
+
+volumes:
+  db-data:
+  app-storage:

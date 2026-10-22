@@ -10,10 +10,10 @@ Alcance: backend Laravel (auth del host, canje, límites de intentos, outbox, en
 | F2 | Media | Falta decidir el control dual para exportar la auditoría (R3) y la firma de la exportación. | **Abierta, decisión de Luis.** La integridad hoy descansa en el ancla publicada. |
 | F3 | Media (producción) | `.env.example` trae `APP_DEBUG=true`. Con debug activo se filtran trazas aunque el manejador oculte el detalle. | Requisito de despliegue: `APP_DEBUG=false`, `APP_ENV=production`. |
 | F4 | Media (producción) | Los secretos (`GAMIF_PRIZE_MAP_KEY`, `GAMIF_CODE_PEPPER`, `GAMIF_HOSTS`) viven en `.env`. Perder la clave del mapa deja ilegibles los lotes comprometidos; filtrarla, junto con la base, revela qué código gana. | Requisito de despliegue: gestor de secretos y copia de respaldo de la clave del mapa. |
-| F5 | Baja | La imagen del backend corre como root con el servidor integrado de PHP. | Solo desarrollo. Producción: php-fpm + nginx sin root (spec §8). |
+| F5 | Baja | La imagen del backend corre como root con el servidor integrado de PHP. | Solo desarrollo. **Cerrado en P9**: imagen de producción php-fpm + nginx sin root (`docs/hardening-p9.md`). |
 | F6 | Baja | `GET /v1/balance` no tiene límite propio (el canje sí). Exige JWT válido. | Aceptado; el limitador general del servidor/proxy lo cubre. |
 | F7 | Baja | `prize_outbox.last_error` guarda hasta 500 caracteres del mensaje de error del host; podría incluir una URL o un dato del host. | Revisar al implementar el adaptador real (SPEC-003). |
-| F8 | Info | Sin cabeceras `X-Content-Type-Options` en la API. | Ponerlas en nginx. |
+| F8 | Info | Sin cabeceras `X-Content-Type-Options` en la API. | **Cerrado en P9** (nginx de la API). |
 | F9 | Info | No hay rotación de claves de host con `kid`: cambiar la clave de un emisor invalida sus tokens de golpe. | Previsto con un segundo emisor temporal. |
 
 ## Verificado, sin hallazgo

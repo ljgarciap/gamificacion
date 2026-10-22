@@ -46,11 +46,11 @@ async function typedAction(op: Page, buttonName: string, batchName: string, mess
   await expect(op.getByTestId('message')).toContainText(message);
 }
 
-test('UA-1: un operador completa el recorrido de CA-40 desde el navegador, con una segunda persona que aprueba', async ({ browser, page: op }) => {
+test('UA-1: un operador completa el recorrido de CA-40 desde el navegador, con una segunda persona que aprueba', async ({ browser, page: op, baseURL }) => {
   test.setTimeout(10 * 60_000);
   const f = fixtures();
   await login(op, 'operator');
-  const bossCtx = await browser.newContext({ baseURL: 'http://localhost:4200' });
+  const bossCtx = await browser.newContext({ baseURL });
   const boss = await bossCtx.newPage();
   await login(boss, 'superadmin');
 

@@ -1,0 +1,45 @@
+# El nonce de la CSP es el id de la petición (aleatorio por petición, 128 bits): se escribe en la cabecera y en index.html (ngCspNonce).
+# Los add_header de un location anulan los del server: se repiten en cada uno mediante include.
+server {
+  listen 8080;
+  server_tokens off;
+  root /usr/share/nginx/html;
+  index index.html;
+
+  # Ejecutar una aprobación sobre un lote grande puede tardar minutos: solo esa ruta tiene plazo largo.
+  location ~ ^/admin/api/v1/approvals/[0-9]+/execute$ {
+    proxy_pass http://${ADMIN_UPSTREAM};
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_read_timeout 420s;
+    proxy_hide_header X-Powered-By;
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-store" always;
+  }
+
+  # API del panel: mismo origen, sin CORS. Solo /admin/api; el resto de la API (hosts) no se expone aquí.
+  location /admin/api/ {
+    proxy_pass http://${ADMIN_UPSTREAM};
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_hide_header X-Powered-By;
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-store" always;
+  }
+
+  # Archivos con hash: inmutables.
+  location ~* \.(js|css|ico|png|svg|woff2?)$ {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+  }
+
+  location / {
+    try_files $uri /index.html;
+    sub_filter_once off;
+    sub_filter '__CSP_NONCE__' '$request_id';
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-store" always;
+  }
+}

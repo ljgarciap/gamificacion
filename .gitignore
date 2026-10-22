@@ -12,3 +12,4 @@ pubspec.lock
 
 __pycache__/
 *.pyc
+deploy/prod.env

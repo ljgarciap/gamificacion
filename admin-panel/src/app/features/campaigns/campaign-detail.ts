@@ -34,6 +34,7 @@ interface PrizeDraft { prizeId: string; type: PrizeType; label: string; amount: 
     .head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .frozen { color: var(--gp-warning); background: var(--gp-warning-surface); padding: 4px 10px; border-radius: 8px; font-weight: 600; }
     .tab { padding: 16px 0; max-width: 720px; display: flex; flex-direction: column; gap: 4px; }
+    .tab.wide { max-width: none; }
     .hint { color: var(--gp-muted); font-size: 12px; margin: -4px 0 8px; }
     .fieldError { color: var(--gp-error); font-size: 12px; margin: 0 0 8px; }
     .theme { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 16px; }
@@ -135,7 +136,7 @@ interface PrizeDraft { prizeId: string; type: PrizeType; label: string; amount: 
 
         @if (!isNew()) {
           <mat-tab label="Premios">
-            <div class="tab" style="max-width: none">
+            <div class="tab wide">
               <div class="table-wrap">
                 <table>
                   <caption class="gp-visually-hidden">Premios de la campaña</caption>
@@ -168,7 +169,7 @@ interface PrizeDraft { prizeId: string; type: PrizeType; label: string; amount: 
               @if (c()!.prizes.length === 0) { <p class="gp-muted" data-testid="no-prizes">Esta campaña aún no tiene premios.</p> }
 
               @if (!readOnly()) {
-                <form (ngSubmit)="savePrize()" [attr.aria-label]="editing() ? 'Editar premio ' + editing() : 'Agregar premio'" class="tab" style="max-width: none">
+                <form (ngSubmit)="savePrize()" [attr.aria-label]="editing() ? 'Editar premio ' + editing() : 'Agregar premio'" class="tab wide">
                   <h2>{{ editing() ? 'Editar el premio ' + editing() : 'Agregar premio' }}</h2>
                   <div class="inline">
                     <mat-form-field><mat-label>Id del premio</mat-label><input matInput name="prizeId" [(ngModel)]="d.prizeId" [disabled]="!!editing()" maxlength="64" required /></mat-form-field>

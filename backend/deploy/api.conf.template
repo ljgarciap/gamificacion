@@ -1,0 +1,35 @@
+# Solo expone lo que el panel y los hosts necesitan. Las rutas de desarrollo (/v1/dev/*) ya las niega el código fuera de local;
+# aquí además se cierran por defecto: cualquier otra ruta cae en index.php, nunca en un archivo.
+server {
+  listen 8080;
+  server_tokens off;
+  root /var/www/html/public;
+  client_max_body_size 1m;
+
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header Referrer-Policy "no-referrer" always;
+  add_header Cache-Control "no-store" always;
+
+  # Ejecutar generar códigos / exportar auditoría de un lote de 1 000 000 de códigos tarda ~2 min (medido, docs/hardening-p9.md): solo esa
+  # ruta recibe un plazo largo; el resto de la API conserva el de 60 s.
+  location ~ ^/admin/api/v1/approvals/[0-9]+/execute$ {
+    try_files /index.php =404;
+    fastcgi_pass ${FPM_UPSTREAM};
+    include /etc/nginx/fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+    fastcgi_param REQUEST_URI $request_uri;
+    fastcgi_param PHP_VALUE "max_execution_time=420";
+    fastcgi_hide_header X-Powered-By;
+    fastcgi_read_timeout 420s;
+  }
+
+  location / {
+    try_files /index.php =404;
+    fastcgi_pass ${FPM_UPSTREAM};
+    include /etc/nginx/fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+    fastcgi_param REQUEST_URI $request_uri;
+    fastcgi_hide_header X-Powered-By;
+    fastcgi_read_timeout 60s;
+  }
+}

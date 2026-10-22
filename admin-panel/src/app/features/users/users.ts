@@ -32,6 +32,7 @@ const CONSEQUENCE: Record<Pending['kind'], string> = {
     mat-card { padding: 4px; margin-bottom: 16px; }
     .inline { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
     .inline mat-form-field { width: 240px; }
+    .role-field { width: 150px; }
     table { width: 100%; min-width: 980px; border-collapse: collapse; font-size: 13px; background: var(--gp-surface); }
     th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--gp-background); vertical-align: top; }
     th { color: var(--gp-muted); font-weight: 600; }
@@ -84,7 +85,7 @@ const CONSEQUENCE: Record<Pending['kind'], string> = {
                     <span class="gp-muted">No puedes cambiar tu propio rol ni desactivarte desde aquí.</span>
                   } @else {
                     <div class="acts">
-                      <mat-form-field subscriptSizing="dynamic" style="width: 150px">
+                      <mat-form-field subscriptSizing="dynamic" class="role-field">
                         <mat-label>Rol de {{ u.email }}</mat-label>
                         <mat-select [value]="u.role" (selectionChange)="proposeRole(u, $event.value, $event.source)">@for (r of roles; track r[0]) { <mat-option [value]="r[0]">{{ r[1] }}</mat-option> }</mat-select>
                       </mat-form-field>

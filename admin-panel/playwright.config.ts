@@ -7,6 +7,9 @@ const cached = `${homedir()}/Library/Caches/ms-playwright/chromium-1243/chrome-m
 const executablePath = process.env['CHROMIUM_PATH'] ?? (existsSync(cached) ? cached : undefined);
 
 /** E2E contra el backend REAL (docker compose up -d db backend) a través del proxy de `ng serve`. Una sola pestaña a la vez: los códigos TOTP son de un solo uso. */
+// PANEL_URL: probar contra la imagen de producción (nginx + CSP estricta) en vez de `ng serve`.
+const panelUrl = process.env['PANEL_URL'];
+
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: false,
@@ -15,12 +18,12 @@ export default defineConfig({
   reporter: [['list']],
   globalSetup: './e2e/global-setup.ts',
   use: {
-    baseURL: 'http://localhost:4200',
+    baseURL: panelUrl ?? 'http://localhost:4200',
     launchOptions: { executablePath },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  webServer: {
+  webServer: panelUrl ? undefined : {
     command: 'npx ng serve --port 4200',
     url: 'http://localhost:4200',
     reuseExistingServer: true,
