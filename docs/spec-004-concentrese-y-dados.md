@@ -44,6 +44,7 @@ El servidor decide **la disposición** de las cartas (qué símbolo hay en cada 
 Se rechaza al comprometer (igual que la ruleta y el raspa) si: los símbolos de relleno no alcanzan para `pairs` parejas, repiten, o coinciden con el id de un premio; o `pairs` está fuera de rango.
 
 ## 4. Dados
+**Aspecto (2026-10-22, a pedido de Luis: «que se vean más reales»; sin rival: el rival simulado es solo de Concéntrese):** los dados son cubos en 3D dibujados con `CustomPainter`: seis caras con su número (opuestas suman 7), esquinas redondeadas, luz y sombra, puntos hundidos. Al tirar giran en 3D frenando y rebotan con su sombra, y se detienen con la cara del servidor de frente; las vueltas son cosméticas y no tienen relación con el resultado.
 
 ### 4.1 Mecánica
 El jugador pulsa "TIRAR" y se animan **2 dados** de 6 caras que se detienen en la combinación decidida por el servidor. La campaña define qué combinaciones corresponden a cada premio (como los segmentos de la ruleta): un premio puede tener varias combinaciones, y el servidor elige una al azar entre las suyas.

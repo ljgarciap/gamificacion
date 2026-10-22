@@ -45,7 +45,11 @@ class _DiceGameState extends State<DiceGame> with SingleTickerProviderStateMixin
   Timer? _faceTimer;
   Timer? _landTimer;
   Timer? _settleTimer;
+  // Lo que se anuncia a los lectores de pantalla (el resultado solo al terminar); el dado se dibuja hacia `config.dice` desde que sale.
   (int, int) _faces = (1, 1);
+
+  // Vueltas por eje de cada dado mientras ruedan (cosmético: el dado SIEMPRE se detiene en la combinación del servidor).
+  List<(double, double, double)> _turns = const [(2, 1, 1), (1, 2, 1)];
   bool _started = false;
   bool _rolling = false;
   bool _done = false;
@@ -83,12 +87,15 @@ class _DiceGameState extends State<DiceGame> with SingleTickerProviderStateMixin
       _land();
       return;
     }
-    setState(() => _rolling = true);
+    double turn() => (_cosmetic.nextInt(3) + 1) * (_cosmetic.nextBool() ? 1 : -1);
+    setState(() {
+      _turns = [(turn(), turn(), turn()), (turn(), turn(), turn())];
+      _rolling = true;
+    });
     _bounce.forward(from: 0);
+    // El traqueteo de los dados al rodar (sonido/vibración); ya no cambia caras: el dado gira de verdad.
     _faceTimer = Timer.periodic(widget.faceChange, (_) {
-      if (!mounted) return;
-      setState(() => _faces = (_cosmetic.nextInt(6) + 1, _cosmetic.nextInt(6) + 1));
-      _feedback.tick();
+      if (mounted) _feedback.tick();
     });
     _landTimer = Timer(config.rollDuration, _land);
   }
@@ -122,7 +129,7 @@ class _DiceGameState extends State<DiceGame> with SingleTickerProviderStateMixin
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxHeight < 640;
-        final size = compact ? 72.0 : 96.0;
+        final size = compact ? 104.0 : 132.0;
         // Lo que ocupan la pista, los dados, el resultado y el botón; la tabla usa el resto (con su propio scroll si hace falta).
         final fixed = 40 + size + 40 + 56 + 48;
         final legendMax = max(80.0, constraints.maxHeight - fixed);
@@ -151,23 +158,7 @@ class _DiceGameState extends State<DiceGame> with SingleTickerProviderStateMixin
                         animation: _bounce,
                         builder: (context, _) => Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            for (var i = 0; i < 2; i++) ...[
-                              if (i == 1) const SizedBox(width: 20),
-                              _bouncing(
-                                i,
-                                DiceFace(
-                                  key: ValueKey('dice-$i'),
-                                  value: i == 0 ? _faces.$1 : _faces.$2,
-                                  size: size,
-                                  color: theme.surface,
-                                  border: theme.navy,
-                                  pip: theme.navy,
-                                  glow: _done && prize.isWin ? theme.accent : null,
-                                ),
-                              ),
-                            ],
-                          ],
+                          children: [for (var i = 0; i < 2; i++) _die(i, size, theme, config, prize)],
                         ),
                       ),
                     ),
@@ -207,16 +198,26 @@ class _DiceGameState extends State<DiceGame> with SingleTickerProviderStateMixin
     );
   }
 
-  /// Rebote y giro de cada dado mientras ruedan; se amortigua hasta asentarse.
-  Widget _bouncing(int i, Widget die) {
+  /// Un dado: mientras rueda da vueltas en 3D (frenando) y rebota con su sombra; al terminar queda de frente con la cara del servidor.
+  Widget _die(int i, double size, GamificationTheme theme, DiceConfig config, Prize prize) {
     final t = _bounce.value;
-    final damp = 1 - t;
-    final phase = i * 0.7;
-    final dy = -sin((t * 4 + phase) * pi).abs() * 22 * damp;
-    final rot = sin((t * 6 + phase) * pi) * 0.5 * damp;
-    return Transform.translate(
-      offset: Offset(0, _rolling ? dy : 0),
-      child: Transform.rotate(angle: _rolling ? rot : 0, child: die),
+    final eased = Curves.easeOutCubic.transform(t);
+    final phase = i * 0.35;
+    final rolling = _rolling;
+    // Tres rebotes cada vez más bajos; el segundo dado va un poco desfasado.
+    final lift = rolling ? (sin((t * 3 + phase) * pi).abs() * (1 - t)).clamp(0.0, 1.0) : 0.0;
+    final target = i == 0 ? config.dice.$1 : config.dice.$2;
+    return DiceFace(
+      key: ValueKey('dice-$i'),
+      value: rolling || _done ? target : 1,
+      size: size,
+      color: theme.surface,
+      border: theme.navy,
+      pip: theme.navy,
+      glow: _done && prize.isWin ? theme.accent : null,
+      spin: rolling ? 1 - eased : 0,
+      turns: _turns[i],
+      lift: lift,
     );
   }
 
