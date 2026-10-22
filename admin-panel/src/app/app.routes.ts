@@ -2,7 +2,6 @@ import { Routes } from '@angular/router';
 import { authGuard, permissionGuard } from './core/guards';
 
 /** Rutas y permisos de docs/ux-spec-003-panel.md §3. P8 reemplaza cada «Pronto» por su pantalla. */
-const soon = () => import('./features/shell/soon').then((m) => m.Soon);
 const dashboard = () => import('./features/dashboard/dashboard').then((m) => m.DashboardPage);
 const audit = () => import('./features/audit/audit').then((m) => m.AuditScreen);
 const campaigns = () => import('./features/campaigns/campaign-list').then((m) => m.CampaignList);
@@ -38,7 +37,7 @@ export const routes: Routes = [
       { path: 'hosts', loadComponent: hosts, canActivate: [permissionGuard], data: { permission: 'hosts.manage', title: 'Hosts' }, title: 'Hosts' },
       { path: 'parametros', loadComponent: settings, canActivate: [permissionGuard], data: { permission: 'settings.manage', title: 'Parámetros' }, title: 'Parámetros' },
       { path: 'usuarios', loadComponent: users, canActivate: [permissionGuard], data: { permission: 'users.manage', title: 'Usuarios' }, title: 'Usuarios' },
-      { path: 'cuenta', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'account.self', title: 'Mi cuenta' }, title: 'Mi cuenta' },
+      { path: 'cuenta', loadComponent: () => import('./features/account/account').then((m) => m.AccountPage), canActivate: [permissionGuard], data: { permission: 'account.self', title: 'Mi cuenta' }, title: 'Mi cuenta' },
       { path: 'sin-acceso', loadComponent: () => import('./features/shell/no-access').then((m) => m.NoAccess), title: 'Sin acceso' },
     ],
   },

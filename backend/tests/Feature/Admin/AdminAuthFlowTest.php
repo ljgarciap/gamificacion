@@ -173,7 +173,7 @@ final class AdminAuthFlowTest extends AdminTestCase
         $admin = $this->makeAdmin('operator');
         $this->login($admin);
 
-        $this->api('POST', '/auth/password', ['current' => 'incorrecta', 'new' => 'Otra-Clave-Larga-77'])->assertUnauthorized();
+        $this->api('POST', '/auth/password', ['current' => 'incorrecta', 'new' => 'Otra-Clave-Larga-77'])->assertStatus(422)->assertJsonPath('error.code', 'invalidCurrent');
         $this->api('POST', '/auth/password', ['current' => $admin['password'], 'new' => 'corta'])->assertStatus(422)->assertJsonPath('error.code', 'weakPassword');
         $this->api('POST', '/auth/password', ['current' => $admin['password'], 'new' => $admin['password']])->assertStatus(422);
         $this->api('POST', '/auth/password', ['current' => $admin['password'], 'new' => 'Otra-Clave-Larga-77'])->assertOk();

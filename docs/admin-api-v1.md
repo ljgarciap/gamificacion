@@ -24,7 +24,7 @@ Mientras no termina, la sesión está **pendiente** (caduca a los 10 min) y no d
 | — | `POST /auth/logout` | — | `204` |
 | — | `GET /auth/me` | — | `{id, email, name, role, permissions, session: {idleMinutes}}` (`idleMinutes` permite avisar antes de que venza la sesión) |
 
-**Errores del inicio de sesión:** `401 invalidCredentials` (contraseña/correo/cuenta bloqueada o desactivada: **idénticos**), `401 invalidCode` (segundo factor), `422 weakPassword` (la política dice qué falta), `429 rateLimited` (con `retryAfter`), `419 csrfMismatch`.
+**Errores del inicio de sesión:** `401 invalidCredentials` (contraseña/correo/cuenta bloqueada o desactivada: **idénticos**), `401 invalidCode` (segundo factor), `422 weakPassword` (la política dice qué falta), `422 invalidCurrent` (con sesión completa, la contraseña actual no coincide: es 422 y no 401 para que el panel no lo confunda con una sesión vencida), `429 rateLimited` (con `retryAfter`), `419 csrfMismatch`.
 
 **Reglas:** contraseña de 12 a 72 bytes, sin el correo y no común. El TOTP es el de RFC 6238 (SHA-1, 6 dígitos, 30 s, ±1 paso) y **cada código sirve una sola vez**. Los códigos de recuperación (`XXXX-XXXX-XXXX-XXXX`, 80 bits) son de un solo uso. 5 fallos (contraseña **o** 2FA) bloquean la cuenta 60 s, y se duplica en cada nivel hasta 1 h; 20 fallos desde una IP la bloquean 15 min. Un acierto de contraseña **no** reinicia el contador: solo el segundo factor.
 

@@ -77,7 +77,10 @@ final class AuthController
         } catch (LoginFailed) {
             $this->throttle->recordFailure($request->ip());
 
-            return $this->invalid();
+            // Con sesión completa un 401 haría creer al panel que la sesión venció y lo sacaría: un error del formulario es 422.
+            return $loggedIn !== null
+                ? ApiError::response('invalidCurrent', 'La contraseña actual no es correcta.', 422)
+                : $this->invalid();
         }
         if ($errors !== []) {
             return ApiError::response('weakPassword', implode(' ', $errors), 422);

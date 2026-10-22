@@ -39,7 +39,7 @@ components:
             retryAfter: {type: integer}
     ErrorCode:
       type: string
-      enum: [unauthenticated, forbidden, csrfMismatch, invalidCredentials, invalidCode, weakPassword, rateLimited, validationFailed, notFound, duplicate, wrongState, campaignFrozen, lastSuperadmin, approvalRequired, alreadyPending, selfApproval, notRequester, expired, beaconNotReady, beaconUnavailable, batchNotReady, codeInvalid, gone, exportTampered, serverError]
+      enum: [unauthenticated, forbidden, csrfMismatch, invalidCredentials, invalidCode, invalidCurrent, weakPassword, rateLimited, validationFailed, notFound, duplicate, wrongState, campaignFrozen, lastSuperadmin, approvalRequired, alreadyPending, selfApproval, notRequester, expired, beaconNotReady, beaconUnavailable, batchNotReady, codeInvalid, gone, exportTampered, serverError]
     IdResponse:
       type: object
       required: [id]

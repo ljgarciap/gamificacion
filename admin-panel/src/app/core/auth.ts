@@ -50,6 +50,11 @@ export class Auth {
     return (await this.api.post<{ next: LoginStep }>('/auth/password', { current, new: next })).next;
   }
 
+  /** Con sesión completa: cambia la contraseña y el servidor cierra las otras sesiones. */
+  async changeOwnPassword(current: string, next: string): Promise<void> {
+    await this.api.post<{ ok: true }>('/auth/password', { current, new: next });
+  }
+
   enrollStart(): Promise<{ secret: string; uri: string }> {
     return this.api.post('/auth/mfa/enroll');
   }
