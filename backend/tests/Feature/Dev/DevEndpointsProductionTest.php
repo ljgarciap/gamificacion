@@ -13,7 +13,7 @@ final class DevEndpointsProductionTest extends TestCase
 {
     protected function extraEnv(): array
     {
-        return ['GAMIF_DEV_ENDPOINTS' => 'true', 'APP_ENV' => 'production'];
+        return ['GAMIF_DEV_ENDPOINTS' => 'true', 'APP_ENV' => 'production', 'GAMIF_TRUSTED_PROXIES' => 'none'];
     }
 
     public function test_en_produccion_las_rutas_no_existen_aunque_la_variable_este_activada(): void

@@ -68,7 +68,8 @@ El techo es ≈ **950 canjes/s** y se alcanza con ~10 procesos; más concurrenci
 
 1. `APP_ENV=production`, `APP_DEBUG=false`, `GAMIF_BEACON=drand`; **ausentes** `GAMIF_DEV_ENDPOINTS`, `GAMIF_CORS_ORIGINS`, `GAMIF_HOST_ALLOW_LOCAL`, `GAMIF_DEMO_INITIAL_BALANCE`.
 2. `SESSION_SECURE_COOKIE=true` (la cookie sin `Secure` sale con HTTP; con el panel detrás de un balanceador con TLS no debe faltar). TLS termina en el balanceador; HSTS ya lo manda el panel.
-3. `GAMIF_TRUSTED_PROXIES` con la red del balanceador **y** la de los contenedores nginx. Sin esto el bloqueo por IP lo comparte todo el mundo (`docs/seguridad-b8.md`, F1).
+3. `GAMIF_TRUSTED_PROXIES` con la red del balanceador **y** la de los contenedores nginx (o `none` sin proxy). En producción la aplicación **no arranca** si falta (revisión P10). Sin esto el bloqueo por IP lo comparte todo el mundo (`docs/seguridad-b8.md`, F1). `REAL_IP_FROM` (nginx) debe ser la red del balanceador para limitar por IP real.
+3b. El servicio `worker` (`schedule:work`) debe estar corriendo: entrega los avisos al host y destruye las exportaciones no descargadas. Alertar si hay avisos pendientes de más de unos minutos.
 4. Secretos en un gestor; respaldo cifrado de `GAMIF_PRIZE_MAP_KEY` (perderla deja ilegibles los lotes comprometidos).
 5. Publicar el ancla de la bitácora fuera de la base al comprometer cada lote (`gamification:audit:anchor`).
 6. Solo el balanceador alcanza los puertos 8081 (API) y 8082 (panel); la base no publica puerto.
@@ -78,3 +79,5 @@ El techo es ≈ **950 canjes/s** y se alcanza con ~10 procesos; más concurrenci
 
 ## 6. Cierre de hallazgos anteriores
 - `docs/seguridad-b8.md` F5 (imagen del backend como root): **cerrado** para producción (imagen sin root). F8 (`X-Content-Type-Options` en la API): **cerrado** (nginx de la API).
+
+Ver también `docs/revision-p10.md` (revisión final y estado de cada hallazgo).

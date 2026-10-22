@@ -6,3 +6,11 @@ storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
+.env*
+!.env.example
+storage/app/**
+storage/logs/**
+scripts/
+tests/
+.phpunit*
+database/*.sqlite

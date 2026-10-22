@@ -185,6 +185,8 @@ final class ApprovalService
         $expected = DB::selectOne("SELECT data->>'export_sha256' AS sha FROM audit_log WHERE action = ? AND subject_id = ? ORDER BY id DESC LIMIT 1", [$logged, $params['batchId']])->sha ?? null;
         $actual = hash_file('sha256', $path);
         if ($expected === null || ! hash_equals($expected, $actual)) {
+            // Un archivo en claro que no se entrega no debe quedarse en disco hasta que alguien lo purgue.
+            @unlink($path);
             throw new ApprovalException('exportTampered', 'El archivo no coincide con el registrado en la bitácora; no se entrega.', 500);
         }
         $this->audit->append('admin:'.$user->id, $kind === 'audit' ? 'audit.downloaded' : 'codes.downloaded', 'approval', (string) $id, ['batch' => $params['batchId'], 'export_sha256' => $actual]);
@@ -277,7 +279,7 @@ final class ApprovalService
     {
         if ($action === 'batch.activate') {
             $batchId = $params['batchId'] ?? null;
-            if (! is_string($batchId) || ! preg_match('/^[0-9a-f-]{36}$/', $batchId)) {
+            if (! is_string($batchId) || ! preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $batchId)) {
                 throw new ApprovalException('validationFailed', 'Indica el lote («batchId»).', 422);
             }
             $state = DB::table('batches')->where('id', $batchId)->value('state');
@@ -293,7 +295,7 @@ final class ApprovalService
 
         if ($action === 'audit.export') {
             $batchId = $params['batchId'] ?? null;
-            if (! is_string($batchId) || ! preg_match('/^[0-9a-f-]{36}$/', $batchId)) {
+            if (! is_string($batchId) || ! preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $batchId)) {
                 throw new ApprovalException('validationFailed', 'Indica el lote («batchId»).', 422);
             }
             $state = DB::table('batches')->where('id', $batchId)->value('state');
@@ -310,7 +312,7 @@ final class ApprovalService
         if ($action === 'codes.generate') {
             $batchId = $params['batchId'] ?? null;
             $prefix = $params['prefix'] ?? null;
-            if (! is_string($batchId) || ! preg_match('/^[0-9a-f-]{36}$/', $batchId) || ! is_string($prefix) || ! CodeFormat::isValidPrefix($prefix)) {
+            if (! is_string($batchId) || ! preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $batchId) || ! is_string($prefix) || ! CodeFormat::isValidPrefix($prefix)) {
                 throw new ApprovalException('validationFailed', 'Indica el lote («batchId») y un prefijo («prefix») de 2 a '.CodeFormat::MAX_PREFIX.' caracteres, mayúsculas y dígitos, empezando por letra.', 422);
             }
             $b = DB::table('batches')->where('id', $batchId)->first(['state']);

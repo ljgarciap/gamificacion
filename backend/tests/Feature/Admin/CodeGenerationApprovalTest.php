@@ -146,6 +146,20 @@ final class CodeGenerationApprovalTest extends AdminTestCase
         $this->assertSame(500, $r->status());
         $this->assertSame('exportTampered', $r->json('error.code'));
         $this->assertNull(DB::selectOne("SELECT 1 AS x FROM audit_log WHERE action = 'codes.downloaded'"));
+        $this->assertFileDoesNotExist((new CodeExportStore)->path($id), 'el archivo en claro rechazado no queda en disco');
+        $this->assertFileDoesNotExist((new CodeExportStore)->path($id).'.served');
+    }
+
+    public function test_un_lote_con_forma_de_uuid_pero_invalido_es_422_y_no_un_error_interno(): void
+    {
+        [$op] = $this->pair();
+        $this->as($op);
+        foreach (['codes.generate', 'batch.activate', 'audit.export'] as $action) {
+            foreach ([str_repeat('-', 36), str_repeat('g', 36), 'zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz'] as $bad) {
+                $r = $this->api('POST', '/approvals', ['action' => $action, 'params' => ['batchId' => $bad, 'prefix' => 'SG']]);
+                $this->assertSame(422, $r->status(), "{$action} con «{$bad}»: ".$r->getContent());
+            }
+        }
     }
 
     public function test_reclamar_el_archivo_es_atomico(): void

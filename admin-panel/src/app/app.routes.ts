@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { pendingDeliveryGuard } from './core/pending-delivery';
 import { authGuard, permissionGuard } from './core/guards';
 
 /** Rutas y permisos de docs/ux-spec-003-panel.md §3. P8 reemplaza cada «Pronto» por su pantalla. */
@@ -30,7 +31,7 @@ export const routes: Routes = [
       { path: 'lotes', loadComponent: batches, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Lotes' }, title: 'Lotes' },
       { path: 'lotes/nuevo', loadComponent: wizard, canActivate: [permissionGuard], data: { permission: 'batches.manage', title: 'Nuevo lote' }, title: 'Nuevo lote' },
       { path: 'lotes/:id', loadComponent: batch, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Lote' }, title: 'Lote' },
-      { path: 'aprobaciones', loadComponent: approvals, canActivate: [permissionGuard], data: { permission: 'approvals.view', title: 'Aprobaciones' }, title: 'Aprobaciones' },
+      { path: 'aprobaciones', loadComponent: approvals, canActivate: [permissionGuard], canDeactivate: [pendingDeliveryGuard], data: { permission: 'approvals.view', title: 'Aprobaciones' }, title: 'Aprobaciones' },
       { path: 'avisos', loadComponent: outbox, canActivate: [permissionGuard], data: { permission: 'outbox.view', title: 'Avisos al host' }, title: 'Avisos al host' },
       { path: 'codigos', loadComponent: codes, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Buscar código' }, title: 'Buscar código' },
       { path: 'auditoria', loadComponent: audit, canActivate: [permissionGuard], data: { permission: 'audit.view', title: 'Bitácora' }, title: 'Bitácora' },

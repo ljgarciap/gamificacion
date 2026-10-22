@@ -134,6 +134,17 @@ test('UA-1: un operador completa el recorrido de CA-40 desde el navegador, con u
   await op.getByTestId(`execute-${genId}`).click();
   await expect(op.getByTestId('delivery')).toContainText('9 códigos generados');
   const expected = (await op.getByTestId('sha-expected').innerText()).trim();
+  // Salir con la entrega única sin descargar pide confirmación; al cancelar, la entrega sigue ahí (revisión P10, hallazgo 6).
+  const prompts: string[] = [];
+  op.once('dialog', (d) => {
+    prompts.push(d.message());
+    void d.dismiss();
+  });
+  await op.getByRole('link', { name: 'Lotes', exact: true }).click();
+  await expect.poll(() => prompts.length).toBe(1);
+  expect(prompts[0]).toContain('sin descargar');
+  await expect(op).toHaveURL(/\/aprobaciones/);
+  await expect(op.getByTestId('delivery')).toBeVisible();
   const [csv] = await Promise.all([op.waitForEvent('download'), op.getByTestId(`download-${genId}`).click()]);
   await expect(op.getByTestId('verdict')).toContainText('el SHA-256 coincide');
   const bytes = readFileSync((await csv.path())!);

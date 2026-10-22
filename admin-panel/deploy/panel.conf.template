@@ -1,8 +1,14 @@
+# Límite por IP de cliente (con el balanceador por delante hay que restaurar la IP real: REAL_IP_FROM = red del balanceador).
+limit_req_zone $binary_remote_addr zone=admin:10m rate=20r/s;
+
 # El nonce de la CSP es el id de la petición (aleatorio por petición, 128 bits): se escribe en la cabecera y en index.html (ngCspNonce).
 # Los add_header de un location anulan los del server: se repiten en cada uno mediante include.
 server {
   listen 8080;
   server_tokens off;
+  set_real_ip_from ${REAL_IP_FROM};
+  real_ip_header X-Forwarded-For;
+  real_ip_recursive on;
   root /usr/share/nginx/html;
   index index.html;
 
@@ -20,6 +26,8 @@ server {
 
   # API del panel: mismo origen, sin CORS. Solo /admin/api; el resto de la API (hosts) no se expone aquí.
   location /admin/api/ {
+    limit_req zone=admin burst=40 nodelay;
+    limit_req_status 429;
     proxy_pass http://${ADMIN_UPSTREAM};
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

@@ -28,6 +28,20 @@ services:
     security_opt: ["no-new-privileges:true"]
     depends_on: { db: { condition: service_healthy } }
 
+  # Tareas periódicas (routes/console.php): entrega de avisos al host cada 10 s y destrucción de exportaciones en claro no descargadas cada
+  # minuto. SIN este servicio los premios no llegan al host (revisión P10, hallazgo 1). Comparte `storage/` con `app`.
+  worker:
+    build: { context: ../backend, dockerfile: deploy/Dockerfile, target: app }
+    command: ["php", "artisan", "schedule:work"]
+    env_file: [prod.env]
+    environment: { DB_HOST: db, DB_DATABASE: gamification, DB_USERNAME: gamification, DB_PASSWORD: "${DB_PASSWORD}" }
+    read_only: true
+    tmpfs: [/tmp, "/var/www/html/bootstrap/cache:uid=10001,gid=10001"]
+    volumes: [app-storage:/var/www/html/storage]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: { db: { condition: service_healthy } }
+
   # API para los hosts y para el panel (el panel solo la alcanza a través de su propio nginx).
   api:
     build: { context: ../backend, dockerfile: deploy/Dockerfile, target: web }

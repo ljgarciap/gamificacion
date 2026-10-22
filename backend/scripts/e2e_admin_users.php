@@ -20,6 +20,10 @@ if (! in_array(config('app.env'), ['local'], true)) {
     exit(1);
 }
 
+// Los fallos de acceso que las propias pruebas provocan a propósito se acumulan por IP entre archivos y terminan bloqueando a las siguientes
+// (revisión P10, hallazgo 13): cada corrida empieza sin bloqueos ni contadores de acceso del panel.
+DB::table('cache')->where('key', 'like', '%gamif:admin-login:%')->delete();
+
 $accounts = new AdminAccounts;
 $password = 'Tr3n-Azul-Cafetera-91';
 $out = ['password' => $password, 'users' => []];

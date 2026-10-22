@@ -11,6 +11,8 @@ RUN npx ng build --configuration production
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS panel
 # Dónde está la API del panel (mismo origen para el navegador: nginx hace de proxy, así no hay CORS).
 ENV ADMIN_UPSTREAM="backend:8000"
+# Red del balanceador que pone X-Forwarded-For (para limitar por IP real); por defecto las redes privadas de Docker.
+ENV REAL_IP_FROM="172.16.0.0/12"
 COPY --from=build /app/dist/admin-panel/browser /usr/share/nginx/html
 COPY deploy/panel.conf.template /etc/nginx/templates/default.conf.template
 COPY deploy/security-headers.conf /etc/nginx/snippets/security-headers.conf

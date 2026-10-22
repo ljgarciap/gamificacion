@@ -40,12 +40,23 @@ return Application::configure(basePath: dirname(__DIR__))
         // las peticiones parecen venir de la IP del proxy y 30 intentos fallidos de UNA persona bloquearían el canje de TODOS. Con `*` cualquiera
         // que llegue directo al servidor podría falsear su IP con X-Forwarded-For: úselo solo si la app NO es alcanzable sin pasar por el proxy.
         // Lista separada por comas de IP/CIDR. Por defecto vacía = no se confía en ninguna cabecera X-Forwarded-*.
-        $proxies = array_values(array_filter(array_map('trim', explode(',', (string) env('GAMIF_TRUSTED_PROXIES', '')))));
-        if ($proxies !== []) {
-            $middleware->trustProxies(at: $proxies === ['*'] ? '*' : $proxies, headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO);
+        $proxies = \App\Support\TrustedProxies::resolve((string) env('GAMIF_TRUSTED_PROXIES', ''), (string) env('APP_ENV', 'production'), filter_var(env('GAMIF_TRUSTED_PROXIES_ALLOW_ALL', false), FILTER_VALIDATE_BOOL));
+        if ($proxies !== null) {
+            $middleware->trustProxies(at: $proxies, headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO);
         }
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // El mensaje de un error SQL trae las consultas con los valores ya sustituidos (hashes de contraseña, texto cifrado del TOTP, códigos):
+        // al registrarlo iría todo al log (RNF-30, T32; revisión P10). Se registra la consulta con sus marcadores `?`, nunca los valores.
+        $exceptions->reportable(function (\Illuminate\Database\QueryException $e): void {
+            \Illuminate\Support\Facades\Log::error('Error de base de datos', [
+                'sqlstate' => $e->errorInfo[0] ?? null,
+                'connection' => $e->getConnectionName(),
+                'sql' => $e->getSql(),
+                'where' => $e->getFile().':'.$e->getLine(),
+            ]);
+        })->stop();
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('v1/*') || $request->is('admin/*') || $request->expectsJson(),
         );

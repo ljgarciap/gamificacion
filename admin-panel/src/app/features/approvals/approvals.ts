@@ -1,5 +1,5 @@
 import { HttpClient, HttpResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -64,6 +64,7 @@ type Verdict = { ok: boolean; text: string };
         <section class="delivery" aria-label="Entrega única" data-testid="delivery" [attr.data-id]="a.id">
           <h2>{{ title(a) }}</h2>
           <p><strong>{{ a.action === 'codes.generate' ? d.count + ' códigos generados' : d.entries + ' entradas de la bitácora' }}.</strong> Se entrega UNA sola vez: guarda el archivo.</p>
+          <p class="bad" role="note">No recargues ni cierres esta página antes de descargar: si la pierdes, el archivo no se puede recuperar.</p>
           <dl>
             <dt>SHA-256 esperado</dt><dd><code data-testid="sha-expected">{{ d.sha256 }}</code></dd>
             <dt>Disponible</dt><dd [title]="utc(d.downloadUntil)">{{ untilText(d) }}</dd>
@@ -157,6 +158,16 @@ export class ApprovalsScreen implements OnInit, OnDestroy {
   protected readonly approving = signal<number | null>(null);
   protected readonly retryHint = signal<number | null>(null);
   protected readonly deliveries = signal<Record<number, Delivery>>({});
+
+  /** Hay una entrega única que todavía no se descargó y verificó: recargar o salir la perdería (revisión P10, hallazgo 6). */
+  hasPendingDelivery(): boolean {
+    return Object.keys(this.deliveries()).some((id) => this.verdicts()[+id]?.ok !== true);
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  protected warnBeforeUnload(e: BeforeUnloadEvent): void {
+    if (this.hasPendingDelivery()) e.preventDefault();
+  }
   protected readonly verdicts = signal<Record<number, Verdict>>({});
   protected readonly requested = signal(false);
   protected readonly now = signal(Date.now());

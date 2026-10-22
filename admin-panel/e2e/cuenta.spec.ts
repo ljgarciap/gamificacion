@@ -59,4 +59,18 @@ test.describe('Mi cuenta (P8)', () => {
     await fill(nueva, original, original);
     await expect(page.getByTestId('done')).toBeVisible();
   });
+
+  test('un token CSRF vencido en una escritura devuelve al acceso recordando la ruta (revisión P10)', async ({ page }) => {
+    await login(page, 'superadmin');
+    await page.goto('/usuarios');
+    await page.route('**/admin/api/v1/users', (route) =>
+      route.request().method() === 'POST'
+        ? route.fulfill({ status: 419, contentType: 'application/json', body: JSON.stringify({ error: { code: 'csrfMismatch', message: 'Token CSRF inválido o ausente.' } }) })
+        : route.continue(),
+    );
+    await page.getByLabel('Correo', { exact: true }).fill('nadie@ejemplo.com');
+    await page.getByLabel('Nombre', { exact: true }).fill('Nadie');
+    await page.getByRole('button', { name: 'Crear usuario' }).click();
+    await expect(page).toHaveURL(/\/acceso\?volver=%2Fusuarios/);
+  });
 });

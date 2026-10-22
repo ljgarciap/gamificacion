@@ -7,7 +7,7 @@ import { Auth } from './auth';
 const PRE_AUTH = /\/auth\/(csrf|login|password|mfa)/;
 
 /**
- * Sesión vencida o revocada (401 fuera del inicio de sesión) → se limpia el estado y se vuelve al acceso recordando la ruta. Cada respuesta
+ * Sesión vencida o revocada (401, o 419 por token CSRF vencido, fuera del inicio de sesión) → se limpia el estado y se vuelve al acceso recordando la ruta. Cada respuesta
  * correcta cuenta como actividad (el servidor renueva la sesión por inactividad en cada petición).
  */
 export const sessionInterceptor: HttpInterceptorFn = (req, next) => {
@@ -18,7 +18,7 @@ export const sessionInterceptor: HttpInterceptorFn = (req, next) => {
         if ('status' in event && event.status < 400) injector.get(Auth).touch();
       },
       error: (e) => {
-        if (e instanceof HttpErrorResponse && e.status === 401 && !PRE_AUTH.test(req.url)) {
+        if (e instanceof HttpErrorResponse && (e.status === 401 || e.status === 419) && !PRE_AUTH.test(req.url)) {
           const auth = injector.get(Auth);
           if (auth.me()) {
             auth.me.set(null);

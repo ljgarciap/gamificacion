@@ -1,8 +1,14 @@
+# Límite por IP de cliente (con el balanceador por delante hay que restaurar la IP real: REAL_IP_FROM = red del balanceador).
+limit_req_zone $binary_remote_addr zone=admin:10m rate=20r/s;
+
 # Solo expone lo que el panel y los hosts necesitan. Las rutas de desarrollo (/v1/dev/*) ya las niega el código fuera de local;
 # aquí además se cierran por defecto: cualquier otra ruta cae en index.php, nunca en un archivo.
 server {
   listen 8080;
   server_tokens off;
+  set_real_ip_from ${REAL_IP_FROM};
+  real_ip_header X-Forwarded-For;
+  real_ip_recursive on;
   root /var/www/html/public;
   client_max_body_size 1m;
 
@@ -21,6 +27,18 @@ server {
     fastcgi_param PHP_VALUE "max_execution_time=420";
     fastcgi_hide_header X-Powered-By;
     fastcgi_read_timeout 420s;
+  }
+
+  # El login del panel también es alcanzable por aquí: se limita igual que en el nginx del panel.
+  location /admin/ {
+    limit_req zone=admin burst=40 nodelay;
+    limit_req_status 429;
+    try_files /index.php =404;
+    fastcgi_pass ${FPM_UPSTREAM};
+    include /etc/nginx/fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+    fastcgi_param REQUEST_URI $request_uri;
+    fastcgi_hide_header X-Powered-By;
   }
 
   location / {
