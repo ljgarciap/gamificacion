@@ -94,7 +94,7 @@ Fuera de alcance: multi-tenant por app host, analítica, gestor de secretos en A
 | Ver campañas, lotes, redenciones, bitácora, outbox | ✔ | ✔ | ✔ |
 | Crear/editar campañas y borradores de lote | ✔ | ✔ | — |
 | Comprometer, cerrar y revelar un lote | ✔ | ✔ | — |
-| Activar lote · generar códigos · exportar auditoría · cambiar parámetro de seguridad | ✔ (con aprobación dual) | ✔ (con aprobación dual) | exportar auditoría: solicita |
+| Activar lote · generar códigos · exportar auditoría · cambiar parámetro de seguridad | ✔ (con aprobación dual) | ✔ (con aprobación dual) | exportar auditoría: no (solo consulta y verifica; la solicita un operador o superadmin) |
 | Reintentar aviso fallido | ✔ | ✔ | — |
 | Hosts y secretos · parámetros · usuarios | ✔ | — | — |
 

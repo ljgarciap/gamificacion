@@ -70,6 +70,22 @@ try {
     $check('el mismo event-id entregado otra vez NO acredita dos veces', ($state()['wallet']['u1'] ?? null) === 10000);
     $check('el duplicado quedó registrado', ($state()['events']['r-1']['duplicates'] ?? 0) === 1);
 
+    // Reenvío de un aviso capturado con OTRA cabecera X-Gamif-Event-Id: el cuerpo (firmado) no cambia, así que el host no debe acreditar de nuevo.
+    $replay = function (string $eventId) use ($sim, $simSecret, $notice): int {
+        $body = json_encode($notice('r-1'));
+        $ts = (string) time();
+        $ch = curl_init("$sim/callback");
+        curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json', "X-Gamif-Event-Id: $eventId", "X-Gamif-Timestamp: $ts",
+            'X-Gamif-Signature: '.hash_hmac('sha256', $ts.'.'.$body, $simSecret),
+        ]]);
+        curl_exec($ch);
+
+        return (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    };
+    $check('un aviso capturado reenviado con otro event-id se rechaza (400)', $replay('otro-id-cualquiera') === 400);
+    $check('y no acreditó de nuevo', ($state()['wallet']['u1'] ?? null) === 10000);
+
     echo "2. Saldo firmado\n";
     Cache::flush();
     $check('el saldo leído es 10000', $balance->balanceFor('e2e-host:u1') === 10000);

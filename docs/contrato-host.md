@@ -32,7 +32,7 @@ Cabeceras: `Content-Type: application/json`, `X-Gamif-Event-Id` (= `redemption_i
 ```
 - `user_id` = `<emisor>:<sub del token>`. El `sub` es lo que va tras el primer `:` del emisor registrado.
 - `prize.type`: `money` y `points` llevan `amount` (entero; COP sin decimales, o puntos); `coupon` y `extraSpin` no acreditan dinero. (Un «sin premio» no genera aviso.)
-- **Idempotencia obligatoria por `X-Gamif-Event-Id`**: la entrega es *al menos una vez* (un reintento puede llegar aunque ya acreditaste). Si ya procesaste ese id, responde `200` **sin acreditar de nuevo**.
+- **Idempotencia obligatoria por `redemption_id` del cuerpo** (que va firmado): la entrega es *al menos una vez* (un reintento puede llegar aunque ya acreditaste). Si ya procesaste ese id, responde `200` **sin acreditar de nuevo**. `X-Gamif-Event-Id` no va firmado: **no lo uses como clave**; rechaza (`400`) el aviso si la cabecera difiere de `redemption_id`, o un aviso capturado podría reenviarse con otro id y acreditar varias veces.
 
 | Respuesta del host | Qué hacemos |
 |---|---|

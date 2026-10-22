@@ -127,8 +127,16 @@ if ($path === '/callback' && $method === 'POST') {
         reply(401, ['error' => 'firma o cabeceras inválidas']);
     }
     $payload = json_decode($body, true);
-    if (! is_array($payload) || ! isset($payload['user_id'], $payload['prize']['type'])) {
+    if (! is_array($payload) || ! isset($payload['user_id'], $payload['prize']['type'], $payload['redemption_id'])) {
         reply(400, ['error' => 'cuerpo inválido']);
+    }
+    // La cabecera X-Gamif-Event-Id NO va firmada: quien capture un aviso podría reenviarlo con otro id y acreditar de nuevo. La clave de
+    // idempotencia es el redemption_id del CUERPO (firmado) y la cabecera debe coincidir (revisión P10, hallazgo 4).
+    if ($payload['redemption_id'] !== $eventId) {
+        withState($stateFile, function (array &$s): void {
+            $s['rejected'][] = ['at' => time(), 'why' => 'X-Gamif-Event-Id no coincide con redemption_id'];
+        });
+        reply(400, ['error' => 'X-Gamif-Event-Id debe ser igual a redemption_id']);
     }
     $duplicate = withState($stateFile, function (array &$s) use ($eventId, $payload): bool {
         if (isset($s['events'][$eventId])) {
