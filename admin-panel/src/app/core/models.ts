@@ -138,3 +138,47 @@ export interface Campaign {
   frozen: boolean;
   prizes: CampaignPrize[];
 }
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  name: string;
+  role: Role;
+  active: boolean;
+  mfaEnrolled: boolean;
+  mustChangePassword: boolean;
+  lastLoginAt: string | null;
+}
+
+export interface Host {
+  id: number;
+  issuer: string;
+  callbackUrl: string;
+  balanceUrl: string;
+  active: boolean;
+  hasPreviousSecret: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Setting {
+  key: string;
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+  security: boolean;
+  default: number;
+  value: number;
+  overridden: boolean;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export interface SettingChange {
+  id: number;
+  old: number | null;
+  new: number;
+  actor: string;
+  changedAt: string;
+}

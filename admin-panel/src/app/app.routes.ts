@@ -7,6 +7,9 @@ const dashboard = () => import('./features/dashboard/dashboard').then((m) => m.D
 const audit = () => import('./features/audit/audit').then((m) => m.AuditScreen);
 const campaigns = () => import('./features/campaigns/campaign-list').then((m) => m.CampaignList);
 const campaign = () => import('./features/campaigns/campaign-detail').then((m) => m.CampaignDetail);
+const users = () => import('./features/users/users').then((m) => m.UsersScreen);
+const hosts = () => import('./features/hosts/hosts').then((m) => m.HostsScreen);
+const settings = () => import('./features/settings/settings').then((m) => m.SettingsScreen);
 const outbox = () => import('./features/outbox/outbox').then((m) => m.OutboxScreen);
 const codes = () => import('./features/codes/codes').then((m) => m.CodesScreen);
 
@@ -26,9 +29,9 @@ export const routes: Routes = [
       { path: 'avisos', loadComponent: outbox, canActivate: [permissionGuard], data: { permission: 'outbox.view', title: 'Avisos al host' }, title: 'Avisos al host' },
       { path: 'codigos', loadComponent: codes, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Buscar código' }, title: 'Buscar código' },
       { path: 'auditoria', loadComponent: audit, canActivate: [permissionGuard], data: { permission: 'audit.view', title: 'Bitácora' }, title: 'Bitácora' },
-      { path: 'hosts', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'hosts.manage', title: 'Hosts' }, title: 'Hosts' },
-      { path: 'parametros', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'settings.manage', title: 'Parámetros' }, title: 'Parámetros' },
-      { path: 'usuarios', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'users.manage', title: 'Usuarios' }, title: 'Usuarios' },
+      { path: 'hosts', loadComponent: hosts, canActivate: [permissionGuard], data: { permission: 'hosts.manage', title: 'Hosts' }, title: 'Hosts' },
+      { path: 'parametros', loadComponent: settings, canActivate: [permissionGuard], data: { permission: 'settings.manage', title: 'Parámetros' }, title: 'Parámetros' },
+      { path: 'usuarios', loadComponent: users, canActivate: [permissionGuard], data: { permission: 'users.manage', title: 'Usuarios' }, title: 'Usuarios' },
       { path: 'cuenta', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'account.self', title: 'Mi cuenta' }, title: 'Mi cuenta' },
       { path: 'sin-acceso', loadComponent: () => import('./features/shell/no-access').then((m) => m.NoAccess), title: 'Sin acceso' },
     ],
