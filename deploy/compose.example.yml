@@ -33,6 +33,12 @@ services:
   worker:
     build: { context: ../backend, dockerfile: deploy/Dockerfile, target: app }
     command: ["php", "artisan", "schedule:work"]
+    # La imagen trae un chequeo de php-fpm (puerto 9000) que aquí no aplica: el worker está sano si `schedule:work` sigue corriendo.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'artisan schedule:work' > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     env_file: [prod.env]
     environment: { DB_HOST: db, DB_DATABASE: gamification, DB_USERNAME: gamification, DB_PASSWORD: "${DB_PASSWORD}" }
     read_only: true
