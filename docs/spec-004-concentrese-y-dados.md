@@ -25,6 +25,13 @@ Una cuadrícula de cartas boca abajo (por defecto 4×3 = 12 cartas, 6 pares). El
 - El juego termina cuando se encuentra la pareja premio, o cuando se descubre todo el tablero (sin premio). El botón **"Revelar todo"** y el aviso "Tu premio ya está asegurado" funcionan como en el raspa: el premio ya está acreditado antes de empezar.
 - Las parejas de relleno nunca muestran un símbolo igual al de un premio de la campaña (no puede parecer ganadora).
 
+### 3.1b Rival simulado (opcional, `gameConfig.rival`)
+Decisión de Luis (2026-10-22): una máquina alterna turnos con el jugador. **Es solo animación**: el premio ya está decidido y la habilidad no lo cambia; la interfaz lo dice («Juegas contra una máquina simulada…»).
+- Se activa por campaña con `game_config.rival: true` (booleano; por defecto apagado, y apagado el servidor no manda el campo).
+- La máquina juega después de cada turno del jugador y **nunca voltea la pareja premio** (así la halla el jugador); a veces acierta una pareja de relleno y a veces falla.
+- Final: con premio, «¡Le ganaste a la máquina!»; sin premio, «Esta vez ganó la máquina». No hay marcador de parejas (no se afirma una victoria que el tablero pueda contradecir).
+- No cambia el servidor más que aceptar y reenviar el campo; los resultados y las probabilidades son los mismos.
+
 ### 3.2 Lo que decide el servidor y lo que no
 El servidor decide **la disposición** de las cartas (qué símbolo hay en cada posición) y la guarda con la redención (un reintento devuelve el mismo tablero). Se elige con el CSPRNG del sistema, nunca `rand`, igual que el resto de presentaciones. El cliente no baraja nada.
 

@@ -3,7 +3,13 @@ import 'package:gamification_core/gamification_core.dart';
 /// Configuración de Concéntrese, leída de `Campaign.gameConfig` (tamaño, tiempo de volteo) y de
 /// `Outcome.gameResult` (la disposición de las cartas que decidió el servidor).
 class MemoryConfig {
-  const MemoryConfig({required this.pairs, required this.columns, required this.flipBack, required this.cards});
+  const MemoryConfig({
+    required this.pairs,
+    required this.columns,
+    required this.flipBack,
+    required this.cards,
+    this.rival = false,
+  });
 
   static const minPairs = 3;
   static const maxPairs = 8;
@@ -15,6 +21,9 @@ class MemoryConfig {
 
   /// Cuánto tiempo se ven dos cartas distintas antes de volver a taparse.
   final Duration flipBack;
+
+  /// La campaña pide un rival simulado (`gameConfig.rival == true`). Es solo animación: no cambia nada del resultado.
+  final bool rival;
 
   /// Símbolo de cada carta, fila por fila. Cada símbolo aparece exactamente dos veces.
   final List<String> cards;
@@ -52,6 +61,7 @@ class MemoryConfig {
       columns: columns,
       flipBack: Duration(milliseconds: flipBackMs),
       cards: cards,
+      rival: cfg['rival'] == true,
     );
   }
 

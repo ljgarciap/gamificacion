@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:gamification_core/gamification_core.dart';
 
+import 'machine_rival.dart';
 import 'memory_board.dart';
 import 'memory_config.dart';
 
@@ -15,6 +16,9 @@ class MemoryGame extends StatefulWidget {
     required this.session,
     required this.feedbackFactory,
     this.settleDelay = const Duration(milliseconds: 900),
+    this.rival,
+    this.machineThink = const Duration(milliseconds: 800),
+    this.machineGap = const Duration(milliseconds: 650),
   });
 
   final GameSession session;
@@ -22,6 +26,13 @@ class MemoryGame extends StatefulWidget {
 
   /// Pausa con lo ganador resaltado, antes de pasar al resultado.
   final Duration settleDelay;
+
+  /// Rival simulado (solo si la campaña lo pide con `gameConfig.rival`). Inyectable para que las pruebas sean deterministas.
+  final MachineRival? rival;
+
+  /// Pausa antes de que la máquina empiece su turno, y entre sus dos cartas.
+  final Duration machineThink;
+  final Duration machineGap;
 
   @override
   State<MemoryGame> createState() => _MemoryGameState();
@@ -34,6 +45,9 @@ class _MemoryGameState extends State<MemoryGame> {
 
   Timer? _mismatchTimer;
   Timer? _settleTimer;
+  Timer? _machineTimer;
+  late final MachineRival _rival = widget.rival ?? MachineRival();
+  bool _machineTurn = false;
   bool _started = false;
   bool _done = false;
 
@@ -53,6 +67,7 @@ class _MemoryGameState extends State<MemoryGame> {
   void dispose() {
     _mismatchTimer?.cancel();
     _settleTimer?.cancel();
+    _machineTimer?.cancel();
     super.dispose();
   }
 
@@ -65,7 +80,7 @@ class _MemoryGameState extends State<MemoryGame> {
   void _onTap(int index) {
     final board = _board;
     final config = _config;
-    if (board == null || config == null || _done) return;
+    if (board == null || config == null || _done || _machineTurn) return;
 
     final outcome = board.flip(index);
     if (outcome == FlipOutcome.ignored) return;
@@ -78,13 +93,56 @@ class _MemoryGameState extends State<MemoryGame> {
         _mismatchTimer = Timer(config.flipBack, () {
           if (!mounted) return;
           setState(board.hidePending);
+          _machinePlays();
         });
       case FlipOutcome.match:
         final prize = widget.session.redemption.outcome.prize;
-        if ((prize.isWin && board.lastMatch == prize.id) || board.allResolved) _finish();
+        if ((prize.isWin && board.lastMatch == prize.id) || board.allResolved) {
+          _finish();
+        } else {
+          _machinePlays();
+        }
       case FlipOutcome.first || FlipOutcome.ignored:
         break;
     }
+  }
+
+  /// Turno de la máquina (si la campaña lo pide). Es solo espectáculo: nunca voltea la pareja premio, así que el jugador es quien la halla.
+  void _machinePlays() {
+    final config = _config;
+    if (config == null || !config.rival || _done || !mounted) return;
+    setState(() => _machineTurn = true);
+    _machineTimer = Timer(widget.machineThink, () {
+      final board = _board;
+      if (board == null || !mounted || _done) return;
+      final prizeCards = config.prizeCards(widget.session.redemption.outcome.prize).toSet();
+      final pick = _rival.pickTurn(board, prizeCards);
+      if (pick == null) return _endMachineTurn(); // sin jugada posible sin tocar el premio: pasa
+      board.flip(pick.$1);
+      _feedback.tick();
+      setState(() {});
+      _machineTimer = Timer(widget.machineGap, () {
+        if (!mounted || _done) return;
+        final outcome = board.flip(pick.$2);
+        _feedback.tick();
+        setState(() {});
+        if (outcome == FlipOutcome.mismatch) {
+          _mismatchTimer = Timer(config.flipBack, () {
+            if (!mounted || _done) return;
+            setState(board.hidePending);
+            _endMachineTurn();
+          });
+        } else if (board.allResolved) {
+          _finish(); // sin premio: la máquina destapó la última pareja
+        } else {
+          _endMachineTurn();
+        }
+      });
+    });
+  }
+
+  void _endMachineTurn() {
+    if (mounted) setState(() => _machineTurn = false);
   }
 
   void _revealAll() {
@@ -92,6 +150,8 @@ class _MemoryGameState extends State<MemoryGame> {
     if (board == null || _done) return;
     _begin();
     _mismatchTimer?.cancel();
+    _machineTimer?.cancel();
+    _machineTurn = false;
     setState(board.revealAll);
     _finish();
   }
@@ -101,7 +161,9 @@ class _MemoryGameState extends State<MemoryGame> {
     setState(() => _done = true);
     final prize = widget.session.redemption.outcome.prize;
     prize.isWin ? _feedback.win() : _feedback.lose();
-    _settleTimer = Timer(widget.settleDelay, () {
+    // Con rival se deja más tiempo para leer quién ganó antes de pasar al resultado.
+    final settle = (_config?.rival ?? false) ? widget.settleDelay * 2 : widget.settleDelay;
+    _settleTimer = Timer(settle, () {
       if (mounted) widget.session.onFinished();
     });
   }
@@ -122,7 +184,7 @@ class _MemoryGameState extends State<MemoryGame> {
     return LayoutBuilder(
       builder: (context, constraints) {
         // Pista + progreso + botón + separaciones. El tablero se ajusta a lo que queda para no necesitar scroll.
-        const controlsHeight = 150.0;
+        final controlsHeight = config.rival ? 215.0 : 150.0;
         const gap = 8.0;
         final cols = config.columns;
         final rows = config.rows;
@@ -143,6 +205,27 @@ class _MemoryGameState extends State<MemoryGame> {
                   textAlign: TextAlign.center,
                   style: TextStyle(color: theme.navy.withValues(alpha: 0.7), fontSize: 15),
                 ),
+                if (config.rival) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    s.rivalNote,
+                    key: const ValueKey('memory-rival-note'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: theme.navy.withValues(alpha: 0.6), fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _done
+                          ? (prize.isWin ? s.rivalYouWin : s.rivalMachineWins)
+                          : (_machineTurn ? s.rivalTurnMachine : s.rivalTurnYou),
+                      key: const ValueKey('memory-rival-status'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: theme.primary, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 Semantics(
                   label: s.memoryLabel(config.pairs),

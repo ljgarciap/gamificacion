@@ -80,6 +80,19 @@ final class PresentationMemoryTest extends DbTestCase
         return (new Presentation)->build('memory', $cfg + Fixtures::gameConfig('memory'), $this->defs(), $prize);
     }
 
+    public function test_el_rival_simulado_solo_se_acepta_como_booleano_y_solo_se_envia_si_esta_activo(): void
+    {
+        $this->rejects(['rival' => 'si'], 'rival');
+        $this->rejects(['rival' => 1], 'rival');
+        Presentation::assertRepresentable($this->f->campaign('memory'), 'memory', ['rival' => true] + Fixtures::gameConfig('memory'), $this->pool());
+
+        $this->assertTrue($this->build('p50k', ['rival' => true])['gameConfig']['rival']);
+        $this->assertArrayNotHasKey('rival', $this->build('p50k', ['rival' => false])['gameConfig'], 'apagado no cambia lo que ya enviaban las campañas');
+        $this->assertArrayNotHasKey('rival', $this->build('p50k')['gameConfig']);
+        // El rival no cambia el resultado: mismas cartas con y sin él (misma propiedad de siempre).
+        $this->assertSame([2], array_values(array_unique(array_count_values($this->build('p50k', ['rival' => true])['gameResult']['cards']))));
+    }
+
     public function test_con_premio_hay_exactamente_una_pareja_premio_y_cada_simbolo_va_dos_veces(): void
     {
         for ($i = 0; $i < 300; $i++) {

@@ -1,7 +1,10 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_memory/game_memory.dart';
+import 'package:game_memory/src/machine_rival.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 class _FakeFeedback implements GameFeedback {
@@ -25,6 +28,7 @@ Future<void> _pump(
   _Harness h, {
   bool reduceMotion = false,
   Size size = const Size(400, 800),
+  MachineRival? rival,
 }) async {
   t.view.physicalSize = size;
   t.view.devicePixelRatio = 1;
@@ -46,6 +50,7 @@ Future<void> _pump(
                 onFinished: () => h.finished++,
               ),
               feedbackFactory: (_) => h.feedback,
+              rival: rival,
             ),
           ),
         ),
@@ -247,5 +252,66 @@ void main() {
     final board = t.getRect(find.byKey(const ValueKey('memory-board')));
     expect(board.right, lessThanOrEqualTo(320));
     expect(board.bottom, lessThanOrEqualTo(480));
+  });
+
+  group('rival simulado (gameConfig.rival)', () {
+    Future<Redemption> withRival(String code) async {
+      final r = await _redeem(code);
+      return Redemption(
+        redemptionId: r.redemptionId,
+        outcome: r.outcome,
+        campaign: Campaign(
+          id: r.campaign.id,
+          name: r.campaign.name,
+          gameType: r.campaign.gameType,
+          gameConfig: {...r.campaign.gameConfig, 'rival': true},
+        ),
+      );
+    }
+
+    String status(WidgetTester t) => t.widget<Text>(find.byKey(const ValueKey('memory-rival-status'))).data!;
+
+    testWidgets('sin la bandera no hay máquina ni textos de rival', (t) async {
+      await _pump(t, await _redeem('CONCENTRESE-GANA'), _Harness());
+      expect(find.byKey(const ValueKey('memory-rival-note')), findsNothing);
+      expect(find.byKey(const ValueKey('memory-rival-status')), findsNothing);
+    });
+
+    testWidgets('dice que la máquina es simulada, alterna turnos y nunca voltea la pareja premio', (t) async {
+      await _pump(t, await withRival('CONCENTRESE-GANA'), _Harness(), rival: MachineRival(random: Random(3)));
+      expect(find.byKey(const ValueKey('memory-rival-note')), findsOneWidget);
+      expect(status(t), 'Tu turno');
+
+      await _tap(t, 0); // 'star'
+      await _tap(t, 2); // 'moon' → no coincide
+      await _advance(t, 1000); // se tapan y empieza la máquina
+      expect(status(t), 'Turno de la máquina…');
+
+      // Mientras juega la máquina, tocar una carta no hace nada.
+      await t.tap(_card(3));
+      await t.pump();
+      await _advance(t, 4000);
+      expect(status(t), 'Tu turno');
+      final board = t.widget<Wrap>(find.byKey(const ValueKey('memory-board')));
+      expect(board.children.length, 12);
+      // La pareja premio sigue tapada: la máquina no la toca (se comprueba con la etiqueta accesible de cada carta).
+      expect(find.bySemanticsLabel(RegExp('Carta 2 de 12, boca abajo')), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Carta 8 de 12, boca abajo')), findsOneWidget);
+    });
+
+    testWidgets('si el jugador halla la pareja premio, le ganó a la máquina', (t) async {
+      final h = _Harness();
+      await _pump(t, await withRival('CONCENTRESE-GANA'), h, rival: MachineRival(random: Random(4)));
+      await _tap(t, 1);
+      await _tap(t, 7);
+      expect(status(t), '¡Le ganaste a la máquina!');
+    });
+
+    testWidgets('sin premio, al terminar el tablero dice que ganó la máquina', (t) async {
+      await _pump(t, await withRival('CONCENTRESE-NADA'), _Harness(), rival: MachineRival(random: Random(5)));
+      await t.tap(find.byKey(const ValueKey('memory-reveal-all')));
+      await t.pump();
+      expect(status(t), 'Esta vez ganó la máquina.');
+    });
   });
 }

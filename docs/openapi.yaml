@@ -363,6 +363,7 @@ components:
         pairs: { type: integer, minimum: 3, maximum: 8, description: Parejas del tablero; las cartas son el doble. }
         columns: { type: integer, minimum: 2, maximum: 6 }
         flipBackMs: { type: integer, minimum: 300, maximum: 3000, description: Cuánto tiempo se ven dos cartas distintas antes de taparse. }
+        rival: { type: boolean, description: "Solo si es true: el juego muestra una máquina que alterna turnos. Es un rival SIMULADO (animación); no influye en el premio, que ya está decidido." }
 
     DiceConfig:
       type: object

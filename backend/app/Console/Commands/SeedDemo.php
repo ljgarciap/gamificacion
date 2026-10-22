@@ -106,7 +106,7 @@ class SeedDemo extends Command
     /** @return list<array{code: string, game: string, description: string, batch_id: string}> */
     private function memory(BatchLifecycle $lifecycle, CodeGenerator $generator, string $actor): array
     {
-        $campaign = $this->campaign('Concéntrese', 'memory', 'showPrevious', ['pairs' => 6, 'columns' => 4], [
+        $campaign = $this->campaign('Concéntrese', 'memory', 'showPrevious', ['pairs' => 6, 'columns' => 4, 'rival' => true], [
             ['mnone', 'none', 'Sin premio', null, []],
             ['m10k', 'money', '$ 10.000', 10000, []],
             ['mpts', 'points', '250 puntos', 250, []],

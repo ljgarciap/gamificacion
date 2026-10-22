@@ -45,6 +45,13 @@ abstract class GamificationStrings {
   String scratchLabel(int rows, int cols);
   String memoryLabel(int pairs);
   String memoryProgress(int found, int total);
+
+  /// Rival simulado de Concéntrese (solo animación: el resultado del código ya está decidido).
+  String get rivalNote;
+  String get rivalTurnYou;
+  String get rivalTurnMachine;
+  String get rivalYouWin;
+  String get rivalMachineWins;
   String cardFaceDown(int position, int total);
   String cardFaceUp(int position, int total, String what);
   String diceLabel(int a, int b);
@@ -128,6 +135,21 @@ class EsStrings extends GamificationStrings {
   String memoryLabel(int pairs) => 'Tablero de Concéntrese con $pairs parejas';
   @override
   String memoryProgress(int found, int total) => 'Parejas: $found de $total';
+
+  @override
+  String get rivalNote => 'Juegas contra una máquina simulada: es solo una animación, tu resultado ya está decidido.';
+
+  @override
+  String get rivalTurnYou => 'Tu turno';
+
+  @override
+  String get rivalTurnMachine => 'Turno de la máquina…';
+
+  @override
+  String get rivalYouWin => '¡Le ganaste a la máquina!';
+
+  @override
+  String get rivalMachineWins => 'Esta vez ganó la máquina.';
   @override
   String cardFaceDown(int position, int total) => 'Carta $position de $total, boca abajo';
   @override
@@ -226,6 +248,22 @@ class EnStrings extends GamificationStrings {
   String memoryLabel(int pairs) => 'Memory board with $pairs pairs';
   @override
   String memoryProgress(int found, int total) => 'Pairs: $found of $total';
+
+  @override
+  String get rivalNote =>
+      'You play against a simulated machine: it is only an animation, your result is already decided.';
+
+  @override
+  String get rivalTurnYou => 'Your turn';
+
+  @override
+  String get rivalTurnMachine => "Machine's turn…";
+
+  @override
+  String get rivalYouWin => 'You beat the machine!';
+
+  @override
+  String get rivalMachineWins => 'The machine won this time.';
   @override
   String cardFaceDown(int position, int total) => 'Card $position of $total, face down';
   @override

@@ -131,6 +131,9 @@ final class Presentation
         if (! is_int($flipBack) || $flipBack < 300 || $flipBack > 3000) {
             throw new InvalidBatch('flipBackMs de Concéntrese debe estar entre 300 y 3000.');
         }
+        if (isset($cfg['rival']) && ! is_bool($cfg['rival'])) {
+            throw new InvalidBatch('rival de Concéntrese debe ser true o false (game_config.rival).');
+        }
         $symbols = $cfg['symbols'] ?? self::DEFAULT_SYMBOLS;
         if (! is_array($symbols) || ! array_is_list($symbols) || array_unique($symbols) !== $symbols
             || array_filter($symbols, static fn ($s): bool => ! is_string($s) || $s === '') !== []) {
@@ -314,7 +317,8 @@ final class Presentation
                 'pairs' => $pairs,
                 'columns' => (int) ($cfg['columns'] ?? self::MEMORY_DEFAULT_COLUMNS),
                 'flipBackMs' => (int) ($cfg['flipBackMs'] ?? self::MEMORY_DEFAULT_FLIP_BACK_MS),
-            ],
+            // Rival simulado (solo animación; el resultado ya está decidido). Solo se envía si se activa: las campañas anteriores no cambian.
+            ] + (($cfg['rival'] ?? false) === true ? ['rival' => true] : []),
         ];
     }
 
