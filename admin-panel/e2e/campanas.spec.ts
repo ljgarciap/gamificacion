@@ -156,22 +156,24 @@ test.describe('Campañas (P8, grupo 3)', () => {
     await expect(page.getByText('No tienes acceso a esta sección')).toBeVisible();
   });
 
-  test('Bomba 8 (SPEC-005): se puede crear la campaña y la lista y el filtro la muestran como «Bomba 8»', async ({ page }) => {
-    await login(page, 'operator');
-    const name = unique();
-    await page.goto('/campanas');
-    await page.getByTestId('new-campaign').click();
-    await page.getByLabel('Nombre', { exact: true }).fill(name);
-    await page.getByRole('combobox', { name: 'Juego' }).click();
-    await page.getByRole('option', { name: 'Bomba 8' }).click();
-    await page.getByRole('button', { name: 'Crear campaña' }).click();
-    await expect(page).toHaveURL(/\/campanas\/[0-9a-f-]{36}$/);
-    await page.getByRole('link', { name: '← Campañas' }).click();
-    await expect(page.getByTestId('campaign-row').filter({ hasText: name })).toContainText('Bomba 8');
-    await page.getByLabel('Filtrar por juego').selectOption('bomb');
-    await expect(page.getByTestId('campaign-row').filter({ hasText: name })).toBeVisible();
-    for (const t of await page.locator('[data-testid=campaign-row] td:nth-child(2)').allInnerTexts()) expect(t).toBe('Bomba 8');
-  });
+  for (const [key, label] of [['bomb', 'Bomba 8'], ['bingo', 'Bingo en vivo']] as const) {
+    test(`${label} (SPEC-005): se puede crear la campaña y la lista y el filtro la muestran con su nombre`, async ({ page }) => {
+      await login(page, 'operator');
+      const name = unique();
+      await page.goto('/campanas');
+      await page.getByTestId('new-campaign').click();
+      await page.getByLabel('Nombre', { exact: true }).fill(name);
+      await page.getByRole('combobox', { name: 'Juego' }).click();
+      await page.getByRole('option', { name: label }).click();
+      await page.getByRole('button', { name: 'Crear campaña' }).click();
+      await expect(page).toHaveURL(/\/campanas\/[0-9a-f-]{36}$/);
+      await page.getByRole('link', { name: '← Campañas' }).click();
+      await expect(page.getByTestId('campaign-row').filter({ hasText: name })).toContainText(label);
+      await page.getByLabel('Filtrar por juego').selectOption(key);
+      await expect(page.getByTestId('campaign-row').filter({ hasText: name })).toBeVisible();
+      for (const t of await page.locator('[data-testid=campaign-row] td:nth-child(2)').allInnerTexts()) expect(t).toBe(label);
+    });
+  }
 
   test('el filtro por juego de la lista', async ({ page }) => {
     await login(page, 'operator');

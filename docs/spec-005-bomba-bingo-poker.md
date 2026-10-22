@@ -1,6 +1,6 @@
 # SPEC-005 — Tres juegos nuevos: Bomba 8, Bingo en vivo y Póker del crupier
 
-Estado: **APROBADA por Luis (2026-10-22). H1 (Bomba 8) implementado.** Incluye el diseño de UX (sección 8). Origen: petición de Luis 2026-10-22, tras ver las raspas de susuerte.com: «la idea no es copiar el concepto de raspar sino armarlo un poco diferente». Se toman tres ideas: Bingo (bolas una a una), Joker Loco (cartas contra el crupier) y 8S (con una bomba que se consume). **Nombres y arte propios**: no se usan «Joker Loco» ni «8S» ni nada del arte de esa página.
+Estado: **APROBADA por Luis (2026-10-22). H1 (Bomba 8) y H2 (Bingo en vivo) implementados.** Incluye el diseño de UX (sección 8). Origen: petición de Luis 2026-10-22, tras ver las raspas de susuerte.com: «la idea no es copiar el concepto de raspar sino armarlo un poco diferente». Se toman tres ideas: Bingo (bolas una a una), Joker Loco (cartas contra el crupier) y 8S (con una bomba que se consume). **Nombres y arte propios**: no se usan «Joker Loco» ni «8S» ni nada del arte de esa página.
 
 ## 1. Objetivo y límites
 - Tres `gameType` nuevos: `bomb`, `bingo`, `poker`. Mismo patrón que Concéntrese y Dados (SPEC-004): **el premio ya está decidido por el motor en el canje**; el servidor además decide la **presentación** (qué se ve) y la guarda con la redención; el cliente solo la anima. No cambia el motor de sorteo, los vectores ni el esquema de la base.
@@ -29,20 +29,20 @@ Estado: **APROBADA por Luis (2026-10-22). H1 (Bomba 8) implementado.** Incluye e
 **Validación al comprometer:** `cards` entero de 9 a 16; `columns` de 2 a 5; `lateWindow` de 1 a `cards − 3`; `symbols` sin repetidos, sin `"8"` ni ids de premio y suficientes para rellenar con a lo sumo 2 de cada uno en el peor caso, sin ningún 8 (`ceil(cards / 2)`).
 
 ## 4. Bingo en vivo (`bingo`)
-**Mecánica.** Un cartón de 5×5 con columnas B-I-N-G-O (rangos 1–15, 16–30, 31–45, 46–60, 61–75) y casilla central libre. Salen **bolas una a una** (automático cada `drawIntervalMs`, o con «Siguiente bola»), y el número que sale se marca solo en el cartón. Se gana al completar un **patrón** que la campaña asocia a un premio. Al ganar se detiene y se resalta el patrón.
+**Mecánica.** Un cartón de 5×5 con columnas B-I-N-G-O (rangos 1–15, 16–30, 31–45, 46–60, 61–75) y casilla central libre. Salen **bolas una a una** (automático cada `drawIntervalMs`, o con «Siguiente bola»; arranca con «Empezar») y el número que sale se marca solo en el cartón. Cada patrón que paga se **completa** en alguna bola: **gana el patrón de mayor prioridad que se complete en la partida**; los de menor premio que se completan antes solo avisan («¡Línea completa! Sigue jugando…»). La partida termina en la última bola, o antes si se completa el patrón de mayor prioridad (no hay nada mejor que esperar).
 
-**Patrones** (catálogo fijo en el código, la campaña elige cuáles usa y con qué premio): `line` (cualquier fila, columna o diagonal), `corners` (las 4 esquinas), `full` (cartón lleno). La **prioridad** es el orden en que la campaña los lista (el primero es el mayor): si al final se completa más de un patrón que paga, cuenta el de mayor prioridad.
+**Patrones** (catálogo fijo en el código, la campaña elige cuáles usa y con qué premio): `line` (cualquier fila, columna o diagonal), `corners` (las 4 esquinas), `full` (cartón lleno). La **prioridad** es el orden en que la campaña los lista (el primero es el mayor). Como el cartón lleno completa también las líneas y las esquinas, **si se usa debe ir primero** (con menor prioridad nunca podría ganar; se rechaza al comprometer).
 
 **Qué decide el servidor.** Dado el premio, elige el patrón, arma un cartón y la secuencia de `draws` bolas (por defecto 30, sin repetir) tal que:
-- el patrón del premio se completa en la bola `winAt` (entre `minWinDraw` y `draws`, por defecto desde la 10);
-- **ningún patrón de mayor prioridad se completa** en ninguna bola (si no, el premio sería otro);
+- el patrón del premio se completa en la bola `winAt` (entre `minWinDraw` y `draws`, por defecto desde la 10, y nunca antes de que sea posible);
+- **ningún patrón de mayor prioridad se completa jamás** en la partida (ni después de `winAt`); los de menor prioridad pueden completarse cuando sea;
 - sin premio, **no se completa ningún patrón que pague** en ninguna de las `draws` bolas.
-Se construye con muestreo con rechazo (CSPRNG) y se **verifica simulando** la partida antes de guardarla; si no logra una secuencia válida tras un número acotado de intentos es un error de programación, no un resultado inventado.
+Se construye con muestreo y se **verifica simulando la partida** antes de guardarla; si no logra una secuencia válida tras un número acotado de intentos es un error de programación, no un resultado inventado.
 
 **Contrato.**
-`gameConfig`: `{ "draws": 30, "drawIntervalMs": 1200, "minWinDraw": 10, "patterns": [ {"pattern":"full","prize":"p100k"}, {"pattern":"corners","prize":"p50k"}, {"pattern":"line","prize":"p10k"} ] }` (`patterns` obligatorio; el resto opcional).
-`gameResult`: `{ "card": [[…5 números…]×5] (el centro es null), "balls": [ … draws números … ], "winAt": 17 | null, "pattern": "line" | null, "cells": [[fila,col],…] | null }` — el servidor manda también `winAt` y `cells` para resaltar sin que el cliente tenga que detectar nada.
-**Validación al comprometer:** `draws` de 24 a 60; `drawIntervalMs` de 400 a 3000; `minWinDraw` de 5 a `draws`; cada premio ganador del pool aparece en exactamente un patrón, y ningún patrón se repite; `draws` ≥ celdas que exige el patrón (`line`=4, `corners`=4, `full`=24 sin contar el centro libre) y `minWinDraw` ≥ ese número.
+`gameConfig`: `{ "draws": 30, "drawIntervalMs": 1200, "minWinDraw": 10, "patterns": [ {"pattern":"full","prize":"p100k"}, {"pattern":"corners","prize":"p50k"}, {"pattern":"line","prize":"p10k"} ] }` (`patterns` obligatorio; el resto opcional). El servidor devuelve al cliente `legend` (cada patrón con su premio completo, en orden de prioridad), `draws` y `drawIntervalMs`.
+`gameResult`: `{ "card": [[…5 números…]×5] (el centro es null), "balls": [ … draws números … ], "events": [ {"at": 12, "pattern": "line", "cells": [[fila,col],…]}, … ], "winAt": 17 | null, "pattern": "corners" | null, "cells": [[fila,col],…] | null, "endAt": 17 | 30 }` — el servidor manda los eventos, `winAt` y `cells` para resaltar sin que el cliente tenga que detectar nada.
+**Validación al comprometer:** `draws` de 24 a 60; `drawIntervalMs` de 400 a 3000; `minWinDraw` de 5 a `draws`; cada premio ganador del pool aparece en exactamente un patrón, ningún patrón se repite y el cartón lleno (si está) va primero; `draws` ≥ las casillas que exige el patrón (`line`=4, `corners`=4, `full`=24 sin contar el centro libre).
 
 ## 5. Póker del crupier (`poker`)
 **Mecánica.** El jugador recibe **2 cartas**; el crupier abre **5 cartas comunes** una a una (3, 1 y 1, con una pausa entre cada una). Cuenta la **mejor mano de 5** entre las 7. Cada categoría que paga se asocia a un premio. Al terminar se resaltan las 5 cartas de la mano. El crupier **solo abre cartas**: no tiene mano propia ni es un rival.

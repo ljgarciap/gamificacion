@@ -320,7 +320,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        gameType: { type: string, enum: [roulette, scratch, memory, dice, bomb] }
+        gameType: { type: string, enum: [roulette, scratch, memory, dice, bomb, bingo] }
         usedCodeBehavior: { type: string, enum: [rejectOnly, showPrevious] }
         title: { type: [string, 'null'] }
         theme:
@@ -334,6 +334,7 @@ components:
             - { $ref: '#/components/schemas/MemoryConfig' }
             - { $ref: '#/components/schemas/DiceConfig' }
             - { $ref: '#/components/schemas/BombConfig' }
+            - { $ref: '#/components/schemas/BingoConfig' }
 
     RouletteConfig:
       type: object
@@ -373,6 +374,22 @@ components:
         cards: { type: integer, minimum: 9, maximum: 16, description: Cartas de la cuadrícula; la mecha dura hasta voltearlas todas. }
         columns: { type: integer, minimum: 2, maximum: 5 }
 
+    BingoConfig:
+      type: object
+      required: [draws, drawIntervalMs, legend]
+      properties:
+        draws: { type: integer, minimum: 24, maximum: 60, description: "Bolas que salen en una partida." }
+        drawIntervalMs: { type: integer, minimum: 400, maximum: 3000, description: "Cada cuánto sale una bola en modo automático." }
+        legend:
+          type: array
+          description: Patrones que pagan, del MAYOR al menor premio (la prioridad). Gana el de mayor prioridad que se complete en la partida.
+          items:
+            type: object
+            required: [pattern, prize]
+            properties:
+              pattern: { type: string, enum: [line, corners, full] }
+              prize: { $ref: '#/components/schemas/Prize' }
+
     DiceConfig:
       type: object
       required: [diceCount, rollDurationMs, legend]
@@ -409,6 +426,7 @@ components:
             - { $ref: '#/components/schemas/MemoryResult' }
             - { $ref: '#/components/schemas/DiceResult' }
             - { $ref: '#/components/schemas/BombResult' }
+            - { $ref: '#/components/schemas/BingoResult' }
 
     RouletteResult:
       type: object
@@ -438,6 +456,35 @@ components:
             Cara de cada carta EN ORDEN DE VOLTEO: la n-ésima carta que el jugador voltea (sea cual sea su posición) muestra `faces[n]`.
             Premio = exactamente tres `"8"` (el tercero entre las últimas cartas); sin premio hay 0, 1 o 2. Gana quien destapa tres «8» antes
             de que la mecha (una carta por paso) se acabe. Un símbolo desconocido se muestra como texto.
+
+    BingoResult:
+      type: object
+      required: [card, balls, events, winAt, pattern, cells, endAt]
+      properties:
+        card:
+          type: array
+          minItems: 5
+          maxItems: 5
+          description: Cartón de 5×5 por filas. Columnas B-I-N-G-O (1-15, 16-30, 31-45, 46-60, 61-75); el centro es `null` (casilla libre, siempre marcada).
+          items: { type: array, minItems: 5, maxItems: 5, items: { type: [integer, 'null'] } }
+        balls:
+          type: array
+          items: { type: integer, minimum: 1, maximum: 75 }
+          description: Bolas EN ORDEN DE SALIDA (`gameConfig.draws`, sin repetir).
+        events:
+          type: array
+          description: Cada vez que una bola completa por primera vez un patrón que paga (puede haber varios; los de menor premio avisan y la partida sigue).
+          items:
+            type: object
+            required: [at, pattern, cells]
+            properties:
+              at: { type: integer, minimum: 1, description: "Número de bola (1 = la primera)." }
+              pattern: { type: string, enum: [line, corners, full] }
+              cells: { type: array, items: { type: array, minItems: 2, maxItems: 2, items: { type: integer, minimum: 0, maximum: 4 } }, description: "Casillas [fila, columna] que lo forman." }
+        winAt: { type: [integer, 'null'], description: "Bola en que se completa el patrón del premio (null sin premio)." }
+        pattern: { type: [string, 'null'], enum: [line, corners, full, null], description: "Patrón que paga (null sin premio)." }
+        cells: { type: [array, 'null'], items: { type: array, items: { type: integer } }, description: "Casillas del patrón que paga, para resaltarlas." }
+        endAt: { type: integer, minimum: 1, description: "Bola en que termina la partida: con el patrón de mayor prioridad es winAt; en los demás casos, la última bola." }
 
     DiceResult:
       type: object

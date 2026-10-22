@@ -31,3 +31,5 @@ dev_dependencies:
     path: ../game_dice
   game_bomb:
     path: ../game_bomb
+  game_bingo:
+    path: ../game_bingo

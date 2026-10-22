@@ -222,6 +222,13 @@ final class ContractExamplesTest extends DbTestCase
         $this->check('redemption-bomb-none', $this->redeem(array_search('none', $b['prizeOf'], true), $this->headers('beto', 'clave-0000002'))->assertOk());
     }
 
+    public function test_ejemplos_del_bingo(): void
+    {
+        $b = $this->rf->activeBatch(Fixtures::pool(none: 6, p10k: 3, p50k: 1, p100k: 1), 'bingo', 'showPrevious');
+        $this->check('redemption-bingo-win', $this->redeem(array_search('p50k', $b['prizeOf'], true))->assertOk());
+        $this->check('redemption-bingo-none', $this->redeem(array_search('none', $b['prizeOf'], true), $this->headers('beto', 'clave-0000002'))->assertOk());
+    }
+
     public function test_ejemplo_de_saldo(): void
     {
         config(['gamification.demo.initial_balance' => 120000]);

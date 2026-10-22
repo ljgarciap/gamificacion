@@ -7,7 +7,7 @@ import { dateBogota, dateUtc } from '../../core/format';
 import { CampaignRow, GameType } from '../../core/models';
 import { ErrorState } from '../../shared/state';
 
-export const GAME_LABEL: Record<GameType, string> = { roulette: 'Ruleta', scratch: 'Raspa y Gana', memory: 'Concéntrese', dice: 'Dados', bomb: 'Bomba 8' };
+export const GAME_LABEL: Record<GameType, string> = { roulette: 'Ruleta', scratch: 'Raspa y Gana', memory: 'Concéntrese', dice: 'Dados', bomb: 'Bomba 8', bingo: 'Bingo en vivo' };
 const BEHAVIOR: Record<string, string> = { showPrevious: 'Mostrar el resultado anterior', rejectOnly: 'Solo rechazar' };
 
 /** Lista de campañas (ux-spec §6). */

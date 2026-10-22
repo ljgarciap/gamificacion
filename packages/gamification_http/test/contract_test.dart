@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:game_bingo/game_bingo.dart';
 import 'package:game_bomb/game_bomb.dart';
 import 'package:game_dice/game_dice.dart';
 import 'package:game_memory/game_memory.dart';
@@ -61,6 +62,8 @@ void main() {
     'redemption-dice-none',
     'redemption-bomb-win',
     'redemption-bomb-none',
+    'redemption-bingo-win',
+    'redemption-bingo-none',
   ];
   const errorExamples = <String, (int, FailureReason)>{
     'error-invalid-code': (422, FailureReason.invalidCode),
@@ -94,7 +97,7 @@ void main() {
         expect(viaHttp.redemptionId, viaModel.redemptionId);
         expect(viaModel.redemptionId, isNotEmpty);
         expect(viaModel.playedAt, isNotNull, reason: 'playedAt es una fecha ISO 8601 válida');
-        expect(viaModel.campaign.gameType, anyOf('roulette', 'scratch', 'memory', 'dice', 'bomb'));
+        expect(viaModel.campaign.gameType, anyOf('roulette', 'scratch', 'memory', 'dice', 'bomb', 'bingo'));
         expect(viaModel.outcome.prize.label, isNotEmpty);
         expect(
           viaModel.outcome.prize.type,
@@ -264,6 +267,36 @@ void main() {
       final config = BombConfig.fromRedemption(r);
       expect(r.outcome.prize.isWin, isFalse);
       expect(config.faces.where((f) => f == BombConfig.eight).length, lessThan(3));
+    });
+  });
+
+  group('Bingo entiende el contrato', () {
+    test(
+      'premio: el patrón ganador es el del premio, se completa en winAt y la tabla va del mayor al menor premio',
+      () {
+        final r = Redemption.fromJson(_example('redemption-bingo-win'));
+        final config = BingoConfig.fromRedemption(r);
+        expect(config.balls, hasLength(config.draws));
+        expect(config.winAt, isNotNull);
+        expect(config.events.map((e) => e.at), contains(config.winAt));
+        final amounts = [for (final l in config.legend) l.prize.amount ?? 0];
+        expect(amounts, [...amounts]..sort((a, b) => b.compareTo(a)), reason: 'del mayor al menor premio');
+        // El tablero reproduce lo que el servidor dijo: al sacar winAt bolas se completó el patrón.
+        final board = BingoBoard(config);
+        for (var i = 0; i < config.winAt!; i++) {
+          board.next();
+        }
+        expect(board.happened.map((e) => e.pattern), contains(config.pattern));
+      },
+    );
+
+    test('sin premio: ningún evento y la partida dura todas las bolas', () {
+      final r = Redemption.fromJson(_example('redemption-bingo-none'));
+      final config = BingoConfig.fromRedemption(r);
+      expect(r.outcome.prize.isWin, isFalse);
+      expect(config.events, isEmpty);
+      expect(config.winAt, isNull);
+      expect(config.endAt, config.draws);
     });
   });
 

@@ -103,7 +103,7 @@ export interface CodeLookup {
   prizeId: string | null;
 }
 
-export type GameType = 'roulette' | 'scratch' | 'memory' | 'dice' | 'bomb';
+export type GameType = 'roulette' | 'scratch' | 'memory' | 'dice' | 'bomb' | 'bingo';
 export type PrizeType = 'money' | 'coupon' | 'points' | 'extraSpin' | 'none';
 
 export interface CampaignRow {

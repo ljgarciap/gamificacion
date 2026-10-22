@@ -34,6 +34,7 @@ final class Fixtures
             'memory' => ['pairs' => 6, 'columns' => 4],
             'dice' => ['rolls' => self::diceRolls()],
             'bomb' => ['cards' => 12, 'columns' => 4],
+            'bingo' => ['patterns' => [['pattern' => 'full', 'prize' => 'p100k'], ['pattern' => 'corners', 'prize' => 'p50k'], ['pattern' => 'line', 'prize' => 'p10k']]],
             default => [],
         };
     }

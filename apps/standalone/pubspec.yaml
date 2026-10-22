@@ -46,6 +46,8 @@ dependencies:
     path: ../../packages/game_dice
   game_bomb:
     path: ../../packages/game_bomb
+  game_bingo:
+    path: ../../packages/game_bingo
   gamification_http:
     path: ../../packages/gamification_http
   http: ^1.6.0

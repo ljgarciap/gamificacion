@@ -55,6 +55,22 @@ abstract class GamificationStrings {
   String get bombExploded;
   String bombLabel(int cards);
 
+  /// Bingo en vivo (SPEC-005 §4).
+  String get bingoHint;
+  String get bingoStart;
+  String get bingoNext;
+  String get bingoPause;
+  String get bingoResume;
+  String get bingoTable;
+  String bingoBall(String letter, int number);
+  String bingoDrawn(int drawn, int total);
+  String bingoPattern(String pattern);
+  String bingoEvent(String pattern);
+  String bingoWon(String pattern);
+  String get bingoNoWin;
+  String get bingoFree;
+  String bingoLabel(int draws);
+
   /// Rival simulado de Concéntrese (solo animación: el resultado del código ya está decidido).
   String get rivalNote;
   String get rivalTurnYou;
@@ -165,6 +181,53 @@ class EsStrings extends GamificationStrings {
 
   @override
   String bombLabel(int cards) => 'Bomba con $cards cartas';
+
+  @override
+  String get bingoHint => 'Toca Empezar: las bolas salen solas y se marcan en tu cartón';
+
+  @override
+  String get bingoStart => 'EMPEZAR';
+
+  @override
+  String get bingoNext => 'Siguiente bola';
+
+  @override
+  String get bingoPause => 'Pausar';
+
+  @override
+  String get bingoResume => 'Automático';
+
+  @override
+  String get bingoTable => 'Premios por patrón';
+
+  @override
+  String bingoBall(String letter, int number) => 'Bola $letter-$number';
+
+  @override
+  String bingoDrawn(int drawn, int total) => 'Bolas: $drawn de $total';
+
+  @override
+  String bingoPattern(String pattern) => switch (pattern) {
+    'line' => 'Línea',
+    'corners' => 'Cuatro esquinas',
+    'full' => 'Cartón lleno',
+    _ => pattern,
+  };
+
+  @override
+  String bingoEvent(String pattern) => '¡${bingoPattern(pattern)} completa! Sigue jugando…';
+
+  @override
+  String bingoWon(String pattern) => '¡Bingo! ${bingoPattern(pattern)}';
+
+  @override
+  String get bingoNoWin => 'La partida terminó sin completar un patrón que pague';
+
+  @override
+  String get bingoFree => 'Libre';
+
+  @override
+  String bingoLabel(int draws) => 'Cartón de Bingo; saldrán $draws bolas';
 
   @override
   String get rivalNote => 'Juegas contra una máquina simulada: es solo una animación, tu resultado ya está decidido.';
@@ -299,6 +362,53 @@ class EnStrings extends GamificationStrings {
 
   @override
   String bombLabel(int cards) => 'Bomb with $cards cards';
+
+  @override
+  String get bingoHint => 'Tap Start: balls are drawn automatically and marked on your card';
+
+  @override
+  String get bingoStart => 'START';
+
+  @override
+  String get bingoNext => 'Next ball';
+
+  @override
+  String get bingoPause => 'Pause';
+
+  @override
+  String get bingoResume => 'Automatic';
+
+  @override
+  String get bingoTable => 'Prizes by pattern';
+
+  @override
+  String bingoBall(String letter, int number) => 'Ball $letter-$number';
+
+  @override
+  String bingoDrawn(int drawn, int total) => 'Balls: $drawn of $total';
+
+  @override
+  String bingoPattern(String pattern) => switch (pattern) {
+    'line' => 'Line',
+    'corners' => 'Four corners',
+    'full' => 'Full card',
+    _ => pattern,
+  };
+
+  @override
+  String bingoEvent(String pattern) => '${bingoPattern(pattern)} complete! Keep playing…';
+
+  @override
+  String bingoWon(String pattern) => 'Bingo! ${bingoPattern(pattern)}';
+
+  @override
+  String get bingoNoWin => 'The game ended without completing a paying pattern';
+
+  @override
+  String get bingoFree => 'Free';
+
+  @override
+  String bingoLabel(int draws) => 'Bingo card; $draws balls will be drawn';
 
   @override
   String get rivalNote =>

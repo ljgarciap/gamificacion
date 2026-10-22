@@ -125,7 +125,7 @@ final class OpenApiContractTest extends TestCase
     {
         $prizeProps = array_keys($this->schema('Prize')['properties']);
         $campaignProps = array_keys($this->schema('Campaign')['properties']);
-        foreach (['redemption-roulette-win', 'redemption-roulette-coupon', 'redemption-roulette-points', 'redemption-roulette-extra-spin', 'redemption-scratch-win', 'redemption-scratch-already-played', 'redemption-memory-win', 'redemption-memory-none', 'redemption-dice-win', 'redemption-dice-none', 'redemption-bomb-win', 'redemption-bomb-none'] as $name) {
+        foreach (['redemption-roulette-win', 'redemption-roulette-coupon', 'redemption-roulette-points', 'redemption-roulette-extra-spin', 'redemption-scratch-win', 'redemption-scratch-already-played', 'redemption-memory-win', 'redemption-memory-none', 'redemption-dice-win', 'redemption-dice-none', 'redemption-bomb-win', 'redemption-bomb-none', 'redemption-bingo-win', 'redemption-bingo-none'] as $name) {
             $r = $this->example($name);
             $this->assertSame([], array_diff(array_keys($r['campaign']), $campaignProps), "$name: campaign");
             $this->assertSame([], array_diff(array_keys($r['outcome']['prize']), $prizeProps), "$name: prize");
@@ -172,6 +172,21 @@ final class OpenApiContractTest extends TestCase
         $this->assertCount(3, array_filter($faces, fn ($f) => $f === '8'), 'premio = tres «8»');
         $none = $this->example('redemption-bomb-none')['outcome']['gameResult']['faces'];
         $this->assertLessThan(3, count(array_filter($none, fn ($f) => $f === '8')), 'sin premio no hay tres «8»');
+    }
+
+    public function test_el_resultado_del_bingo_cumple_su_esquema(): void
+    {
+        $bingo = $this->example('redemption-bingo-win');
+        $this->assertSame($this->sorted($this->schema('BingoResult')['required']), $this->sorted(array_keys($bingo['outcome']['gameResult'])));
+        $this->assertSame($this->sorted($this->schema('BingoConfig')['required']), $this->sorted(array_keys($bingo['campaign']['gameConfig'])));
+        $r = $bingo['outcome']['gameResult'];
+        $this->assertCount($bingo['campaign']['gameConfig']['draws'], $r['balls']);
+        $this->assertNull($r['card'][2][2], 'casilla libre');
+        $this->assertSame($bingo['outcome']['prize']['id'], collect($bingo['campaign']['gameConfig']['legend'])->firstWhere('pattern', $r['pattern'])['prize']['id'], 'el patrón que paga es el del premio');
+        $this->assertContains($r['winAt'], array_column($r['events'], 'at'));
+        $none = $this->example('redemption-bingo-none')['outcome']['gameResult'];
+        $this->assertSame([], $none['events']);
+        $this->assertNull($none['winAt']);
     }
 
     public function test_el_patron_de_la_idempotency_key_coincide_con_el_del_controlador(): void

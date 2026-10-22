@@ -55,6 +55,8 @@ class MockRepository implements GamificationRepository {
     'DADOS-NADA': 'Dados: sin premio',
     'BOMBA-GANA': 'Bomba 8: tres 8, gana \$ 50.000',
     'BOMBA-NADA': 'Bomba 8: la mecha se acaba',
+    'BINGO-GANA': 'Bingo: línea, gana \$ 10.000',
+    'BINGO-NADA': 'Bingo: sin premio',
     'VENCIDO': 'Error: código vencido',
     'INACTIVA': 'Error: campaña inactiva',
     'LIMITE': 'Error: demasiados intentos',
@@ -280,6 +282,76 @@ class MockRepository implements GamificationRepository {
           ? ['star', '8', 'moon', 'coin', '8', 'gem', 'sun', 'bell', 'heart', 'flash', '8', 'star']
           : ['star', '8', 'moon', 'coin', 'sun', 'gem', '8', 'bell', 'heart', 'flash', 'coin', 'sun'];
       return (campaign: campaign, outcome: Outcome(prize: win ? prize50k : noPrize, gameResult: {'faces': faces}));
+    }
+
+    if (code == 'BINGO-GANA' || code == 'BINGO-NADA') {
+      final win = code == 'BINGO-GANA';
+      const prize10k = Prize(id: 'p10k', type: PrizeType.money, label: r'$ 10.000', amount: 10000);
+      const prize50k = Prize(id: 'p50k', type: PrizeType.money, label: r'$ 50.000', amount: 50000);
+      const noPrize = Prize(id: 'none', type: PrizeType.none, label: 'Sin premio');
+      final campaign = Campaign(
+        id: 'demo-bingo',
+        name: 'Bingo en vivo',
+        gameType: 'bingo',
+        title: 'Bingo en vivo',
+        gameConfig: {
+          'draws': 24,
+          'drawIntervalMs': 400,
+          'legend': [
+            {'pattern': 'corners', 'prize': prize50k.toJson()},
+            {'pattern': 'line', 'prize': prize10k.toJson()},
+          ],
+        },
+      );
+      // Cartón (centro libre) y bolas decididos por el servidor. Con premio, la fila del centro se completa en la bola 11 (la 3, 4, 6... ver abajo).
+      const card = [
+        [3, 18, 33, 48, 63],
+        [5, 20, 35, 50, 65],
+        [7, 22, null, 52, 67],
+        [9, 24, 39, 54, 69],
+        [11, 26, 41, 56, 71],
+      ];
+      final balls = win
+          ? [7, 70, 22, 2, 52, 40, 14, 67, 29, 44, 61, 1, 72, 13, 74, 10, 58, 30, 45, 8, 59, 15, 73, 46]
+          : [2, 70, 14, 29, 44, 61, 1, 72, 13, 74, 10, 58, 30, 45, 8, 59, 15, 73, 46, 4, 17, 32, 47, 62];
+      // La fila 2 (7, 22, libre, 52, 67) se completa en la bola 8 (el 67) cuando hay premio.
+      return (
+        campaign: campaign,
+        outcome: Outcome(
+          prize: win ? prize10k : noPrize,
+          gameResult: {
+            'card': card,
+            'balls': balls,
+            'events': win
+                ? [
+                    {
+                      'at': 8,
+                      'pattern': 'line',
+                      'cells': [
+                        [2, 0],
+                        [2, 1],
+                        [2, 2],
+                        [2, 3],
+                        [2, 4],
+                      ],
+                    },
+                  ]
+                : <Map<String, Object?>>[],
+            'winAt': win ? 8 : null,
+            'pattern': win ? 'line' : null,
+            'cells': win
+                ? [
+                    [2, 0],
+                    [2, 1],
+                    [2, 2],
+                    [2, 3],
+                    [2, 4],
+                  ]
+                : null,
+            'endAt': 24,
+          },
+        ),
+      );
     }
     return null;
   }

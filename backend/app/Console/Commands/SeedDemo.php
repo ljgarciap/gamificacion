@@ -23,13 +23,13 @@ use Illuminate\Support\Str;
 class SeedDemo extends Command
 {
     /** Juegos de la demo, con su nombre visible en la descripción de cada código. */
-    private const GAMES = ['roulette' => 'Ruleta', 'scratch' => 'Raspa', 'memory' => 'Concéntrese', 'dice' => 'Dados', 'bomb' => 'Bomba 8'];
+    private const GAMES = ['roulette' => 'Ruleta', 'scratch' => 'Raspa', 'memory' => 'Concéntrese', 'dice' => 'Dados', 'bomb' => 'Bomba 8', 'bingo' => 'Bingo en vivo'];
 
     protected $signature = 'gamification:demo:seed
         {--actor=demo : Quién lo ejecuta, para la bitácora}
-        {--only= : Solo estos juegos, separados por comas (roulette, scratch, memory, dice, bomb); por defecto todos}';
+        {--only= : Solo estos juegos, separados por comas (roulette, scratch, memory, dice, bomb, bingo); por defecto todos}';
 
-    protected $description = 'Crea campañas de demostración (ruleta, raspa, Concéntrese, dados y Bomba 8) con códigos reales, solo en desarrollo local';
+    protected $description = 'Crea campañas de demostración (ruleta, raspa, Concéntrese, dados, Bomba 8 y Bingo) con códigos reales, solo en desarrollo local';
 
     public function handle(): int
     {
@@ -160,6 +160,28 @@ class SeedDemo extends Command
 
         return $this->batch($lifecycle, $generator, $actor, $campaign, 'bomb', 'BOMBA', [
             ['prize_id' => 'bnone', 'quantity' => 18], ['prize_id' => 'b10k', 'quantity' => 10], ['prize_id' => 'b50k', 'quantity' => 2],
+        ]);
+    }
+
+    /**
+     * Bingo en vivo: gana el patrón de mayor premio que se complete (cartón lleno > cuatro esquinas > línea).
+     *
+     * @return list<array{code: string, game: string, description: string, batch_id: string}>
+     */
+    private function bingo(BatchLifecycle $lifecycle, CodeGenerator $generator, string $actor): array
+    {
+        $campaign = $this->campaign('Bingo en vivo', 'bingo', 'showPrevious', [
+            'patterns' => [['pattern' => 'full', 'prize' => 'g100k'], ['pattern' => 'corners', 'prize' => 'g50k'], ['pattern' => 'line', 'prize' => 'g10k']],
+        ], [
+            ['gnone', 'none', 'Sin premio', null, []],
+            ['g10k', 'money', '$ 10.000', 10000, []],
+            ['g50k', 'money', '$ 50.000', 50000, []],
+            ['g100k', 'money', '$ 100.000', 100000, []],
+        ]);
+
+        return $this->batch($lifecycle, $generator, $actor, $campaign, 'bingo', 'BINGO', [
+            ['prize_id' => 'gnone', 'quantity' => 14], ['prize_id' => 'g10k', 'quantity' => 10],
+            ['prize_id' => 'g50k', 'quantity' => 5], ['prize_id' => 'g100k', 'quantity' => 1],
         ]);
     }
 
