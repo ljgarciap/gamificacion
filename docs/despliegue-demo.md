@@ -50,6 +50,10 @@ Requisitos: un servidor Linux (2 vCPU, 4 GB) con Docker y Docker Compose, un dom
    ```
 5. Entra a `https://demo.tudominio.com` (el navegador pide usuario y clave de la compuerta) y a `https://admin.tudominio.com` para el panel.
 
+**Atajo automatizado:** `deploy/demo-up.sh <IP> [correo del superadmin]`, ejecutado EN el servidor desde la carpeta del proyecto, hace todo lo anterior: genera `deploy/demo.env` con secretos aleatorios (solo si no existe: nunca los pisa), construye las imágenes de una en una, levanta, migra, crea el superadmin y siembra los códigos de prueba en segundo plano (`deploy/seed.log`). Las credenciales quedan en `deploy/demo-credentials.txt` (0600). Sin dominio propio usa `demo.<IP>.sslip.io` y `admin.<IP>.sslip.io`, que resuelven a esa IP y permiten el certificado automático; con dominio propio define `DEMO_DOMAIN` y `ADMIN_DOMAIN` antes de correrlo. Para subir el código sin Git: `git ls-files -co --exclude-standard | tar -czf - -T - | ssh root@<IP> 'mkdir -p /opt/gamificacion && tar -xzf - -C /opt/gamificacion'`.
+
+Desplegado el 2026-10-22 en un VPS de 1 CPU / 3,8 GB (Ubuntu 26.04, Docker 29): con 2 GB de swap compiló Flutter y Angular sin problemas; los certificados de Let's Encrypt se obtuvieron al arrancar.
+
 **Cómo funciona la compuerta:** Caddy pide usuario y clave para la web y para las llamadas de la API que **no** traen `Authorization: Bearer …` (pedir token, listar códigos). Las llamadas con un token ya emitido pasan y las valida la API. Es lo que permite que la app funcione tras pasar la compuerta (el navegador reenvía la clave a su mismo origen) sin dejar el emisor de tokens abierto.
 
 **Mantenimiento:**

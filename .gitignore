@@ -14,3 +14,5 @@ __pycache__/
 *.pyc
 deploy/prod.env
 deploy/demo.env
+deploy/demo-credentials.txt
+deploy/seed.log
