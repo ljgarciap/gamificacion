@@ -23,13 +23,13 @@ use Illuminate\Support\Str;
 class SeedDemo extends Command
 {
     /** Juegos de la demo, con su nombre visible en la descripción de cada código. */
-    private const GAMES = ['roulette' => 'Ruleta', 'scratch' => 'Raspa', 'memory' => 'Concéntrese', 'dice' => 'Dados'];
+    private const GAMES = ['roulette' => 'Ruleta', 'scratch' => 'Raspa', 'memory' => 'Concéntrese', 'dice' => 'Dados', 'bomb' => 'Bomba 8'];
 
     protected $signature = 'gamification:demo:seed
         {--actor=demo : Quién lo ejecuta, para la bitácora}
-        {--only= : Solo estos juegos, separados por comas (roulette, scratch, memory, dice); por defecto todos}';
+        {--only= : Solo estos juegos, separados por comas (roulette, scratch, memory, dice, bomb); por defecto todos}';
 
-    protected $description = 'Crea campañas de demostración (ruleta, raspa, Concéntrese y dados) con códigos reales, solo en desarrollo local';
+    protected $description = 'Crea campañas de demostración (ruleta, raspa, Concéntrese, dados y Bomba 8) con códigos reales, solo en desarrollo local';
 
     public function handle(): int
     {
@@ -142,6 +142,24 @@ class SeedDemo extends Command
 
         return $this->batch($lifecycle, $generator, $actor, $campaign, 'dice', 'DADOS', [
             ['prize_id' => 'dnone', 'quantity' => 20], ['prize_id' => 'd10k', 'quantity' => 8], ['prize_id' => 'd50k', 'quantity' => 2],
+        ]);
+    }
+
+    /**
+     * Bomba 8: tres 8 desactivan la bomba (los 8 salen en orden de volteo, el tercero al final); sin ellos la mecha se acaba.
+     *
+     * @return list<array{code: string, game: string, description: string, batch_id: string}>
+     */
+    private function bomb(BatchLifecycle $lifecycle, CodeGenerator $generator, string $actor): array
+    {
+        $campaign = $this->campaign('Bomba 8', 'bomb', 'showPrevious', ['cards' => 12, 'columns' => 4], [
+            ['bnone', 'none', 'Sin premio', null, []],
+            ['b10k', 'money', '$ 10.000', 10000, []],
+            ['b50k', 'money', '$ 50.000', 50000, []],
+        ]);
+
+        return $this->batch($lifecycle, $generator, $actor, $campaign, 'bomb', 'BOMBA', [
+            ['prize_id' => 'bnone', 'quantity' => 18], ['prize_id' => 'b10k', 'quantity' => 10], ['prize_id' => 'b50k', 'quantity' => 2],
         ]);
     }
 

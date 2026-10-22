@@ -23,6 +23,8 @@ dependencies:
     path: ../game_memory
   game_dice:
     path: ../game_dice
+  game_bomb:
+    path: ../game_bomb
 
 dev_dependencies:
   flutter_test:

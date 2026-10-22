@@ -53,6 +53,8 @@ class MockRepository implements GamificationRepository {
     'CONCENTRESE-NADA': 'Concéntrese: sin premio',
     'DADOS-GANA': 'Dados: dobles seis, gana \$ 50.000',
     'DADOS-NADA': 'Dados: sin premio',
+    'BOMBA-GANA': 'Bomba 8: tres 8, gana \$ 50.000',
+    'BOMBA-NADA': 'Bomba 8: la mecha se acaba',
     'VENCIDO': 'Error: código vencido',
     'INACTIVA': 'Error: campaña inactiva',
     'LIMITE': 'Error: demasiados intentos',
@@ -260,6 +262,24 @@ class MockRepository implements GamificationRepository {
           },
         ),
       );
+    }
+
+    if (code == 'BOMBA-GANA' || code == 'BOMBA-NADA') {
+      final win = code == 'BOMBA-GANA';
+      const prize50k = Prize(id: 'p50k', type: PrizeType.money, label: r'$ 50.000', amount: 50000);
+      const noPrize = Prize(id: 'none', type: PrizeType.none, label: 'Sin premio');
+      final campaign = Campaign(
+        id: 'demo-bomba',
+        name: 'Bomba 8',
+        gameType: 'bomb',
+        title: 'Bomba 8',
+        gameConfig: const {'cards': 12, 'columns': 4},
+      );
+      // Caras EN ORDEN DE VOLTEO (decididas por el servidor): con premio, tres 8 y el tercero entre los últimos; sin premio, solo dos.
+      final faces = win
+          ? ['star', '8', 'moon', 'coin', '8', 'gem', 'sun', 'bell', 'heart', 'flash', '8', 'star']
+          : ['star', '8', 'moon', 'coin', 'sun', 'gem', '8', 'bell', 'heart', 'flash', 'coin', 'sun'];
+      return (campaign: campaign, outcome: Outcome(prize: win ? prize50k : noPrize, gameResult: {'faces': faces}));
     }
     return null;
   }

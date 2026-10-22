@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:game_bomb/game_bomb.dart';
 import 'package:game_dice/game_dice.dart';
 import 'package:game_memory/game_memory.dart';
 import 'package:game_roulette/game_roulette.dart';
@@ -58,6 +59,8 @@ void main() {
     'redemption-memory-none',
     'redemption-dice-win',
     'redemption-dice-none',
+    'redemption-bomb-win',
+    'redemption-bomb-none',
   ];
   const errorExamples = <String, (int, FailureReason)>{
     'error-invalid-code': (422, FailureReason.invalidCode),
@@ -91,7 +94,7 @@ void main() {
         expect(viaHttp.redemptionId, viaModel.redemptionId);
         expect(viaModel.redemptionId, isNotEmpty);
         expect(viaModel.playedAt, isNotNull, reason: 'playedAt es una fecha ISO 8601 válida');
-        expect(viaModel.campaign.gameType, anyOf('roulette', 'scratch', 'memory', 'dice'));
+        expect(viaModel.campaign.gameType, anyOf('roulette', 'scratch', 'memory', 'dice', 'bomb'));
         expect(viaModel.outcome.prize.label, isNotEmpty);
         expect(
           viaModel.outcome.prize.type,
@@ -240,6 +243,27 @@ void main() {
     test('premio: los dados son una combinación del premio ganador', () {
       final r = Redemption.fromJson(_example('redemption-dice-win'));
       expect(r.outcome.prize.isWin, isTrue);
+    });
+  });
+
+  group('Bomba 8 entiende el contrato', () {
+    test('premio: exactamente tres 8 y el tercero entre las últimas cartas', () {
+      final r = Redemption.fromJson(_example('redemption-bomb-win'));
+      final config = BombConfig.fromRedemption(r);
+      expect(config.faces, hasLength(config.cards));
+      final eights = [
+        for (var i = 0; i < config.faces.length; i++)
+          if (config.faces[i] == BombConfig.eight) i,
+      ];
+      expect(eights, hasLength(3));
+      expect(eights.last, greaterThanOrEqualTo(config.cards - 4));
+    });
+
+    test('sin premio: menos de tres 8', () {
+      final r = Redemption.fromJson(_example('redemption-bomb-none'));
+      final config = BombConfig.fromRedemption(r);
+      expect(r.outcome.prize.isWin, isFalse);
+      expect(config.faces.where((f) => f == BombConfig.eight).length, lessThan(3));
     });
   });
 

@@ -33,6 +33,7 @@ final class Fixtures
             'scratch' => ['rows' => 3, 'cols' => 3],
             'memory' => ['pairs' => 6, 'columns' => 4],
             'dice' => ['rolls' => self::diceRolls()],
+            'bomb' => ['cards' => 12, 'columns' => 4],
             default => [],
         };
     }

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
  *  - Raspa: la cuadrícula (premio = 3 símbolos del premio; relleno sin ningún otro símbolo repetido 3 veces).
  *  - Concéntrese: la disposición de las cartas (premio = una pareja con el símbolo del premio; sin premio, ninguna).
  *  - Dados: la combinación de los dos dados (la campaña dice qué combinaciones corresponden a cada premio).
+ *  - Bomba 8: las caras en orden de volteo (premio = tres «8», el último entre las finales; sin premio, 0 a 2 «8»). Ver `Bomb`.
  *
  * Esas elecciones usan el CSPRNG del sistema operativo (no `rand`) y se GUARDAN con la redención: un reintento devuelve exactamente
  * lo mismo. Y se valida AL COMPROMETER el lote que la campaña pueda representar todos sus premios: es mejor rechazar entonces que
@@ -61,6 +62,7 @@ final class Presentation
             'scratch' => self::assertScratch($gameConfig, $prizeIds),
             'memory' => self::assertMemory($gameConfig, $prizeIds),
             'dice' => self::assertDice($gameConfig, $prizeIds, $inPool),
+            'bomb' => Bomb::assert($gameConfig, $prizeIds),
             default => throw new InvalidBatch("No hay presentación para el juego «{$gameType}»."),
         };
     }
@@ -228,6 +230,7 @@ final class Presentation
             'scratch' => $this->buildScratch($gameConfig, $prizeDefs, $prizeId),
             'memory' => $this->buildMemory($gameConfig, $prizeDefs, $prizeId),
             'dice' => $this->buildDice($gameConfig, $prizeDefs, $prizeId),
+            'bomb' => (new Bomb($this->randomInt))->build($gameConfig, $prizeDefs, $prizeId),
             default => throw new \LogicException("Sin presentación para el juego «{$gameType}»"),
         };
     }

@@ -1,6 +1,6 @@
 # SPEC-005 — Tres juegos nuevos: Bomba 8, Bingo en vivo y Póker del crupier
 
-Estado: **borrador para aprobación de Luis.** Incluye el diseño de UX (sección 8). Origen: petición de Luis 2026-10-22, tras ver las raspas de susuerte.com: «la idea no es copiar el concepto de raspar sino armarlo un poco diferente». Se toman tres ideas: Bingo (bolas una a una), Joker Loco (cartas contra el crupier) y 8S (con una bomba que se consume). **Nombres y arte propios**: no se usan «Joker Loco» ni «8S» ni nada del arte de esa página.
+Estado: **APROBADA por Luis (2026-10-22). H1 (Bomba 8) implementado.** Incluye el diseño de UX (sección 8). Origen: petición de Luis 2026-10-22, tras ver las raspas de susuerte.com: «la idea no es copiar el concepto de raspar sino armarlo un poco diferente». Se toman tres ideas: Bingo (bolas una a una), Joker Loco (cartas contra el crupier) y 8S (con una bomba que se consume). **Nombres y arte propios**: no se usan «Joker Loco» ni «8S» ni nada del arte de esa página.
 
 ## 1. Objetivo y límites
 - Tres `gameType` nuevos: `bomb`, `bingo`, `poker`. Mismo patrón que Concéntrese y Dados (SPEC-004): **el premio ya está decidido por el motor en el canje**; el servidor además decide la **presentación** (qué se ve) y la guarda con la redención; el cliente solo la anima. No cambia el motor de sorteo, los vectores ni el esquema de la base.
@@ -26,7 +26,7 @@ Estado: **borrador para aprobación de Luis.** Incluye el diseño de UX (secció
 **Contrato.**
 `gameConfig`: `{ "cards": 12, "columns": 4, "lateWindow": 4, "symbols": ["star","moon",…] }` (todos opcionales).
 `gameResult`: `{ "faces": ["moon","8","star", … ] }` (longitud = `cards`; el 8 es la cadena `"8"`).
-**Validación al comprometer:** `cards` entero de 9 a 16; `columns` de 2 a 5; `lateWindow` de 1 a `cards − 3`; `symbols` sin repetidos, sin `"8"` ni ids de premio y suficientes para rellenar con a lo sumo 2 de cada uno (`ceil((cards − 3) / 2)`).
+**Validación al comprometer:** `cards` entero de 9 a 16; `columns` de 2 a 5; `lateWindow` de 1 a `cards − 3`; `symbols` sin repetidos, sin `"8"` ni ids de premio y suficientes para rellenar con a lo sumo 2 de cada uno en el peor caso, sin ningún 8 (`ceil(cards / 2)`).
 
 ## 4. Bingo en vivo (`bingo`)
 **Mecánica.** Un cartón de 5×5 con columnas B-I-N-G-O (rangos 1–15, 16–30, 31–45, 46–60, 61–75) y casilla central libre. Salen **bolas una a una** (automático cada `drawIntervalMs`, o con «Siguiente bola»), y el número que sale se marca solo en el cartón. Se gana al completar un **patrón** que la campaña asocia a un premio. Al ganar se detiene y se resalta el patrón.

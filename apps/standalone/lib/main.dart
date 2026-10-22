@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:game_bomb/game_bomb.dart';
 import 'package:game_dice/game_dice.dart';
 import 'package:game_memory/game_memory.dart';
 import 'package:game_roulette/game_roulette.dart';
@@ -50,7 +51,8 @@ class _GamificationAppState extends State<GamificationApp> {
     ..register(RouletteModule())
     ..register(ScratchModule())
     ..register(MemoryModule())
-    ..register(DiceModule());
+    ..register(DiceModule())
+    ..register(BombModule());
   final _events = GamificationEvents();
 
   @override

@@ -125,7 +125,7 @@ final class OpenApiContractTest extends TestCase
     {
         $prizeProps = array_keys($this->schema('Prize')['properties']);
         $campaignProps = array_keys($this->schema('Campaign')['properties']);
-        foreach (['redemption-roulette-win', 'redemption-roulette-coupon', 'redemption-roulette-points', 'redemption-roulette-extra-spin', 'redemption-scratch-win', 'redemption-scratch-already-played', 'redemption-memory-win', 'redemption-memory-none', 'redemption-dice-win', 'redemption-dice-none'] as $name) {
+        foreach (['redemption-roulette-win', 'redemption-roulette-coupon', 'redemption-roulette-points', 'redemption-roulette-extra-spin', 'redemption-scratch-win', 'redemption-scratch-already-played', 'redemption-memory-win', 'redemption-memory-none', 'redemption-dice-win', 'redemption-dice-none', 'redemption-bomb-win', 'redemption-bomb-none'] as $name) {
             $r = $this->example($name);
             $this->assertSame([], array_diff(array_keys($r['campaign']), $campaignProps), "$name: campaign");
             $this->assertSame([], array_diff(array_keys($r['outcome']['prize']), $prizeProps), "$name: prize");
@@ -160,6 +160,18 @@ final class OpenApiContractTest extends TestCase
         $shown = $dice['outcome']['gameResult']['dice'];
         sort($shown);
         $this->assertContains($shown, $rolls, 'los dados mostrados son una combinación del premio');
+    }
+
+    public function test_el_resultado_de_la_bomba_cumple_su_esquema(): void
+    {
+        $bomb = $this->example('redemption-bomb-win');
+        $this->assertSame($this->sorted($this->schema('BombResult')['required']), $this->sorted(array_keys($bomb['outcome']['gameResult'])));
+        $this->assertSame($this->sorted($this->schema('BombConfig')['required']), $this->sorted(array_keys($bomb['campaign']['gameConfig'])));
+        $faces = $bomb['outcome']['gameResult']['faces'];
+        $this->assertCount($bomb['campaign']['gameConfig']['cards'], $faces);
+        $this->assertCount(3, array_filter($faces, fn ($f) => $f === '8'), 'premio = tres «8»');
+        $none = $this->example('redemption-bomb-none')['outcome']['gameResult']['faces'];
+        $this->assertLessThan(3, count(array_filter($none, fn ($f) => $f === '8')), 'sin premio no hay tres «8»');
     }
 
     public function test_el_patron_de_la_idempotency_key_coincide_con_el_del_controlador(): void

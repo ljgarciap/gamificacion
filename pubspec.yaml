@@ -10,6 +10,7 @@ workspace:
   - packages/game_scratch
   - packages/game_memory
   - packages/game_dice
+  - packages/game_bomb
   - packages/gamification_sdk
   - packages/gamification_http
   - apps/standalone

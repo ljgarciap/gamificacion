@@ -46,6 +46,15 @@ abstract class GamificationStrings {
   String memoryLabel(int pairs);
   String memoryProgress(int found, int total);
 
+  /// Bomba 8 (SPEC-005 §3).
+  String get bombHint;
+  String get bombOrderNote;
+  String bombEights(int found, int needed);
+  String bombFuse(int left, int total);
+  String get bombDefused;
+  String get bombExploded;
+  String bombLabel(int cards);
+
   /// Rival simulado de Concéntrese (solo animación: el resultado del código ya está decidido).
   String get rivalNote;
   String get rivalTurnYou;
@@ -135,6 +144,27 @@ class EsStrings extends GamificationStrings {
   String memoryLabel(int pairs) => 'Tablero de Concéntrese con $pairs parejas';
   @override
   String memoryProgress(int found, int total) => 'Parejas: $found de $total';
+
+  @override
+  String get bombHint => 'Voltea las cartas: encuentra tres 8 antes de que se acabe la mecha';
+
+  @override
+  String get bombOrderNote => 'Las cartas se destapan en orden; tu resultado ya está decidido.';
+
+  @override
+  String bombEights(int found, int needed) => 'Ochos: $found de $needed';
+
+  @override
+  String bombFuse(int left, int total) => 'Mecha: $left de $total';
+
+  @override
+  String get bombDefused => '¡Bomba desactivada!';
+
+  @override
+  String get bombExploded => '¡Se acabó la mecha!';
+
+  @override
+  String bombLabel(int cards) => 'Bomba con $cards cartas';
 
   @override
   String get rivalNote => 'Juegas contra una máquina simulada: es solo una animación, tu resultado ya está decidido.';
@@ -248,6 +278,27 @@ class EnStrings extends GamificationStrings {
   String memoryLabel(int pairs) => 'Memory board with $pairs pairs';
   @override
   String memoryProgress(int found, int total) => 'Pairs: $found of $total';
+
+  @override
+  String get bombHint => 'Flip the cards: find three 8s before the fuse runs out';
+
+  @override
+  String get bombOrderNote => 'Cards are revealed in order; your result is already decided.';
+
+  @override
+  String bombEights(int found, int needed) => '8s: $found of $needed';
+
+  @override
+  String bombFuse(int left, int total) => 'Fuse: $left of $total';
+
+  @override
+  String get bombDefused => 'Bomb defused!';
+
+  @override
+  String get bombExploded => 'The fuse ran out!';
+
+  @override
+  String bombLabel(int cards) => 'Bomb with $cards cards';
 
   @override
   String get rivalNote =>

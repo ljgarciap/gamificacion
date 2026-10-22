@@ -33,19 +33,19 @@ final class SeedDemoTest extends DbTestCase
         parent::tearDown();
     }
 
-    public function test_crea_los_cuatro_juegos_con_sus_lotes_activos(): void
+    public function test_crea_los_cinco_juegos_con_sus_lotes_activos(): void
     {
         $this->artisan('gamification:demo:seed')->assertSuccessful();
 
         $campaigns = DB::table('campaigns')->orderBy('name')->get();
-        $this->assertSame(['Concéntrese', 'Dados de la suerte', 'Gira y Gana', 'Raspa y Gana'], $campaigns->pluck('name')->all());
-        $this->assertSame(['memory', 'dice', 'roulette', 'scratch'], $campaigns->pluck('game_type')->all());
-        $this->assertSame(['showPrevious', 'showPrevious', 'rejectOnly', 'showPrevious'], $campaigns->pluck('used_code_behavior')->all());
+        $this->assertSame(['Bomba 8', 'Concéntrese', 'Dados de la suerte', 'Gira y Gana', 'Raspa y Gana'], $campaigns->pluck('name')->all());
+        $this->assertSame(['bomb', 'memory', 'dice', 'roulette', 'scratch'], $campaigns->pluck('game_type')->all());
+        $this->assertSame(['showPrevious', 'showPrevious', 'showPrevious', 'rejectOnly', 'showPrevious'], $campaigns->pluck('used_code_behavior')->all());
 
-        $this->assertSame(['active', 'active', 'active', 'active'], DB::table('batches')->pluck('state')->all());
-        $this->assertSame(138, DB::table('codes')->count());
-        $this->assertCount(138, DemoCodes::load());
-        $this->assertSame(['dice' => 30, 'memory' => 30, 'roulette' => 38, 'scratch' => 40], array_map('count', $this->byGame()));
+        $this->assertSame(['active', 'active', 'active', 'active', 'active'], DB::table('batches')->pluck('state')->all());
+        $this->assertSame(168, DB::table('codes')->count());
+        $this->assertCount(168, DemoCodes::load());
+        $this->assertSame(['bomb' => 30, 'dice' => 30, 'memory' => 30, 'roulette' => 38, 'scratch' => 40], array_map('count', $this->byGame()));
         $this->assertNull((new AuditLog)->verifyChain());
     }
 
@@ -72,7 +72,7 @@ final class SeedDemoTest extends DbTestCase
             }
             $r = $service->redeem('host-a:u'.$i, 'clave-'.str_pad((string) $i, 8, '0', STR_PAD_LEFT), $entry['code'])->toArray();
             $this->assertSame(
-                preg_replace('/^(Ruleta|Raspa|Concéntrese|Dados): /', '', $entry['description']),
+                preg_replace('/^(Ruleta|Raspa|Concéntrese|Dados|Bomba 8): /', '', $entry['description']),
                 $r['outcome']['prize']['label'],
                 "la descripción de {$entry['code']} debe coincidir con su premio",
             );
@@ -173,9 +173,9 @@ final class SeedDemoTest extends DbTestCase
     {
         $this->artisan('gamification:demo:seed')->assertSuccessful();
         $this->artisan('gamification:demo:seed')->assertSuccessful();
-        $this->assertSame(8, DB::table('batches')->count());
-        $this->assertCount(276, DemoCodes::load());
-        $this->assertCount(276, array_unique(array_column(DemoCodes::load(), 'code')));
+        $this->assertSame(10, DB::table('batches')->count());
+        $this->assertCount(336, DemoCodes::load());
+        $this->assertCount(336, array_unique(array_column(DemoCodes::load(), 'code')));
     }
 
     public function test_se_niega_a_correr_fuera_de_desarrollo(): void

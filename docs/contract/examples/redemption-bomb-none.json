@@ -1,0 +1,41 @@
+{
+    "redemptionId": "00000000-0000-4000-8000-000000000001",
+    "alreadyPlayed": false,
+    "playedAt": "2026-10-20T12:00:00.000000Z",
+    "campaign": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "name": "Campaña de prueba",
+        "gameType": "bomb",
+        "usedCodeBehavior": "showPrevious",
+        "title": "Gira y Gana",
+        "theme": {},
+        "gameConfig": {
+            "cards": 12,
+            "columns": 4
+        }
+    },
+    "outcome": {
+        "prize": {
+            "id": "none",
+            "type": "none",
+            "label": "Sin premio"
+        },
+        "extraSpins": 0,
+        "gameResult": {
+            "faces": [
+                "8",
+                "moon",
+                "sun",
+                "flash",
+                "coin",
+                "heart",
+                "heart",
+                "gem",
+                "flash",
+                "gem",
+                "coin",
+                "bell"
+            ]
+        }
+    }
+}

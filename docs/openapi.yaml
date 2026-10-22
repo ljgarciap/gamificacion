@@ -320,7 +320,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        gameType: { type: string, enum: [roulette, scratch, memory, dice] }
+        gameType: { type: string, enum: [roulette, scratch, memory, dice, bomb] }
         usedCodeBehavior: { type: string, enum: [rejectOnly, showPrevious] }
         title: { type: [string, 'null'] }
         theme:
@@ -333,6 +333,7 @@ components:
             - { $ref: '#/components/schemas/ScratchConfig' }
             - { $ref: '#/components/schemas/MemoryConfig' }
             - { $ref: '#/components/schemas/DiceConfig' }
+            - { $ref: '#/components/schemas/BombConfig' }
 
     RouletteConfig:
       type: object
@@ -364,6 +365,13 @@ components:
         columns: { type: integer, minimum: 2, maximum: 6 }
         flipBackMs: { type: integer, minimum: 300, maximum: 3000, description: Cuánto tiempo se ven dos cartas distintas antes de taparse. }
         rival: { type: boolean, description: "Solo si es true: el juego muestra una máquina que alterna turnos. Es un rival SIMULADO (animación); no influye en el premio, que ya está decidido." }
+
+    BombConfig:
+      type: object
+      required: [cards, columns]
+      properties:
+        cards: { type: integer, minimum: 9, maximum: 16, description: Cartas de la cuadrícula; la mecha dura hasta voltearlas todas. }
+        columns: { type: integer, minimum: 2, maximum: 5 }
 
     DiceConfig:
       type: object
@@ -400,6 +408,7 @@ components:
             - { $ref: '#/components/schemas/ScratchResult' }
             - { $ref: '#/components/schemas/MemoryResult' }
             - { $ref: '#/components/schemas/DiceResult' }
+            - { $ref: '#/components/schemas/BombResult' }
 
     RouletteResult:
       type: object
@@ -417,6 +426,18 @@ components:
           description: |
             Símbolo de cada carta, fila por fila (`gameConfig.columns` por fila). Cada símbolo aparece exactamente dos veces.
             Premio = una pareja cuyo símbolo es el `prize.id`; sin premio no hay ninguna. Un símbolo desconocido se muestra como texto.
+
+    BombResult:
+      type: object
+      required: [faces]
+      properties:
+        faces:
+          type: array
+          items: { type: string }
+          description: |
+            Cara de cada carta EN ORDEN DE VOLTEO: la n-ésima carta que el jugador voltea (sea cual sea su posición) muestra `faces[n]`.
+            Premio = exactamente tres `"8"` (el tercero entre las últimas cartas); sin premio hay 0, 1 o 2. Gana quien destapa tres «8» antes
+            de que la mecha (una carta por paso) se acabe. Un símbolo desconocido se muestra como texto.
 
     DiceResult:
       type: object
