@@ -5,6 +5,8 @@ import { authGuard, permissionGuard } from './core/guards';
 const soon = () => import('./features/shell/soon').then((m) => m.Soon);
 const dashboard = () => import('./features/dashboard/dashboard').then((m) => m.DashboardPage);
 const audit = () => import('./features/audit/audit').then((m) => m.AuditScreen);
+const outbox = () => import('./features/outbox/outbox').then((m) => m.OutboxScreen);
+const codes = () => import('./features/codes/codes').then((m) => m.CodesScreen);
 
 export const routes: Routes = [
   { path: 'acceso', loadComponent: () => import('./features/login/login').then((m) => m.Login), title: 'Acceso' },
@@ -17,8 +19,8 @@ export const routes: Routes = [
       { path: 'campanas', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'campaigns.view', title: 'Campañas' }, title: 'Campañas' },
       { path: 'lotes', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Lotes' }, title: 'Lotes' },
       { path: 'aprobaciones', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'approvals.view', title: 'Aprobaciones' }, title: 'Aprobaciones' },
-      { path: 'avisos', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'outbox.view', title: 'Avisos al host' }, title: 'Avisos al host' },
-      { path: 'codigos', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Buscar código' }, title: 'Buscar código' },
+      { path: 'avisos', loadComponent: outbox, canActivate: [permissionGuard], data: { permission: 'outbox.view', title: 'Avisos al host' }, title: 'Avisos al host' },
+      { path: 'codigos', loadComponent: codes, canActivate: [permissionGuard], data: { permission: 'batches.view', title: 'Buscar código' }, title: 'Buscar código' },
       { path: 'auditoria', loadComponent: audit, canActivate: [permissionGuard], data: { permission: 'audit.view', title: 'Bitácora' }, title: 'Bitácora' },
       { path: 'hosts', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'hosts.manage', title: 'Hosts' }, title: 'Hosts' },
       { path: 'parametros', loadComponent: soon, canActivate: [permissionGuard], data: { permission: 'settings.manage', title: 'Parámetros' }, title: 'Parámetros' },

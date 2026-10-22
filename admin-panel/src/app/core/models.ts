@@ -68,3 +68,37 @@ export interface Anchor {
   head_hash: string;
   created_at: string;
 }
+
+export interface OutboxItem {
+  id: number;
+  redemptionId: string;
+  status: 'pending' | 'sent' | 'failed';
+  attempts: number;
+  nextAttemptAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  sentAt: string | null;
+  userId: string | null;
+  batchId: string | null;
+  prizeId: string | null;
+  prizeType: string | null;
+}
+
+export interface OutboxPage {
+  items: OutboxItem[];
+  total: number;
+  counts: Record<'pending' | 'sent' | 'failed', number>;
+  page: number;
+  perPage: number;
+}
+
+export interface CodeLookup {
+  batchId: string;
+  batchName: string;
+  batchState: 'draft' | 'committed' | 'active' | 'closed' | 'revealed';
+  index: number;
+  redeemed: boolean;
+  redeemedAt: string | null;
+  redeemedBy: string | null;
+  prizeId: string | null;
+}

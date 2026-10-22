@@ -78,7 +78,7 @@ const STATES: [keyof DashboardData['batches'], string][] = [
           @if (x.outbox.oldestPendingAt) {
             <div class="gp-muted" [title]="utc(x.outbox.oldestPendingAt)">Pendiente más antiguo: {{ bogota(x.outbox.oldestPendingAt) }}</div>
           }
-          <a routerLink="/avisos">Ver avisos</a>
+          <a routerLink="/avisos" [queryParams]="x.outbox.failed > 0 ? { estado: 'failed' } : {}">{{ x.outbox.failed > 0 ? 'Ver los fallidos' : 'Ver avisos' }}</a>
         </mat-card-content></mat-card>
 
         <mat-card><mat-card-content>
