@@ -6,6 +6,7 @@ use App\Domain\Audit\AuditLog;
 use App\Domain\Codes\CodeFormat;
 use App\Domain\Codes\InvalidCodeFormat;
 use App\Domain\Crypto\CodeHasher;
+use App\Domain\Demo\DemoAccess;
 use App\Domain\Crypto\PrizeVault;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -54,7 +55,9 @@ final class RedeemService
         }
 
         $row = $this->lookup($hash);
-        if ($row === null || $row->state === 'draft') {
+        // Barrera de la muestra (SPEC-006, T-D1/T-D9): el emisor abierto no toca campañas reales y un código sorteado es de quien lo recibió.
+        // Se rechaza como un código inexistente (sin oráculo).
+        if ($row === null || $row->state === 'draft' || ! DemoAccess::permits($userId, (bool) $row->is_demo, $hash)) {
             $this->fail($userId, $ip, RedeemFailure::INVALID);
         }
         $this->assertRedeemable($row);
@@ -142,7 +145,7 @@ final class RedeemService
         return DB::selectOne(
             "SELECT c.id AS code_id, c.batch_id, c.idx, encode(c.prize_enc, 'hex') AS prize_enc,
                     b.state, b.campaign_id, b.reserve_size, (b.redeemable_until IS NOT NULL AND b.redeemable_until <= now()) AS window_closed,
-                    ca.name AS campaign_name, ca.game_type, ca.used_code_behavior, ca.title,
+                    ca.name AS campaign_name, ca.is_demo, ca.game_type, ca.used_code_behavior, ca.title,
                     ca.theme::text AS theme, ca.game_config::text AS game_config
              FROM codes c JOIN batches b ON b.id = c.batch_id JOIN campaigns ca ON ca.id = b.campaign_id
              WHERE c.code_hash = decode(?, 'hex')", [$hashHex]);

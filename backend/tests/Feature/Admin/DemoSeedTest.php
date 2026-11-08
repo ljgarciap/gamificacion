@@ -119,6 +119,8 @@ final class DemoSeedTest extends AdminTestCase
         foreach (['scratch', 'dice', 'bingo'] as $game) {
             $delivered = [];
             foreach ($this->poolRows("game = '$game'") as $i => $row) {
+                // Un código del pool solo lo canjea quien lo recibió (SPEC-006 T-D9): se asigna como lo haría la compra.
+                DB::update("UPDATE demo_pool SET state = 'assigned', assigned_to = ?, assigned_at = now() WHERE id = ?", ["host-a:$game$i", $row->id]);
                 $r = $service->redeem("host-a:$game$i", 'clave-'.$game.str_pad((string) $i, 6, '0', STR_PAD_LEFT), $this->plain($row))->toArray();
                 $this->assertSame($game, $r['campaign']['gameType']);
                 $this->assertSame(\App\Domain\Demo\DemoGameTemplates::SHORT[$game].': '.$r['outcome']['prize']['label'], $row->description, 'la descripción coincide con el premio real');

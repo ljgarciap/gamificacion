@@ -34,6 +34,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'host.auth' => AuthenticateHost::class,
             'admin.auth' => AdminAuthenticate::class,
             'admin.can' => AdminCan::class,
+            'demo.active' => \App\Http\Middleware\DemoActive::class,
+            'demo.session' => \App\Http\Middleware\DemoSessionUser::class,
         ]);
 
         // Proxies de confianza (balanceador). El límite de intentos por IP depende de `$request->ip()`: sin esto, detrás de un balanceador todas

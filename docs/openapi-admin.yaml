@@ -136,8 +136,8 @@ components:
             properties: {id: {type: string}, name: {type: string}, price: {type: integer}}
         credit:
           type: object
-          required: [balancePercent, minPurchase, codeStepAmount, maxCodesPerPurchase]
-          properties: {balancePercent: {type: integer}, minPurchase: {type: integer}, codeStepAmount: {type: integer}, maxCodesPerPurchase: {type: integer}}
+          required: [balancePercent, minPurchase, codeStepAmount, maxCodesPerPurchase, maxCodesPerSession]
+          properties: {balancePercent: {type: integer}, minPurchase: {type: integer}, codeStepAmount: {type: integer}, maxCodesPerPurchase: {type: integer}, maxCodesPerSession: {type: integer}}
         mix:
           type: object
           additionalProperties:

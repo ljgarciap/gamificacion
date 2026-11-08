@@ -19,6 +19,8 @@ final class DemoConfig
 
     public const MAX_CODES_PER_PURCHASE = 5;
 
+    public const MAX_CODES_PER_SESSION = 50;
+
     public const MAX_POOL = 500;
 
     public const MAX_TTL_HOURS = 168;
@@ -32,7 +34,7 @@ final class DemoConfig
                 ['id' => 'recarga-20', 'name' => 'Recarga $20.000', 'price' => 20_000],
                 ['id' => 'recarga-50', 'name' => 'Recarga $50.000', 'price' => 50_000],
             ],
-            'credit' => ['balancePercent' => 10, 'minPurchase' => 10_000, 'codeStepAmount' => 20_000, 'maxCodesPerPurchase' => 3],
+            'credit' => ['balancePercent' => 10, 'minPurchase' => 10_000, 'codeStepAmount' => 20_000, 'maxCodesPerPurchase' => 3, 'maxCodesPerSession' => 10],
             'mix' => [
                 'roulette' => ['prizes' => [['type' => 'money', 'amount' => 5_000, 'count' => 2]], 'noPrizeCount' => 8],
             ],
@@ -86,12 +88,13 @@ final class DemoConfig
             $products[] = ['id' => $item['id'], 'name' => trim($item['name']), 'price' => $int($item['price'], "products[$i].price", 1, self::MAX_AMOUNT)];
         }
 
-        $c = $obj($raw['credit'] ?? null, 'credit', ['balancePercent', 'minPurchase', 'codeStepAmount', 'maxCodesPerPurchase']);
+        $c = $obj($raw['credit'] ?? null, 'credit', ['balancePercent', 'minPurchase', 'codeStepAmount', 'maxCodesPerPurchase', 'maxCodesPerSession']);
         $credit = [
             'balancePercent' => $int($c['balancePercent'], 'credit.balancePercent', 0, 100),
             'minPurchase' => $int($c['minPurchase'], 'credit.minPurchase', 0, self::MAX_AMOUNT),
             'codeStepAmount' => $int($c['codeStepAmount'], 'credit.codeStepAmount', 1, self::MAX_AMOUNT),
             'maxCodesPerPurchase' => $int($c['maxCodesPerPurchase'], 'credit.maxCodesPerPurchase', 1, self::MAX_CODES_PER_PURCHASE),
+            'maxCodesPerSession' => $int($c['maxCodesPerSession'], 'credit.maxCodesPerSession', 1, self::MAX_CODES_PER_SESSION),
         ];
 
         $m = $raw['mix'] ?? null;

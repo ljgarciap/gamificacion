@@ -218,7 +218,7 @@ class SeedDemo extends Command
         $id = (string) Str::uuid();
         DB::table('campaigns')->insert([
             'id' => $id, 'name' => $name, 'game_type' => $game, 'used_code_behavior' => $behavior, 'title' => $name,
-            'game_config' => json_encode($config),
+            'game_config' => json_encode($config), 'is_demo' => true,
         ]);
         foreach ($prizes as [$prizeId, $type, $label, $amount, $meta]) {
             DB::table('prizes')->insert([

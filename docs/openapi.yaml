@@ -18,6 +18,8 @@ security:
 tags:
   - name: Redención
   - name: Saldo
+  - name: Muestra
+    description: Muestra real (SPEC-006). Las rutas existen siempre; las enciende el superadmin desde el panel. Apagada, `session` y `purchase` responden 404.
   - name: Dev
     description: Solo desarrollo local. Las rutas NO EXISTEN fuera de APP_ENV=local/testing, aunque GAMIF_DEV_ENDPOINTS esté activado.
 
@@ -134,6 +136,94 @@ paths:
               schema: { $ref: '#/components/schemas/Balance' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '503': { $ref: '#/components/responses/HostUnavailable' }
+
+  /v1/demo/status:
+    get:
+      tags: [Muestra]
+      summary: ¿Está encendida la muestra? (siempre 200)
+      x-demo: true
+      security: []
+      responses:
+        '200':
+          description: Estado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enabled]
+                properties:
+                  enabled: { type: boolean }
+
+  /v1/demo/session:
+    post:
+      tags: [Muestra]
+      summary: Abre (o reanuda) la sesión del usuario simulado
+      description: Emite un token de 10 minutos para un usuario simulado, con el catálogo, las reglas de carga y el saldo. `resume` (el `subject` de una sesión anterior) la reanuda con el mismo saldo.
+      x-demo: true
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                resume: { type: string }
+      responses:
+        '200':
+          description: Sesión.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DemoSession' }
+        '404': { description: La muestra está apagada o no configurada. }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { description: El emisor de la demostración no está configurado. }
+
+  /v1/demo/purchase:
+    post:
+      tags: [Muestra]
+      summary: Compra en línea simulada (carga saldo y entrega códigos sorteados)
+      description: |
+        El cliente solo manda ids y cantidades; precios, saldo cargado y número de códigos los calcula el servidor con la configuración del panel.
+        Idempotente por (usuario, `Idempotency-Key`). Los códigos se sortean con el CSPRNG entre los disponibles; el resultado de cada uno ya está fijado.
+      x-demo: true
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 5
+                  items:
+                    type: object
+                    required: [productId, quantity]
+                    properties:
+                      productId: { type: string }
+                      quantity: { type: integer, minimum: 1, maximum: 10 }
+      responses:
+        '200':
+          description: Orden (o su repetición).
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DemoOrder' }
+        '400': { $ref: '#/components/responses/IdempotencyKeyRequired' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { description: 'No es una sesión de la muestra (`demoSessionInvalid`).', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: La muestra está apagada. }
+        '409': { description: 'La muestra se quedó sin códigos (`demoPoolExhausted`).', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: 'Compra inválida o por debajo del mínimo (`invalidPurchase`), o clave reutilizada con otra compra (`idempotencyKeyReuse`).', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
   /v1/dev/token:
     post:
@@ -261,6 +351,54 @@ components:
         - spinNotFound
         - noSpinsLeft
         - spinReserveExhausted
+        - demoSessionInvalid
+        - demoPoolExhausted
+        - invalidPurchase
+
+    DemoSession:
+      type: object
+      required: [token, expiresIn, userId, subject, resumed, displayName, currency, balance, products, rules]
+      properties:
+        token: { type: string }
+        expiresIn: { type: integer }
+        userId: { type: string }
+        subject: { type: string, description: "Clave para reanudar la sesión; solo la conoce quien la abrió." }
+        resumed: { type: boolean }
+        displayName: { type: string }
+        currency: { type: string, const: COP }
+        balance: { type: integer }
+        products:
+          type: array
+          items:
+            type: object
+            required: [id, name, price]
+            properties: { id: { type: string }, name: { type: string }, price: { type: integer } }
+        rules:
+          type: object
+          required: [balancePercent, minPurchase, codeStepAmount, maxCodesPerPurchase, maxCodesPerSession]
+          properties:
+            balancePercent: { type: integer }
+            minPurchase: { type: integer }
+            codeStepAmount: { type: integer }
+            maxCodesPerPurchase: { type: integer }
+            maxCodesPerSession: { type: integer }
+
+    DemoOrder:
+      type: object
+      required: [orderId, total, credited, codes, capReached, balance, replayed]
+      properties:
+        orderId: { type: string, format: uuid }
+        total: { type: integer }
+        credited: { type: integer, description: "Saldo cargado por la compra, en COP." }
+        codes:
+          type: array
+          items:
+            type: object
+            required: [code, game]
+            properties: { code: { type: string }, game: { type: string } }
+        capReached: { type: boolean, description: "Se llegó al tope de códigos por sesión: se entregaron menos de los que correspondían." }
+        balance: { type: integer }
+        replayed: { type: boolean }
 
     Balance:
       type: object

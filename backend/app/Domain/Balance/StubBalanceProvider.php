@@ -2,6 +2,7 @@
 
 namespace App\Domain\Balance;
 
+use App\Domain\Demo\DemoAccess;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -19,6 +20,10 @@ final class StubBalanceProvider implements BalanceProvider
             [$userId],
         )->total;
 
-        return (int) config('gamification.demo.initial_balance') + $won;
+        // Las sesiones de la muestra (SPEC-006) llevan su saldo inicial y sus cargas por compra en el libro; el saldo inicial del entorno no aplica.
+        $ledger = (int) DB::selectOne('SELECT COALESCE(SUM(amount), 0) AS total FROM demo_wallet_ledger WHERE user_id = ?', [$userId])->total;
+        $initial = DemoAccess::isDemoSubjectUser($userId) ? 0 : (int) config('gamification.demo.initial_balance');
+
+        return $initial + $won + $ledger;
     }
 }

@@ -19,6 +19,9 @@ final class AdminRoutesTest extends TestCase
         'POST admin/api/v1/auth/mfa/enroll', 'POST admin/api/v1/auth/mfa/enroll/confirm', 'POST admin/api/v1/auth/mfa',
     ];
 
+    /** Rutas de /v1 sin JWT, a propósito y enumeradas: cualquier otra ruta nueva sin `host.auth` hace fallar la prueba. */
+    private const DEMO_PUBLIC = ['v1/demo/status', 'v1/demo/session', 'v1/demo/token', 'v1/demo/codes'];
+
     /** @return list<LaravelRoute> */
     private function adminRoutes(): array
     {
@@ -78,8 +81,14 @@ final class AdminRoutesTest extends TestCase
             $m = $route->gatherMiddleware();
             if (str_starts_with($route->uri(), 'admin/')) {
                 $this->assertNotContains('host.auth', $m, $this->label($route).' no puede usar el JWT de los hosts');
+            } elseif (in_array($route->uri(), self::DEMO_PUBLIC, true)) {
+                // La muestra (SPEC-006): solo estas rutas de /v1 no llevan JWT (describen el estado o emiten la sesión simulada). La compra sí lo lleva.
+                $this->assertNotContains('host.auth', $m, $this->label($route));
+                $this->assertNotContains('admin.auth', $m, $this->label($route));
+                $route->uri() === 'v1/demo/status' || $this->assertContains('demo.active', $m, $this->label($route));
             } elseif (str_starts_with($route->uri(), 'v1/') && ! str_starts_with($route->uri(), 'v1/dev/')) {
                 $this->assertContains('host.auth', $m, $this->label($route));
+                str_starts_with($route->uri(), 'v1/demo/') && $this->assertContains('demo.active', $m, $this->label($route));
                 $this->assertNotContains('admin.auth', $m, $this->label($route));
             }
         }

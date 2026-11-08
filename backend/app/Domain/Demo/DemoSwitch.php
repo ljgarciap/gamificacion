@@ -72,6 +72,9 @@ final class DemoSwitch
             if (! (bool) config('gamification.demo.allowed')) {
                 throw new AdminException('wrongState', 'Este servidor no es de demostración (falta GAMIF_DEMO_ALLOWED=true).', 409);
             }
+            if (config('gamification.host.balance') !== 'stub') {
+                throw new AdminException('wrongState', 'La muestra necesita el saldo de demostración (GAMIF_BALANCE=stub): con un host real no puede cargarse saldo.', 409);
+            }
             if ($r->config === null) {
                 throw new AdminException('wrongState', 'Guarda primero la configuración de la muestra.', 409);
             }

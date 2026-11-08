@@ -147,6 +147,18 @@ final class DemoSwitchTest extends AdminTestCase
         $this->assertFalse((new DemoSwitch)->isActive());
     }
 
+    public function test_no_se_enciende_con_el_saldo_de_un_host_real(): void
+    {
+        $this->superadmin();
+        $this->saveConfig();
+        $this->seedPool();
+        config(['gamification.host.balance' => 'http']);
+        $r = $this->api('POST', '/demo/enable');
+        $this->assertSame(409, $r->status());
+        $this->assertStringContainsString('GAMIF_BALANCE=stub', $r->json('error.message'));
+        $this->assertFalse((new DemoSwitch)->isActive());
+    }
+
     public function test_no_se_enciende_sin_configuracion_guardada(): void
     {
         $this->superadmin();
@@ -259,7 +271,7 @@ final class DemoSwitchTest extends AdminTestCase
     public function test_el_libro_de_saldo_es_de_solo_agregar(): void
     {
         $order = '00000000-0000-4000-8000-000000000001';
-        DB::insert("INSERT INTO demo_orders (id, user_id, items, total, credited, codes_granted, idempotency_key) VALUES (?, 'u', '[]'::jsonb, 1000, 100, 1, 'k')", [$order]);
+        DB::insert("INSERT INTO demo_orders (id, user_id, items, total, credited, codes_granted, idempotency_key, request_hash) VALUES (?, 'u', '[]'::jsonb, 1000, 100, 1, 'k', 'h')", [$order]);
         DB::insert("INSERT INTO demo_wallet_ledger (user_id, kind, amount, order_id) VALUES ('u', 'purchase_credit', 100, ?)", [$order]);
         $this->assertDbRejects(fn () => DB::update('UPDATE demo_wallet_ledger SET amount = 999'), 'solo agregar');
         $this->assertDbRejects(fn () => DB::delete('DELETE FROM demo_wallet_ledger'), 'solo agregar');
@@ -268,7 +280,7 @@ final class DemoSwitchTest extends AdminTestCase
 
     public function test_la_orden_es_idempotente_por_usuario_y_clave(): void
     {
-        $ins = fn (string $id, string $user, string $key) => DB::insert("INSERT INTO demo_orders (id, user_id, items, total, credited, codes_granted, idempotency_key) VALUES (?, ?, '[]'::jsonb, 1000, 0, 0, ?)", [$id, $user, $key]);
+        $ins = fn (string $id, string $user, string $key) => DB::insert("INSERT INTO demo_orders (id, user_id, items, total, credited, codes_granted, idempotency_key, request_hash) VALUES (?, ?, '[]'::jsonb, 1000, 0, 0, ?, 'h')", [$id, $user, $key]);
         $ins('00000000-0000-4000-8000-000000000001', 'u', 'k');
         $ins('00000000-0000-4000-8000-000000000002', 'otro', 'k');
         $this->assertDbRejects(fn () => $ins('00000000-0000-4000-8000-000000000003', 'u', 'k'), 'duplicate key');
