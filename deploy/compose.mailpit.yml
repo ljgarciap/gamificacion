@@ -1,0 +1,17 @@
+# Correo SIMULADO para la demostración (SPEC-006A): Mailpit recibe los correos de ingreso de la muestra y NO los entrega a nadie. Se usa mientras
+# no haya un servidor de correo real; con uno real se quita esta pila y se apunta MAIL_* a ese servidor (docs/despliegue-demo.md).
+#   deploy/demo-up.sh lo suma solo cuando deploy/demo.env tiene MAIL_HOST=mailpit.
+# Nada se publica a internet: el SMTP (1025) solo existe en la red interna de Docker y la bandeja web (8025) escucha SOLO en el loopback del
+# servidor (se mira con un túnel: ssh -L 8025:127.0.0.1:8025 usuario@servidor). Guarda los correos en memoria: al reiniciar se pierden.
+services:
+  mailpit:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: "500"
+    ports:
+      - "127.0.0.1:8025:8025"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]

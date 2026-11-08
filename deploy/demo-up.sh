@@ -18,7 +18,6 @@ DEMO_DOMAIN="${DEMO_DOMAIN:-demo.${IP}.sslip.io}"
 ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.${IP}.sslip.io}"
 ENVFILE=deploy/demo.env
 CREDS=deploy/demo-credentials.txt
-COMPOSE=(docker compose -f deploy/compose.demo.yml --env-file "$ENVFILE")
 
 b64() { openssl rand -base64 32 | tr -d '\n'; }
 
@@ -60,6 +59,18 @@ if grep -q '^GAMIF_DEMO_MODE=' "$ENVFILE"; then
 fi
 grep -q '^GAMIF_DEMO_ALLOWED=' "$ENVFILE" || { echo "==> $ENVFILE: se agrega GAMIF_DEMO_ALLOWED=true"; echo 'GAMIF_DEMO_ALLOWED=true' >> "$ENVFILE"; }
 grep -q '^GAMIF_BALANCE=' "$ENVFILE" || { echo "==> $ENVFILE: se agrega GAMIF_BALANCE=stub"; echo 'GAMIF_BALANCE=stub' >> "$ENVFILE"; }
+
+# Entornos creados antes de SPEC-006A: sin correo configurado la muestra no puede enviar el código de ingreso (y el valor por defecto de Laravel,
+# `log`, dejaría los códigos en el registro). Solo se AGREGA lo que falta, con el correo SIMULADO (Mailpit): no sale nada del servidor hasta que
+# alguien lo cambie a un SMTP real en deploy/demo.env.
+if ! grep -q '^MAIL_MAILER=' "$ENVFILE"; then
+  echo "==> $ENVFILE: se agrega el correo simulado (Mailpit); para uno real, editar MAIL_* y volver a desplegar"
+  { echo 'MAIL_MAILER=smtp'; echo 'MAIL_HOST=mailpit'; echo 'MAIL_PORT=1025'; echo 'MAIL_FROM_ADDRESS=muestra@ejemplo.com'; echo 'MAIL_FROM_NAME=Muestra'; } >> "$ENVFILE"
+fi
+
+# Mailpit solo se levanta si el correo apunta a él (MAIL_HOST=mailpit); con un SMTP real no hace falta.
+COMPOSE=(docker compose -f deploy/compose.demo.yml --env-file "$ENVFILE")
+if grep -q '^MAIL_HOST=mailpit' "$ENVFILE"; then COMPOSE=(docker compose -f deploy/compose.demo.yml -f deploy/compose.mailpit.yml --env-file "$ENVFILE"); fi
 
 echo "==> Construyendo las imágenes (una a la vez)"
 export COMPOSE_PARALLEL_LIMIT=1

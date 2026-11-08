@@ -12,8 +12,15 @@ import { apiCall, login } from './support';
 // Requiere el backend en modo demostración con baliza real y worker (ver docker/compose.muestra-e2e.yml):
 //   docker compose -f docker-compose.yml -f docker/compose.muestra-e2e.yml up -d --build backend worker web
 // Tarda varios minutos (espera a drand, dos veces). WEB_URL / API_URL cambian los orígenes por defecto.
+//
+// SPEC-006A (CA-20): la persona entra con su CORREO y un código de un solo uso que la prueba lee de Mailpit (correo simulado del compose); compra,
+// juega, sale, vuelve a entrar con el mismo correo y ve su saldo acumulado y sus códigos jugados; el panel lista la cuenta enmascarada, el
+// reinicio conserva la cuenta (elección «keep») y al final se borra desde el panel.
 const WEB = process.env['WEB_URL'] ?? 'http://localhost:8080';
 const API = process.env['API_URL'] ?? 'http://localhost:8000';
+const MAILPIT = process.env['MAILPIT_URL'] ?? 'http://localhost:8025';
+/** Espera mínima del servidor entre dos códigos al mismo correo (techo duro COOLDOWN_SECONDS = 60 en DemoLoginCodes). */
+const COOLDOWN_MS = 62_000;
 
 const config = {
   user: { displayName: 'Cliente E2E', hostUserPrefix: 'e2e', initialBalance: 1000 },
@@ -48,6 +55,33 @@ async function openApp(page: Page): Promise<string[]> {
   return problems;
 }
 
+/** Último código de ingreso llegado a `email` (lo lee de la API de Mailpit), esperando a que haya al menos `count` correos para ese destino. */
+async function mailCode(page: Page, email: string, count: number): Promise<string> {
+  let code = '';
+  await expect
+    .poll(
+      async () => {
+        const found = await page.request.get(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`);
+        const list = (await found.json()) as { messages: { ID: string }[] };
+        if (list.messages.length < count) return 'sin-correo';
+        const msg = (await (await page.request.get(`${MAILPIT}/api/v1/message/${list.messages[0].ID}`)).json()) as { Text: string };
+        code = /código para ingresar a la muestra es: (\d{6})/.exec(msg.Text)?.[1] ?? '';
+        return code === '' ? 'sin-codigo' : 'ok';
+      },
+      { timeout: 30_000, intervals: [500] },
+    )
+    .toBe('ok');
+  return code;
+}
+
+/** Flutter Web: un campo de texto se llena con clic + teclado (`fill` no llega a Flutter). */
+async function typeInto(app: Page, name: RegExp, text: string): Promise<void> {
+  const field = app.getByRole('textbox', { name });
+  await field.click();
+  await app.waitForTimeout(400); // el campo recién aparecido tarda en recibir el foco: sin esto se pierden las primeras teclas
+  await app.keyboard.type(text, { delay: 20 });
+}
+
 /** Espera a que termine ESA corrida (por id): la «última corrida» podría ser todavía una anterior ya terminada. */
 async function waitRun(panel: Page, runId: number, what: string): Promise<void> {
   await expect
@@ -67,6 +101,10 @@ test('recorrido completo: panel (configura, siembra, enciende) → app (acceso, 
   const ctx = await browser.newContext();
   const panel = await ctx.newPage();
   await login(panel, 'superadmin');
+
+  // 0. Sin cuentas de corridas anteriores: el recorrido cuenta las suyas.
+  const existing = await apiCall<{ items: { id: string }[] }>(panel, 'GET', '/demo/accounts?perPage=100');
+  for (const a of existing.items) await apiCall(panel, 'DELETE', `/demo/accounts/${a.id}`);
 
   // 1. Estado inicial conocido: configuración de esta prueba, apagada y un pool NUEVO (el reinicio retira lo anterior y siembra de nuevo).
   await apiCall(panel, 'PUT', '/demo/config', config);
@@ -105,6 +143,11 @@ test('recorrido completo: panel (configura, siembra, enciende) → app (acceso, 
     order = await response.json();
     return route.fulfill({ response });
   });
+  await app.route('**/v1/demo/auth/verify', async (route) => {
+    const response = await route.fetch();
+    if (response.status() === 200) token = ((await response.json()) as { token: string }).token;
+    return route.fulfill({ response });
+  });
   await app.route('**/v1/codes/redeem', async (route) => {
     const response = await route.fetch();
     const body = await response.json();
@@ -114,8 +157,23 @@ test('recorrido completo: panel (configura, siembra, enciende) → app (acceso, 
 
   await expect(app.getByText('Bienvenido a la muestra')).toBeVisible({ timeout: 15_000 });
   await expect(app.getByText(/MUESTRA · Datos simulados/)).toBeVisible();
-  await app.getByRole('button', { name: /Entrar a la tienda/ }).click();
+  // Acceso (SPEC-006A): aviso de privacidad visible, correo → código de un solo uso leído de Mailpit → tienda.
+  await expect(app.getByText(/solo para enviarte el código de ingreso/)).toBeVisible();
+  await panel.request.delete(`${MAILPIT}/api/v1/messages`);
+  const email = `e2e-${Date.now()}@ejemplo.com`;
+  await typeInto(app, /Correo electrónico/, email);
+  await app.getByRole('button', { name: /Enviarme el código/ }).click();
+  const firstRequestAt = Date.now();
+  await expect(app.getByText('Revisa tu correo')).toBeVisible({ timeout: 15_000 });
+  // Un código errado no entra y no revela nada más que «no es válido».
+  await typeInto(app, /Código de 6 dígitos/, '000000');
+  await app.getByRole('button', { name: /^Entrar$/ }).click();
+  await expect(app.getByText(/El código no es válido o ya venció/)).toBeVisible();
+  // El código errado se borra solo y el foco vuelve al campo.
+  await typeInto(app, /Código de 6 dígitos/, await mailCode(panel, email, 1));
+  await app.getByRole('button', { name: /^Entrar$/ }).click();
   await expect(app.getByText(/Entrarás como Cliente E2E/)).toBeVisible();
+  await expect(app.getByText(cop(1_000)).first()).toBeVisible(); // cuenta nueva: saldo inicial del escenario
 
   // Tienda: dos recargas de $ 20.000 = $ 40.000 → $ 4.000 de saldo y 2 códigos.
   const add = app.getByRole('button', { name: /Agregar uno de Recarga E2E 20/ });
@@ -157,12 +215,40 @@ test('recorrido completo: panel (configura, siembra, enciende) → app (acceso, 
   }
   expect(await api()).toBe(expected);
   await expect(app.getByText(cop(expected)).first()).toBeVisible();
-  expect(problems.filter((p) => !/favicon|manifest/i.test(p))).toEqual([]);
+
+  // CA-20: salir y volver a entrar con el MISMO correo recupera el saldo acumulado y los códigos (jugados) de la cuenta.
+  await app.getByRole('button', { name: /^Salir$/ }).click();
+  await expect(app.getByText(/solo para enviarte el código de ingreso/)).toBeVisible();
+  await expect(app.getByText('Jugado')).toHaveCount(0);
+  const wait = COOLDOWN_MS - (Date.now() - firstRequestAt);
+  if (wait > 0) await app.waitForTimeout(wait);
+  await typeInto(app, /Correo electrónico/, email);
+  await app.getByRole('button', { name: /Enviarme el código/ }).click();
+  await expect(app.getByText('Revisa tu correo')).toBeVisible({ timeout: 15_000 });
+  await typeInto(app, /Código de 6 dígitos/, await mailCode(panel, email, 2));
+  await app.getByRole('button', { name: /^Entrar$/ }).click();
+  await expect(app.getByText('Tus códigos').first()).toBeVisible({ timeout: 15_000 });
+  await expect(app.getByText('Jugado')).toHaveCount(2);
+  await expect(app.getByText(cop(expected)).first()).toBeVisible();
+  expect(await api()).toBe(expected);
+  const account = (await (await app.request.get(`${API}/v1/demo/account`, { headers: { Authorization: `Bearer ${token}` } })).json()) as { balance: number; codes: { played: boolean }[] };
+  expect(account.balance).toBe(expected);
+  expect(account.codes.map((c) => c.played)).toEqual([true, true]);
+  // Sin errores de consola, salvo el 401 ESPERADO del código errado de más arriba (el navegador lo registra como error de carga).
+  const unexpected = problems.filter((p) => !/favicon|manifest/i.test(p));
+  expect(unexpected.filter((p) => /status of 401/.test(p))).toHaveLength(1);
+  expect(unexpected.filter((p) => !/status of 401/.test(p))).toEqual([]);
 
   // 6. Las estadísticas del panel coinciden: 2 entregados, 18 disponibles.
   await panel.reload();
   await expect(panel.getByTestId('pool-assigned')).toHaveText('2');
   await expect(panel.getByTestId('pool-available')).toHaveText('18');
+  // La cuenta aparece en el panel con el correo ENMASCARADO (nunca completo) y su saldo acumulado.
+  await expect(panel.getByTestId('accounts-total')).toHaveText('1');
+  const row = panel.getByTestId('account-row');
+  await expect(row).toContainText(`${email[0]}***@ejemplo.com`);
+  await expect(row).toContainText(cop(expected));
+  await expect(panel.getByText(email)).toHaveCount(0);
 
   // 7. Apagar desde el panel: la app deja de ofrecer el recorrido y la API vuelve a 404.
   await panel.getByTestId('disable').click();
@@ -176,11 +262,22 @@ test('recorrido completo: panel (configura, siembra, enciende) → app (acceso, 
   // 8. Reiniciar (CA-10): apaga, retira los códigos y siembra un pool nuevo, limpio.
   const retiredBefore = (await apiCall<DemoState>(panel, 'GET', '/demo')).pool.retired;
   await panel.getByTestId('reset').click();
+  await expect(panel.getByTestId('confirm-yes')).toBeDisabled(); // hay que elegir qué pasa con las cuentas
+  await panel.getByTestId('reset-keep').check();
   await panel.getByTestId('confirm-yes').click();
   await expect(panel.getByTestId('pool-available')).toHaveText('20', { timeout: 6 * 60_000 });
   await expect(panel.getByTestId('pool-assigned')).toHaveText('0');
   await expect(panel.getByTestId('pool-retired')).toHaveText(String(retiredBefore + 20)); // los 20 del pool anterior (acumulado de la historia)
   await expect(panel.getByTestId('status-chip')).toHaveText('Apagada');
+  // «Conservar»: el pool es nuevo pero la cuenta y su saldo siguen ahí.
+  await expect(panel.getByTestId('accounts-total')).toHaveText('1');
+  await expect(panel.getByTestId('account-row')).toContainText(cop(expected));
+  // Borrar la cuenta desde el panel (con confirmación): ya no queda ninguna.
+  await panel.getByTestId('account-delete').click();
+  await expect(panel.getByTestId('account-confirm')).toContainText('quedará inaccesible');
+  await panel.getByTestId('account-confirm-yes').click();
+  await expect(panel.getByTestId('accounts-total')).toHaveText('0');
+  await expect(panel.getByTestId('accounts-empty')).toBeVisible();
 
   // 9. CA-7: el lote demo del primer sembrado (cerrado por el reinicio) se revela, se exporta y lo verifica el verificador independiente.
   const ids: string[] = JSON.parse(

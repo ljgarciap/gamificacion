@@ -375,6 +375,11 @@ void main() {
     await _enter(t, code: '000000');
     expect(find.text('El código no es válido o ya venció. Pide uno nuevo.'), findsOneWidget);
     expect(find.text('Revisa tu correo'), findsOneWidget, reason: 'sigue en el paso del código');
+    expect(
+      t.widget<TextField>(find.byKey(const ValueKey('demo-code'))).controller!.text,
+      isEmpty,
+      reason: 'el código errado se borra',
+    );
     expect(find.byKey(const ValueKey('demo-total')), findsNothing);
     await t.enterText(find.byKey(const ValueKey('demo-code')), _FakeBackend.validCode);
     await t.tap(find.byKey(const ValueKey('demo-verify')));

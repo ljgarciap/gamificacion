@@ -1,6 +1,6 @@
 # SPEC-006A — Cuentas persistentes de la muestra (ingreso con correo y código)
 
-Estado: **BORRADOR** (pendiente de aprobación de Luis). Rol: Analista. Fecha: 2026-11-08. Amplía `spec-006-demo-desde-el-panel.md`.
+Estado: **APROBADA** por Luis (2026-11-08, «aprobado, procede»); implementada M7–M10, ver `qa-spec-006a.md`. Rol: Analista. Fecha: 2026-11-08. Amplía `spec-006-demo-desde-el-panel.md`.
 
 ## 1. Objetivo
 Hoy el usuario de la muestra es efímero: vive en la memoria de la app y recargar la página abre uno nuevo. Pero la plataforma ya tiene base de datos, así que la persona debe poder **volver a ingresar y ver su saldo acumulado** (y sus códigos pendientes). El usuario deja de ser «simulado» en lo que importa: tiene cuenta, identidad verificada y saldo que perdura. Lo único simulado siguen siendo el pago y el dinero.

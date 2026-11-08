@@ -73,6 +73,7 @@ class _DemoJourneyState extends State<DemoJourney> {
   // Acceso: primero el correo, luego el código que llegó a ese correo.
   final _emailCtl = TextEditingController();
   final _codeCtl = TextEditingController();
+  final _codeFocus = FocusNode();
   bool _awaitingCode = false;
   String _email = '';
   int _secondsLeft = 0;
@@ -99,6 +100,7 @@ class _DemoJourneyState extends State<DemoJourney> {
     _ticker?.cancel();
     _emailCtl.dispose();
     _codeCtl.dispose();
+    _codeFocus.dispose();
     _sub?.cancel();
     super.dispose();
   }
@@ -180,7 +182,17 @@ class _DemoJourneyState extends State<DemoJourney> {
       _error = null;
     });
     try {
-      final session = await widget.backend.verifyCode(_email, code);
+      final DemoSession session;
+      try {
+        session = await widget.backend.verifyCode(_email, code);
+      } on DemoException catch (e) {
+        // Un código errado se borra y el foco vuelve al campo: lo normal es teclear otro, no corregir dígito por dígito.
+        if (e.reason == DemoFailure.invalidCode && mounted) {
+          _codeCtl.clear();
+          _codeFocus.requestFocus();
+        }
+        rethrow;
+      }
       // Lo que la cuenta conserva: saldo acumulado y códigos (jugados o no). Si esto falla por red no se pierde nada: el saldo ya vino
       // en la sesión y los códigos se verán al reintentar; no se bloquea el ingreso por eso.
       DemoAccount? account;
@@ -522,6 +534,7 @@ class _DemoJourneyState extends State<DemoJourney> {
     TextField(
       key: const ValueKey('demo-code'),
       controller: _codeCtl,
+      focusNode: _codeFocus,
       enabled: !_busy,
       autofocus: true,
       keyboardType: TextInputType.number,

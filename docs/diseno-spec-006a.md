@@ -1,6 +1,6 @@
 # Diseño de SPEC-006A — Cuentas persistentes de la muestra
 
-Estado: **BORRADOR** (pendiente de aprobación). Rol: Arquitecto + Cybersecurity. Fecha: 2026-11-08.
+Estado: **APROBADO** por Luis (2026-11-08); implementado M7–M10. Rol: Arquitecto + Cybersecurity. Fecha: 2026-11-08.
 
 ## 1. Idea central
 La cuenta es solo **la llave para llegar a un `subject` que ya existe**. Todo lo demás (saldo, pedidos, códigos del pool, barrera `DemoAccess`) ya está ligado a `user_id = emisor:subject` y no cambia. Ingresar con código = demostrar que eres dueño del correo → el servidor te entrega la sesión de ese `subject`. Cero cambios al libro de saldo, al sorteo ni a la barrera de canje.

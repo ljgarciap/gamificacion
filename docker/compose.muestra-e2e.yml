@@ -1,6 +1,7 @@
 # Override SOLO para el recorrido E2E de la muestra (admin-panel/e2e/muestra-recorrido.spec.ts):
 #   docker compose -f docker-compose.yml -f docker/compose.muestra-e2e.yml up -d --build backend worker web
-# Declara el servidor como de demostración, usa la baliza REAL (drand) y levanta el worker que ejecuta las corridas pedidas desde el panel.
+# Declara el servidor como de demostración, usa la baliza REAL (drand), levanta el worker que ejecuta las corridas pedidas desde el panel y
+# Mailpit como correo SIMULADO (SPEC-006A): la prueba lee ahí el código de ingreso por su API (http://localhost:8025, solo loopback).
 x-muestra-env: &muestra-env
   GAMIF_DEMO_ALLOWED: "true"
   GAMIF_BALANCE: stub
@@ -8,8 +9,16 @@ x-muestra-env: &muestra-env
   DRAND_URL: https://api.drand.sh
   DRAND_CHAIN: 52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971
   DRAND_MARGIN_SECONDS: "10"
+  MAIL_MAILER: smtp
+  MAIL_HOST: mailpit
+  MAIL_PORT: "1025"
+  MAIL_FROM_ADDRESS: muestra@ejemplo.com
 
 services:
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports:
+      - "127.0.0.1:8025:8025"
   backend:
     environment:
       <<: *muestra-env
@@ -22,6 +31,8 @@ services:
       PHP_CLI_SERVER_WORKERS: "4"
       VERIFIER_DIR: /verifier
       CONTRACT_DIR: /docs
+    depends_on:
+      - mailpit
   worker:
     build:
       context: ./backend
@@ -40,6 +51,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     volumes:
       - ./backend:/var/www/html
       - backend-vendor:/var/www/html/vendor
