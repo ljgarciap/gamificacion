@@ -22,14 +22,6 @@ if (config('gamification.dev.enabled') && app()->environment('local', 'testing')
     Route::get('/dev/demo-codes', DevDemoCodesController::class);
 }
 
-// MODO DEMO: lo mismo que lo anterior pero apto para un servidor de demostración (cualquier entorno). Requiere activarlo A PROPÓSITO con
-// GAMIF_DEMO_MODE=true; apagado, las rutas no existen. Con límite de peticiones por IP. El emisor es `gamification.dev.issuer` (debe existir
-// en GAMIF_HOSTS). Las rutas /v1/dev/* siguen existiendo solo en local/testing.
-if (config('gamification.demo.enabled')) {
-    Route::post('/demo/token', DevTokenController::class)->middleware('throttle:30,1');
-    Route::get('/demo/codes', DevDemoCodesController::class)->middleware('throttle:60,1');
-}
-
 // MUESTRA REAL (SPEC-006): las rutas existen siempre; las enciende y apaga el superadmin desde el panel (`demo_config`). Apagada, `demo.active`
 // responde 404. `status` es la excepción: siempre 200, para que la app sepa si ofrecer el recorrido de la muestra.
 Route::get('/demo/status', [DemoPublicController::class, 'status'])->middleware('throttle:60,1');

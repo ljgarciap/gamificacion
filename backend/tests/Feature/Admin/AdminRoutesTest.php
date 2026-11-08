@@ -20,7 +20,7 @@ final class AdminRoutesTest extends TestCase
     ];
 
     /** Rutas de /v1 sin JWT, a propósito y enumeradas: cualquier otra ruta nueva sin `host.auth` hace fallar la prueba. */
-    private const DEMO_PUBLIC = ['v1/demo/status', 'v1/demo/session', 'v1/demo/token', 'v1/demo/codes'];
+    private const DEMO_PUBLIC = ['v1/demo/status', 'v1/demo/session'];
 
     /** @return list<LaravelRoute> */
     private function adminRoutes(): array

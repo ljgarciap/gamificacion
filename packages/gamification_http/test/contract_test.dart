@@ -88,7 +88,15 @@ void main() {
         .whereType<File>()
         .map((f) => f.uri.pathSegments.last.replaceAll('.json', ''))
         .toSet();
-    expect(onDisk, {...redemptionExamples, ...errorExamples.keys, 'balance'});
+    // Los demo-* los cubre demo_contract_test.dart (la muestra tiene su propio cliente, DemoApi).
+    expect(onDisk, {
+      ...redemptionExamples,
+      ...errorExamples.keys,
+      'balance',
+      'demo-session',
+      'demo-order',
+      'demo-status',
+    });
   });
 
   group('redenciones', () {

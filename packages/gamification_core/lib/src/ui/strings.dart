@@ -1,5 +1,6 @@
 import 'dart:ui' show Locale;
 
+import '../data/demo_backend.dart' show DemoFailure;
 import '../models/failure.dart';
 import '../models/money.dart';
 import '../models/prize.dart';
@@ -103,6 +104,38 @@ abstract class GamificationStrings {
 
   /// Botón para jugar el siguiente giro extra; [remaining] es cuántos quedan por jugar.
   String spinAgain(int remaining);
+  String get demoBanner;
+  String get demoAccessTitle;
+  String get demoAccessBody;
+  String demoAccessAs(String name);
+  String get demoEnter;
+  String get demoShopTitle;
+  String demoAddOne(String name);
+  String demoRemoveOne(String name);
+  String demoQuantity(String name, int n);
+  String get demoTotal;
+  String demoYouGet(String balance, int codes);
+  String demoBelowMin(String min);
+  String get demoEmptyCart;
+  String get demoPay;
+  String get demoPaying;
+  String get demoLoadedTitle;
+  String demoCredited(String amount);
+  String get demoNewBalance;
+  String demoCodesDelivered(int n);
+  String get demoCapReached;
+  String get demoSeeCodes;
+  String get demoCodesTitle;
+  String get demoCodesEmpty;
+  String get demoPlay;
+  String get demoPlayed;
+  String get demoBuyMore;
+  String get demoRetry;
+  String get demoUnavailable;
+  String demoStepLabel(int index);
+  String demoGameName(String game);
+  String demoFailure(DemoFailure reason, {String? message});
+
   String failure(FailureReason reason, {Duration? retryAfter});
 
   /// Texto del premio para pantalla y lectores de pantalla.
@@ -352,6 +385,89 @@ class EsStrings extends GamificationStrings {
 
   @override
   String spinAgain(int remaining) => remaining == 1 ? 'Girar de nuevo' : 'Girar de nuevo ($remaining)';
+
+  @override
+  String get demoBanner => 'MUESTRA · Datos simulados, sin dinero real';
+  @override
+  String get demoAccessTitle => 'Bienvenido a la muestra';
+  @override
+  String get demoAccessBody =>
+      'Vas a vivir el recorrido completo: entras, compras en línea, recibes saldo y un código sorteado al azar.';
+  @override
+  String demoAccessAs(String name) => 'Entrarás como $name';
+  @override
+  String get demoEnter => 'Entrar a la tienda';
+  @override
+  String get demoShopTitle => 'Tienda';
+  @override
+  String demoAddOne(String name) => 'Agregar uno de $name';
+  @override
+  String demoRemoveOne(String name) => 'Quitar uno de $name';
+  @override
+  String demoQuantity(String name, int n) => '$name: $n';
+  @override
+  String get demoTotal => 'Total';
+  @override
+  String demoYouGet(String balance, int codes) =>
+      codes == 1 ? 'Recibirás $balance de saldo y 1 código' : 'Recibirás $balance de saldo y $codes códigos';
+  @override
+  String demoBelowMin(String min) => 'La compra mínima es $min.';
+  @override
+  String get demoEmptyCart => 'Elige al menos un producto.';
+  @override
+  String get demoPay => 'Pagar (simulado)';
+  @override
+  String get demoPaying => 'Procesando el pago simulado…';
+  @override
+  String get demoLoadedTitle => 'Saldo cargado';
+  @override
+  String demoCredited(String amount) => '+ $amount a tu saldo';
+  @override
+  String get demoNewBalance => 'Tu saldo ahora';
+  @override
+  String demoCodesDelivered(int n) => n == 1 ? '1 código para jugar' : '$n códigos para jugar';
+  @override
+  String get demoCapReached =>
+      'Llegaste al tope de códigos de la muestra: te entregamos menos de los que correspondían.';
+  @override
+  String get demoSeeCodes => 'Ver mis códigos';
+  @override
+  String get demoCodesTitle => 'Tus códigos';
+  @override
+  String get demoCodesEmpty => 'Aún no tienes códigos. Compra para recibirlos.';
+  @override
+  String get demoPlay => 'Jugar';
+  @override
+  String get demoPlayed => 'Jugado';
+  @override
+  String get demoBuyMore => 'Seguir comprando';
+  @override
+  String get demoRetry => 'Reintentar';
+  @override
+  String get demoUnavailable => 'La muestra no está disponible en este momento.';
+  @override
+  String demoStepLabel(int index) => const ['Acceso', 'Tienda', 'Pago', 'Saldo', 'Tus códigos', 'Juego'][index];
+  @override
+  String demoGameName(String game) => switch (game) {
+    'roulette' => 'Ruleta',
+    'scratch' => 'Raspa y Gana',
+    'memory' => 'Concéntrese',
+    'dice' => 'Dados',
+    'bomb' => 'Bomba 8',
+    'bingo' => 'Bingo en vivo',
+    'poker' => 'Póker del crupier',
+    _ => game,
+  };
+  @override
+  String demoFailure(DemoFailure reason, {String? message}) => switch (reason) {
+    DemoFailure.off => 'La muestra no está disponible en este momento.',
+    DemoFailure.sessionInvalid => 'Tu sesión de la muestra venció. Vuelve a entrar.',
+    DemoFailure.poolExhausted => 'La muestra se quedó sin códigos. Avisa al organizador.',
+    DemoFailure.invalidPurchase => message ?? 'La compra no es válida.',
+    DemoFailure.rateLimited => 'Demasiados intentos. Espera un momento.',
+    DemoFailure.network => 'Sin conexión. Verifica tu internet e inténtalo de nuevo.',
+    DemoFailure.unknown => 'Ocurrió un error inesperado. Inténtalo de nuevo.',
+  };
 
   @override
   String failure(FailureReason reason, {Duration? retryAfter}) => switch (reason) {
@@ -611,6 +727,89 @@ class EnStrings extends GamificationStrings {
 
   @override
   String spinAgain(int remaining) => remaining == 1 ? 'Spin again' : 'Spin again ($remaining)';
+
+  @override
+  String get demoBanner => 'DEMO · Simulated data, no real money';
+  @override
+  String get demoAccessTitle => 'Welcome to the demo';
+  @override
+  String get demoAccessBody =>
+      'You will live the whole journey: sign in, buy online, receive balance and a randomly drawn code.';
+  @override
+  String demoAccessAs(String name) => 'You will enter as $name';
+  @override
+  String get demoEnter => 'Enter the shop';
+  @override
+  String get demoShopTitle => 'Shop';
+  @override
+  String demoAddOne(String name) => 'Add one $name';
+  @override
+  String demoRemoveOne(String name) => 'Remove one $name';
+  @override
+  String demoQuantity(String name, int n) => '$name: $n';
+  @override
+  String get demoTotal => 'Total';
+  @override
+  String demoYouGet(String balance, int codes) => codes == 1
+      ? 'You will receive $balance of balance and 1 code'
+      : 'You will receive $balance of balance and $codes codes';
+  @override
+  String demoBelowMin(String min) => 'The minimum purchase is $min.';
+  @override
+  String get demoEmptyCart => 'Pick at least one product.';
+  @override
+  String get demoPay => 'Pay (simulated)';
+  @override
+  String get demoPaying => 'Processing the simulated payment…';
+  @override
+  String get demoLoadedTitle => 'Balance loaded';
+  @override
+  String demoCredited(String amount) => '+ $amount to your balance';
+  @override
+  String get demoNewBalance => 'Your balance now';
+  @override
+  String demoCodesDelivered(int n) => n == 1 ? '1 code to play' : '$n codes to play';
+  @override
+  String get demoCapReached => 'You reached the demo code limit: you received fewer codes than you earned.';
+  @override
+  String get demoSeeCodes => 'See my codes';
+  @override
+  String get demoCodesTitle => 'Your codes';
+  @override
+  String get demoCodesEmpty => 'You have no codes yet. Buy to receive some.';
+  @override
+  String get demoPlay => 'Play';
+  @override
+  String get demoPlayed => 'Played';
+  @override
+  String get demoBuyMore => 'Keep shopping';
+  @override
+  String get demoRetry => 'Retry';
+  @override
+  String get demoUnavailable => 'The demo is not available right now.';
+  @override
+  String demoStepLabel(int index) => const ['Access', 'Shop', 'Payment', 'Balance', 'Your codes', 'Game'][index];
+  @override
+  String demoGameName(String game) => switch (game) {
+    'roulette' => 'Roulette',
+    'scratch' => 'Scratch & Win',
+    'memory' => 'Memory',
+    'dice' => 'Dice',
+    'bomb' => 'Bomb 8',
+    'bingo' => 'Live bingo',
+    'poker' => 'Dealer poker',
+    _ => game,
+  };
+  @override
+  String demoFailure(DemoFailure reason, {String? message}) => switch (reason) {
+    DemoFailure.off => 'The demo is not available right now.',
+    DemoFailure.sessionInvalid => 'Your demo session expired. Sign in again.',
+    DemoFailure.poolExhausted => 'The demo ran out of codes. Tell the organizer.',
+    DemoFailure.invalidPurchase => message ?? 'The purchase is not valid.',
+    DemoFailure.rateLimited => 'Too many attempts. Wait a moment.',
+    DemoFailure.network => 'No connection. Check your internet and try again.',
+    DemoFailure.unknown => 'An unexpected error occurred. Try again.',
+  };
 
   @override
   String failure(FailureReason reason, {Duration? retryAfter}) => switch (reason) {

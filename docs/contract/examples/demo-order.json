@@ -1,0 +1,18 @@
+{
+    "orderId": "00000000-0000-4000-8000-000000000001",
+    "total": 40000,
+    "credited": 4000,
+    "codes": [
+        {
+            "code": "RULETA-AAAA-BBBB-CCC",
+            "game": "roulette"
+        },
+        {
+            "code": "RULETA-AAAA-BBBB-CCC",
+            "game": "roulette"
+        }
+    ],
+    "capReached": false,
+    "balance": 9000,
+    "replayed": false
+}

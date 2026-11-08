@@ -6,23 +6,15 @@ import 'package:http/http.dart' as http;
 
 import 'token_provider.dart';
 
-/// Utilidades de la app independiente para autenticarse y mostrar códigos de prueba sin una app host.
-///
-/// Dos modos del servidor: desarrollo local (`/v1/dev/*`, solo existen con APP_ENV=local) y modo demo ([demoMode], `/v1/demo/*`, el servidor
-/// los activa a propósito con GAMIF_DEMO_MODE=true y vale también en un servidor de demostración).
+/// Utilidades de DESARROLLO LOCAL de la app independiente: token y códigos de prueba sin una app host (`/v1/dev/*`, solo existen con
+/// APP_ENV=local). La muestra real de un servidor de demostración no usa esto: ver `DemoApi` (SPEC-006).
 class DevClient {
-  DevClient({
-    required String baseUrl,
-    http.Client? client,
-    this.timeout = const Duration(seconds: 10),
-    this.demoMode = false,
-  }) : _base = Uri.parse(baseUrl.trim()),
-       _client = client ?? http.Client();
+  DevClient({required String baseUrl, http.Client? client, this.timeout = const Duration(seconds: 10)})
+    : _base = Uri.parse(baseUrl.trim()),
+      _client = client ?? http.Client();
 
-  /// Usa las rutas `/v1/demo/*` en lugar de `/v1/dev/*`.
-  final bool demoMode;
-  String get _tokenPath => demoMode ? '/v1/demo/token' : '/v1/dev/token';
-  String get _codesPath => demoMode ? '/v1/demo/codes' : '/v1/dev/demo-codes';
+  static const _tokenPath = '/v1/dev/token';
+  static const _codesPath = '/v1/dev/demo-codes';
 
   final Uri _base;
   final http.Client _client;

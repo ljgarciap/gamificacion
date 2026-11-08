@@ -11,7 +11,14 @@ import 'flow_state.dart';
 
 /// Pantalla 1 (ux-spec-001): ingreso y validación del código.
 class CodeEntryScreen extends ConsumerStatefulWidget {
-  const CodeEntryScreen({super.key, required this.title, this.helpText, this.demoCodes, this.demoCodesLoader});
+  const CodeEntryScreen({
+    super.key,
+    required this.title,
+    this.helpText,
+    this.demoCodes,
+    this.demoCodesLoader,
+    this.initialCode,
+  });
 
   final String title;
 
@@ -24,12 +31,15 @@ class CodeEntryScreen extends ConsumerStatefulWidget {
   /// Cargador de códigos de prueba; si existe, manda sobre [demoCodes]. Se consulta al aparecer la pantalla.
   final Future<Map<String, String>> Function()? demoCodesLoader;
 
+  /// Texto con el que arranca el campo (el código que ya se intentó canjear).
+  final String? initialCode;
+
   @override
   ConsumerState<CodeEntryScreen> createState() => _CodeEntryScreenState();
 }
 
 class _CodeEntryScreenState extends ConsumerState<CodeEntryScreen> {
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(text: widget.initialCode);
   Timer? _tick;
 
   /// Códigos que devolvió el cargador (null mientras carga o si no hay cargador).

@@ -42,7 +42,6 @@ abstract class TestCase extends BaseTestCase
         'QUEUE_CONNECTION' => 'sync',
         'GAMIF_CORS_ORIGINS' => '',
         'GAMIF_DEV_ENDPOINTS' => 'false',
-        'GAMIF_DEMO_MODE' => 'false',
         'GAMIF_DEMO_ALLOWED' => 'false',
         'GAMIF_BALANCE' => 'stub',
         'GAMIF_BEACON' => 'drand',

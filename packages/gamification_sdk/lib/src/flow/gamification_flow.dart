@@ -24,6 +24,7 @@ class GamificationFlow extends StatelessWidget {
     this.showBalance = true,
     this.demoCodes,
     this.demoCodesLoader,
+    this.initialCode,
     this.onClose,
     this.onContinue,
     this.onBackHome,
@@ -45,6 +46,10 @@ class GamificationFlow extends StatelessWidget {
   /// Alternativa a [demoCodes] para códigos que cambian (p. ej. los que aún se pueden canjear en un backend de desarrollo): se consulta cada
   /// vez que aparece la pantalla de código, así los ya usados desaparecen. Un error al cargar se ignora (es solo una ayuda).
   final Future<Map<String, String>> Function()? demoCodesLoader;
+
+  /// Código que se canjea apenas se abre el flujo (la muestra lo entrega la tienda: la persona no lo teclea). Si el canje falla, queda escrito en
+  /// la pantalla de código para reintentar.
+  final String? initialCode;
 
   /// Si es null no se dibuja el botón cerrar.
   final VoidCallback? onClose;
@@ -83,6 +88,8 @@ class _FlowRootState extends ConsumerState<_FlowRoot> {
       if (!mounted) return;
       o.events.emit(const ReadyEvent());
       if (o.showBalance) ref.read(flowControllerProvider.notifier).loadBalance();
+      final code = o.initialCode;
+      if (code != null) ref.read(flowControllerProvider.notifier).submit(code);
     });
   }
 
@@ -143,6 +150,7 @@ class _FlowRootState extends ConsumerState<_FlowRoot> {
           helpText: o.helpText,
           demoCodes: o.demoCodes,
           demoCodesLoader: o.demoCodesLoader,
+          initialCode: o.initialCode,
         );
       case FlowStage.playing:
         final redemption = state.redemption!;

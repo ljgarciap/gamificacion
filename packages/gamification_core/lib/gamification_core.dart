@@ -2,6 +2,7 @@
 /// registro de juegos. Los juegos y el SDK dependen de este paquete, nunca al revés.
 library;
 
+export 'src/data/demo_backend.dart';
 export 'src/data/mock_repository.dart';
 export 'src/data/repository.dart';
 export 'src/events.dart';

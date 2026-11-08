@@ -1,0 +1,29 @@
+{
+    "token": "eyJ.demo.token",
+    "expiresIn": 600,
+    "userId": "standalone-dev:muestra.0123456789abcdef01234567",
+    "subject": "muestra.0123456789abcdef01234567",
+    "resumed": false,
+    "displayName": "Cliente de muestra",
+    "currency": "COP",
+    "balance": 5000,
+    "products": [
+        {
+            "id": "recarga-20",
+            "name": "Recarga $20.000",
+            "price": 20000
+        },
+        {
+            "id": "recarga-50",
+            "name": "Recarga $50.000",
+            "price": 50000
+        }
+    ],
+    "rules": {
+        "minPurchase": 10000,
+        "balancePercent": 10,
+        "codeStepAmount": 20000,
+        "maxCodesPerSession": 10,
+        "maxCodesPerPurchase": 3
+    }
+}
