@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Domain\Admin\AdminException;
 use App\Domain\Demo\DemoConfig;
+use App\Domain\Demo\DemoRuns;
 use App\Domain\Demo\DemoSwitch;
 use App\Http\ApiError;
 use Illuminate\Http\JsonResponse;
@@ -14,7 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 /** Muestra real / modo demo (SPEC-006): configuración del escenario e interruptor. Solo superadmin (`demo.manage`). */
 final class DemoController
 {
-    public function __construct(private readonly DemoSwitch $switch) {}
+    public function __construct(private readonly DemoSwitch $switch, private readonly DemoRuns $runs) {}
 
     public function show(): JsonResponse
     {
@@ -35,6 +36,7 @@ final class DemoController
                 'serverAllowed' => (bool) config('gamification.demo.allowed'),
             ],
             'pool' => $pool,
+            'lastRun' => $this->runs->last(),
             'limits' => [
                 'maxProducts' => DemoConfig::MAX_PRODUCTS, 'maxAmount' => DemoConfig::MAX_AMOUNT,
                 'maxCodesPerPurchase' => DemoConfig::MAX_CODES_PER_PURCHASE, 'maxPool' => DemoConfig::MAX_POOL,
@@ -63,6 +65,47 @@ final class DemoController
     public function disable(Request $request): JsonResponse|Response
     {
         return $this->guarded(fn () => $this->switch->disable($this->actor($request)));
+    }
+
+    /** Pide sembrar (solo si no hay códigos disponibles). La corrida la ejecuta el worker. */
+    public function seed(Request $request): JsonResponse|Response
+    {
+        return $this->requestRun($request, 'seed');
+    }
+
+    /** Pide reiniciar: apaga la muestra, retira el pool y siembra uno nuevo. */
+    public function reset(Request $request): JsonResponse|Response
+    {
+        return $this->requestRun($request, 'reset');
+    }
+
+    public function run(int $id): JsonResponse
+    {
+        $run = $this->runs->find($id);
+
+        return $run === null
+            ? ApiError::response('notFound', 'Corrida desconocida.', 404)
+            : response()->json($run, 200, ['Cache-Control' => 'no-store']);
+    }
+
+    private function requestRun(Request $request, string $kind): JsonResponse|Response
+    {
+        try {
+            if (! (bool) config('gamification.demo.allowed')) {
+                throw new AdminException('wrongState', 'Este servidor no es de demostración (falta GAMIF_DEMO_ALLOWED=true).', 409);
+            }
+            if ($this->switch->row()['config'] === null) {
+                throw new AdminException('wrongState', 'Guarda primero la configuración de la muestra.', 409);
+            }
+            if ($kind === 'seed' && (int) DB::selectOne("SELECT count(*) AS n FROM demo_pool WHERE state = 'available'")->n > 0) {
+                throw new AdminException('wrongState', 'Ya hay códigos disponibles: usa «Reiniciar» para empezar de cero.', 409);
+            }
+            $id = $this->runs->request($kind, $this->actor($request));
+        } catch (AdminException $e) {
+            return ApiError::response($e->errorCode, $e->getMessage(), $e->status);
+        }
+
+        return response()->json(['runId' => $id], 202, ['Cache-Control' => 'no-store']);
     }
 
     private function guarded(\Closure $action): JsonResponse|Response

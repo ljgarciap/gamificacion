@@ -107,4 +107,7 @@ Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::DEMO_MANAGE])->g
     Route::put('/demo/config', [DemoController::class, 'updateConfig']);
     Route::post('/demo/enable', [DemoController::class, 'enable']);
     Route::post('/demo/disable', [DemoController::class, 'disable']);
+    Route::post('/demo/seed', [DemoController::class, 'seed']);
+    Route::post('/demo/reset', [DemoController::class, 'reset']);
+    Route::get('/demo/runs/{id}', [DemoController::class, 'run'])->whereNumber('id');
 });

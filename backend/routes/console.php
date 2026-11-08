@@ -12,3 +12,6 @@ Artisan::command('inspire', function () {
 // y las exportaciones en claro no descargadas no se destruyen (revisión P10, hallazgo 1).
 Schedule::command('gamification:outbox:dispatch')->everyTenSeconds()->withoutOverlapping(5);
 Schedule::command('admin:purge-exports')->everyMinute()->withoutOverlapping(5);
+
+// Muestra real (SPEC-006): caducidad y corridas de sembrado/reinicio pedidas desde el panel. Solo en servidores declarados de demostración.
+Schedule::command('gamification:demo:process')->everyMinute()->withoutOverlapping(60)->when(fn (): bool => (bool) config('gamification.demo.allowed'));

@@ -115,6 +115,7 @@ final class DemoConfig
             $total += $none;
             $prizes !== [] || $none > 0 || $fail("mix.$game: sin premios ni códigos sin premio.");
             $mix[$game] = ['prizes' => $prizes, 'noPrizeCount' => $none];
+            DemoGameTemplates::assertPlayable($game, $mix[$game]);
         }
         $total <= self::MAX_POOL || $fail('mix: el pool total no puede superar '.self::MAX_POOL.' códigos (hay '.$total.').');
 

@@ -152,9 +152,21 @@ components:
                   properties: {type: {type: string, enum: [money, coupon, points]}, amount: {type: integer}, count: {type: integer}}
               noPrizeCount: {type: integer}
         ttlHours: {type: [integer, "null"]}
+    DemoRun:
+      type: object
+      required: [id, kind, state, error, requestedBy, createdAt, startedAt, finishedAt]
+      properties:
+        id: {type: integer}
+        kind: {type: string, enum: [seed, reset]}
+        state: {type: string, enum: [pending, running, done, failed]}
+        error: {type: [string, "null"]}
+        requestedBy: {type: string}
+        createdAt: {type: string}
+        startedAt: {type: [string, "null"]}
+        finishedAt: {type: [string, "null"]}
     DemoState:
       type: object
-      required: [configured, config, version, status, pool, limits]
+      required: [configured, config, version, status, pool, lastRun, limits]
       properties:
         configured: {type: boolean}
         config: {$ref: '#/components/schemas/DemoConfig'}
@@ -167,6 +179,8 @@ components:
           type: object
           required: [available, assigned, retired]
           properties: {available: {type: integer}, assigned: {type: integer}, retired: {type: integer}}
+        lastRun:
+          oneOf: [{$ref: '#/components/schemas/DemoRun'}, {type: 'null'}]
         limits: {type: object}
     SettingHistory:
       type: object
@@ -890,6 +904,38 @@ paths:
       x-permission: demo.manage
       responses:
         '204': {description: Apagada}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /demo/seed:
+    post:
+      operationId: postDemoSeed
+      summary: "Pide sembrar el pool de la muestra con la mezcla guardada (solo si no hay códigos disponibles); lo ejecuta el worker"
+      x-permission: demo.manage
+      responses:
+        '202': {description: Corrida pedida, content: {application/json: {schema: {type: object, required: [runId], properties: {runId: {type: integer}}}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /demo/reset:
+    post:
+      operationId: postDemoReset
+      summary: "Pide reiniciar: apaga la muestra, retira el pool y siembra uno nuevo; lo ejecuta el worker"
+      x-permission: demo.manage
+      responses:
+        '202': {description: Corrida pedida, content: {application/json: {schema: {type: object, required: [runId], properties: {runId: {type: integer}}}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /demo/runs/{id}:
+    get:
+      operationId: getDemoRun
+      summary: "Estado de una corrida de sembrado/reinicio"
+      x-permission: demo.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/DemoRun'}}}}
         '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
         '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
         '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
