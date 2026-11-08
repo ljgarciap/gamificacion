@@ -4,6 +4,18 @@ import { apiCall, login } from './support';
 
 interface State { configured: boolean; config: Record<string, unknown>; status: { serverAllowed: boolean; enabled: boolean } }
 
+/** Configuración de partida de las pruebas que editan: no dependen de lo que haya dejado otra corrida. */
+const KNOWN = {
+  user: { displayName: 'Cliente de muestra', hostUserPrefix: 'muestra', initialBalance: 0 },
+  products: [
+    { id: 'recarga-20', name: 'Recarga $20.000', price: 20_000 },
+    { id: 'recarga-50', name: 'Recarga $50.000', price: 50_000 },
+  ],
+  credit: { balancePercent: 10, minPurchase: 10_000, codeStepAmount: 20_000, maxCodesPerPurchase: 3, maxCodesPerSession: 10 },
+  mix: { roulette: { prizes: [{ type: 'money', amount: 5_000, count: 2 }], noPrizeCount: 8 } },
+  ttlHours: 24,
+};
+
 test.describe('Muestra (SPEC-006 M4)', () => {
   test('solo el superadmin la ve; el operador no tiene la entrada ni la ruta ni la API', async ({ page }) => {
     await login(page, 'operator');
@@ -16,8 +28,11 @@ test.describe('Muestra (SPEC-006 M4)', () => {
 
   test('el superadmin edita el escenario: totales y vista previa en vivo, validación y guardado', async ({ page }) => {
     await login(page, 'superadmin');
+    await apiCall(page, 'POST', '/demo/disable').catch(() => undefined); // estado conocido: otras corridas pudieron dejarla encendida
     const original = (await apiCall<State>(page, 'GET', '/demo')).config;
+    await apiCall(page, 'PUT', '/demo/config', KNOWN);
     try {
+      await page.goto('/');
       await page.getByRole('link', { name: 'Muestra' }).click();
       await expect(page).toHaveURL(/\/muestra$/);
       await expect(page.getByRole('heading', { level: 1, name: 'Muestra' })).toBeVisible();
@@ -74,6 +89,7 @@ test.describe('Muestra (SPEC-006 M4)', () => {
   test('una configuración que el cliente acepta pero el servidor rechaza muestra el mensaje del servidor', async ({ page }) => {
     await login(page, 'superadmin');
     const original = (await apiCall<State>(page, 'GET', '/demo')).config;
+    await apiCall(page, 'PUT', '/demo/config', KNOWN);
     try {
       await page.goto('/muestra');
       const game = page.getByTestId('mix-game').first();
@@ -91,6 +107,7 @@ test.describe('Muestra (SPEC-006 M4)', () => {
 
   test('sin GAMIF_DEMO_ALLOWED avisa y no deja sembrar, reiniciar ni encender; cumple accesibilidad', async ({ page }) => {
     await login(page, 'superadmin');
+    await apiCall(page, 'POST', '/demo/disable').catch(() => undefined);
     const s = await apiCall<State>(page, 'GET', '/demo');
     await page.goto('/muestra');
     await expect(page.getByTestId('status-chip')).toBeVisible();

@@ -6,8 +6,9 @@
 # - Genera deploy/demo.env con secretos aleatorios SOLO si no existe (nunca pisa uno existente: perder GAMIF_PRIZE_MAP_KEY deja ilegibles los
 #   lotes comprometidos) y guarda la clave de la compuerta y la contraseña temporal del superadmin en deploy/demo-credentials.txt (0600).
 # - Es idempotente: en los despliegues siguientes conserva secretos y datos, reconstruye lo que cambió y no vuelve a sembrar (ver CI/CD en docs/ci-cd.md).
-# - Construye las imágenes de una en una (un servidor chico no aguanta las compilaciones de Flutter y Angular en paralelo), migra, crea el
-#   superadmin y siembra los códigos de prueba (espera a la baliza real: ~1 minuto por juego) en segundo plano.
+# - Construye las imágenes de una en una (un servidor chico no aguanta las compilaciones de Flutter y Angular en paralelo), migra y crea el
+#   superadmin. La MUESTRA no se siembra aquí: el superadmin la configura, siembra y enciende desde el panel («Muestra»); el servicio worker
+#   ejecuta la siembra (espera a la baliza real).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -51,6 +52,15 @@ else
   echo "==> $ENVFILE ya existe: se conserva"
 fi
 
+# Entornos creados antes de SPEC-006: GAMIF_DEMO_MODE (emisor abierto) se retiró y la muestra la declara GAMIF_DEMO_ALLOWED. Solo se AGREGA lo que
+# falta (nunca se pisan secretos ni valores existentes).
+if grep -q '^GAMIF_DEMO_MODE=' "$ENVFILE"; then
+  echo "==> $ENVFILE: se retira GAMIF_DEMO_MODE (ya no existe)"
+  grep -v '^GAMIF_DEMO_MODE=' "$ENVFILE" > "$ENVFILE.tmp" && cat "$ENVFILE.tmp" > "$ENVFILE" && rm -f "$ENVFILE.tmp"
+fi
+grep -q '^GAMIF_DEMO_ALLOWED=' "$ENVFILE" || { echo "==> $ENVFILE: se agrega GAMIF_DEMO_ALLOWED=true"; echo 'GAMIF_DEMO_ALLOWED=true' >> "$ENVFILE"; }
+grep -q '^GAMIF_BALANCE=' "$ENVFILE" || { echo "==> $ENVFILE: se agrega GAMIF_BALANCE=stub"; echo 'GAMIF_BALANCE=stub' >> "$ENVFILE"; }
+
 echo "==> Construyendo las imágenes (una a la vez)"
 export COMPOSE_PARALLEL_LIMIT=1
 "${COMPOSE[@]}" build
@@ -68,14 +78,11 @@ if [ -n "$ADMIN_EMAIL" ]; then
   { echo "Superadmin: ${ADMIN_EMAIL}"; echo "$OUT" | grep "Contraseña temporal" || echo "(ya existía o falló: ver la salida)"; } >> "$CREDS"
 fi
 
-# La siembra crea lotes NUEVOS cada vez: solo se hace en el primer despliegue (marca deploy/.seeded) o si se pide con DEMO_SEED=1.
-if [ "${DEMO_SEED:-auto}" = "1" ] || { [ "${DEMO_SEED:-auto}" = "auto" ] && [ ! -f deploy/.seeded ]; }; then
-  echo "==> Sembrando los códigos de prueba en segundo plano (tarda varios minutos: espera a la baliza real)"
-  touch deploy/.seeded
-  setsid nohup "${COMPOSE[@]}" exec -T app php artisan gamification:demo:seed < /dev/null > deploy/seed.log 2>&1 &
-  echo "    avance: tail -f deploy/seed.log"
-else
-  echo "==> Códigos de prueba: ya sembrados (DEMO_SEED=1 para sembrar más)"
+# Campañas de demostración anteriores a SPEC-006 (sin la marca is_demo): se adoptan UNA vez. Este script solo corre en el servidor de demostración
+# (GAMIF_DEMO_ALLOWED lo pone él mismo), que por decisión (D24) no tiene campañas reales; el comando queda en la bitácora.
+if [ ! -f deploy/.adopted ]; then
+  echo "==> Adoptando las campañas de demostración anteriores (una sola vez)"
+  "${COMPOSE[@]}" exec -T app php artisan gamification:demo:adopt-legacy --yes < /dev/null && touch deploy/.adopted
 fi
 
 echo "==> Comprobando que la API responde"

@@ -30,14 +30,14 @@ const POLL_MS = 2000;
     th { color: var(--gp-muted); font-weight: 600; }
     .table-wrap { overflow-x: auto; }
     .chip { display: inline-block; padding: 2px 10px; border-radius: 10px; font-weight: 700; background: var(--gp-background); }
-    .chip.on { background: var(--gp-success); color: #fff; }
+    .chip.on { background: var(--gp-navy); color: #fff; }
     .chip.expired { background: var(--gp-warning-surface); color: var(--gp-warning); }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
     .game { border: 1px solid var(--gp-background); border-radius: 8px; padding: 12px; margin: 12px 0; }
     .game h3 { margin: 0 0 8px; font-size: 14px; display: flex; gap: 12px; align-items: center; }
     .total { margin-left: auto; font-weight: 400; }
     .errors { color: var(--gp-error); margin: 8px 0 0; padding-left: 18px; }
-    .ok { color: var(--gp-success); font-weight: 600; }
+    .ok { color: var(--gp-navy); font-weight: 600; }
     .confirm { margin-top: 12px; }
     .num { width: 120px; }
     .wide { width: 100%; box-sizing: border-box; }

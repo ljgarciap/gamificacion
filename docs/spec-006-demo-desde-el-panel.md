@@ -1,6 +1,6 @@
 # SPEC-006 — Muestra real (modo demo) activada y configurada desde el panel
 
-Estado: **BORRADOR** (pendiente de aprobación de Luis). Rol: Analista. Fecha: 2026-11-07.
+Estado: **APROBADA e implementada** (M1–M6, 2026-11-08; ver `docs/diseno-spec-006.md` para el diseño final, que reemplaza la propuesta de `Settings` por la tabla `demo_config`, y `docs/qa-spec-006.md`). Rol: Analista. Fecha: 2026-11-07.
 
 ## 1. Objetivo
 Poder hacer una **muestra realista** del flujo completo sin host real: un usuario simulado entra, hace una compra en línea, se le carga saldo según reglas configurables y la app le entrega **un código sorteado al azar** de un lote cuyo resultado ya está predefinido. Todo se configura y se activa **solo desde el panel de administración**.

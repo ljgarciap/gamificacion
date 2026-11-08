@@ -17,8 +17,8 @@ Todos los pasos se comprobaron desde un clon limpio del repositorio antes de pub
 
 ## Cómo se despliega
 1. Se prueba el commit. Si falla algo, **no se despliega**.
-2. `rsync` sube el árbol del commit a `/opt/gamificacion` en el servidor (sin `.git`) y borra lo que ya no existe. **Se conservan** `deploy/demo.env` (secretos), `deploy/demo-credentials.txt`, `deploy/seed.log` y `deploy/.seeded`.
-3. `deploy/demo-up.sh` reconstruye lo que cambió, levanta, migra la base (`migrate --force`) y comprueba que `/up` responde. **No vuelve a sembrar** códigos de prueba (solo la primera vez o con `DEMO_SEED=1`) y no imprime secretos en el registro.
+2. `rsync` sube el árbol del commit a `/opt/gamificacion` en el servidor (sin `.git`) y borra lo que ya no existe. **Se conservan** `deploy/demo.env` (secretos), `deploy/demo-credentials.txt`, `deploy/seed.log`, `deploy/.seeded` y `deploy/.adopted`.
+3. `deploy/demo-up.sh` reconstruye lo que cambió, levanta, migra la base (`migrate --force`) y comprueba que `/up` responde. **No siembra nada**: la muestra se configura, siembra y enciende desde el panel (SPEC-006). En un entorno creado antes de SPEC-006 el propio script ajusta `deploy/demo.env` (retira `GAMIF_DEMO_MODE`, agrega `GAMIF_DEMO_ALLOWED=true` y `GAMIF_BALANCE=stub` solo si faltan; nunca pisa secretos) y, **una sola vez**, adopta las campañas de demostración anteriores (`gamification:demo:adopt-legacy --yes`, queda en la bitácora; marca `deploy/.adopted`). No imprime secretos en el registro.
 4. Despliegues simultáneos se encolan (no se pisan).
 
 Es un despliegue con reinicio breve (no «sin cortes»): los contenedores que cambian se recrean. Para una demo basta; para producción real habría que construir imágenes versionadas y hacer un despliegue gradual.
@@ -38,8 +38,6 @@ Pasos:
 ssh-keygen -t ed25519 -N "" -C "gamificacion-ci" -f ./deploy_key
 # 2) Autorizarla en el servidor, sin reenvíos
 ssh root@<host> "echo 'no-agent-forwarding,no-port-forwarding,no-X11-forwarding $(cat deploy_key.pub)' >> ~/.ssh/authorized_keys"
-# 3) Marca de «ya sembrado» (si la demo ya tiene códigos), para que el CI no vuelva a sembrar
-ssh root@<host> "touch /opt/gamificacion/deploy/.seeded"
 # 4) Secretos del repositorio
 gh secret set DEPLOY_SSH_KEY < deploy_key
 gh secret set DEPLOY_HOST --body "<host>"

@@ -1,0 +1,45 @@
+# Override SOLO para el recorrido E2E de la muestra (admin-panel/e2e/muestra-recorrido.spec.ts):
+#   docker compose -f docker-compose.yml -f docker/compose.muestra-e2e.yml up -d --build backend worker web
+# Declara el servidor como de demostración, usa la baliza REAL (drand) y levanta el worker que ejecuta las corridas pedidas desde el panel.
+x-muestra-env: &muestra-env
+  GAMIF_DEMO_ALLOWED: "true"
+  GAMIF_BALANCE: stub
+  GAMIF_BEACON: drand
+  DRAND_URL: https://api.drand.sh
+  DRAND_CHAIN: 52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971
+  DRAND_MARGIN_SECONDS: "10"
+
+services:
+  backend:
+    environment:
+      <<: *muestra-env
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: gamification
+      DB_USERNAME: gamification
+      DB_PASSWORD: gamification
+      PHP_CLI_SERVER_WORKERS: "4"
+      VERIFIER_DIR: /verifier
+      CONTRACT_DIR: /docs
+  worker:
+    build:
+      context: ./backend
+    command: php artisan schedule:work
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      <<: *muestra-env
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: gamification
+      DB_USERNAME: gamification
+      DB_PASSWORD: gamification
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor

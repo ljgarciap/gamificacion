@@ -55,7 +55,8 @@ services:
     security_opt: ["no-new-privileges:true"]
     depends_on: [app]
 
-  # Juegos (Flutter web). Se compila con la URL pública de la API (la ve el navegador) y en modo demo (/v1/demo/*).
+  # Juegos (Flutter web). Se compila con la URL pública de la API (la ve el navegador); si la muestra está encendida en el panel, la app
+  # ofrece el recorrido (GET /v1/demo/status), sin ninguna variable de compilación.
   web:
     build:
       context: ..
@@ -63,7 +64,6 @@ services:
       target: web
       args:
         GAMIF_API_URL: https://${DEMO_DOMAIN:?define DEMO_DOMAIN}
-        GAMIF_DEMO_MODE: "true"
     environment:
       ALLOWED_FRAME_ANCESTORS: "'self'"
 
