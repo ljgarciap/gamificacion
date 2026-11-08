@@ -5,6 +5,8 @@ namespace Tests\Feature\Contract;
 use App\Domain\Demo\DemoConfig;
 use App\Domain\Demo\DemoSeeder;
 use App\Domain\Demo\DemoSwitch;
+use App\Mail\DemoLoginCodeMail;
+use Illuminate\Support\Facades\Mail;
 use Tests\DbTestCase;
 use Tests\Support\HostTokens;
 
@@ -26,6 +28,7 @@ final class DemoContractExamplesTest extends DbTestCase
         parent::setUp();
         HostTokens::configure(['standalone-dev' => ['alg' => 'HS256', 'key' => base64_encode(HostTokens::SECRET)]]);
         config(['gamification.demo.allowed' => true]);
+        Mail::fake();
     }
 
     private function dir(): string
@@ -104,12 +107,17 @@ final class DemoContractExamplesTest extends DbTestCase
         $this->app->make(DemoSeeder::class)->seed($cfg, 'test');
         $switch->enable('test');
 
-        $session = $this->postJson('/v1/demo/session')->assertOk();
+        $req = $this->postJson('/v1/demo/auth/request', ['email' => 'ana@example.com'])->assertOk();
+        $this->check('demo-auth-request', $req->getContent());
+        $session = $this->postJson('/v1/demo/auth/verify', ['email' => 'ana@example.com', 'code' => Mail::sent(DemoLoginCodeMail::class)->last()->code])->assertOk();
         $this->check('demo-session', $session->getContent());
 
         $order = $this->postJson('/v1/demo/purchase', ['items' => [['productId' => 'recarga-20', 'quantity' => 2]]],
             ['Authorization' => 'Bearer '.$session->json('token'), 'Idempotency-Key' => 'compra-0001'])->assertOk();
         $this->check('demo-order', $order->getContent());
+
+        $account = $this->getJson('/v1/demo/account', ['Authorization' => 'Bearer '.$session->json('token')])->assertOk();
+        $this->check('demo-account', $account->getContent());
 
         $status = $this->getJson('/v1/demo/status')->assertOk();
         $this->check('demo-status', $status->getContent());

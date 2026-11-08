@@ -39,7 +39,7 @@ components:
             retryAfter: {type: integer}
     ErrorCode:
       type: string
-      enum: [unauthenticated, forbidden, csrfMismatch, invalidCredentials, invalidCode, invalidCurrent, weakPassword, rateLimited, validationFailed, notFound, duplicate, wrongState, campaignFrozen, lastSuperadmin, approvalRequired, alreadyPending, selfApproval, notRequester, expired, beaconNotReady, beaconUnavailable, batchNotReady, codeInvalid, gone, exportTampered, serverError]
+      enum: [unauthenticated, forbidden, csrfMismatch, invalidCredentials, invalidCode, invalidCurrent, weakPassword, rateLimited, validationFailed, notFound, duplicate, wrongState, campaignFrozen, lastSuperadmin, approvalRequired, alreadyPending, selfApproval, notRequester, expired, beaconNotReady, beaconUnavailable, batchNotReady, codeInvalid, gone, exportTampered, mailUnavailable, serverError]
     IdResponse:
       type: object
       required: [id]
@@ -152,6 +152,24 @@ components:
                   properties: {type: {type: string, enum: [money, coupon, points]}, amount: {type: integer}, count: {type: integer}}
               noPrizeCount: {type: integer}
         ttlHours: {type: [integer, "null"]}
+        accounts:
+          type: object
+          description: "Cuentas persistentes (SPEC-006A). Opcional al guardar: si falta, se usan los valores por defecto."
+          required: [retentionDays, codeTtlMinutes, maxAccounts]
+          properties: {retentionDays: {type: integer}, codeTtlMinutes: {type: integer}, maxAccounts: {type: integer}}
+    DemoAccountList:
+      type: object
+      required: [items, total, page, perPage]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, email, balance, createdAt, lastLoginAt]
+            properties: {id: {type: string}, email: {type: string, description: "Enmascarado: a***@dominio.com"}, balance: {type: integer}, createdAt: {type: string}, lastLoginAt: {type: string}}
+        total: {type: integer}
+        page: {type: integer}
+        perPage: {type: integer}
     DemoRun:
       type: object
       required: [id, kind, state, error, requestedBy, createdAt, startedAt, finishedAt]
@@ -166,7 +184,7 @@ components:
         finishedAt: {type: [string, "null"]}
     DemoState:
       type: object
-      required: [configured, config, version, status, pool, lastRun, limits]
+      required: [configured, config, version, status, pool, lastRun, accounts, mail, limits]
       properties:
         configured: {type: boolean}
         config: {$ref: '#/components/schemas/DemoConfig'}
@@ -181,6 +199,15 @@ components:
           properties: {available: {type: integer}, assigned: {type: integer}, retired: {type: integer}}
         lastRun:
           oneOf: [{$ref: '#/components/schemas/DemoRun'}, {type: 'null'}]
+        accounts:
+          type: object
+          required: [total, active7d]
+          properties: {total: {type: integer}, active7d: {type: integer}}
+        mail:
+          type: object
+          description: "Cómo salen los correos (SMTP o Mailpit). Nunca trae usuario ni clave."
+          required: [mailer, host, port, from]
+          properties: {mailer: {type: string}, host: {type: [string, "null"]}, port: {type: [integer, "null"]}, from: {type: [string, "null"]}}
         limits: {type: object}
     SettingHistory:
       type: object
@@ -920,10 +947,59 @@ paths:
   /demo/reset:
     post:
       operationId: postDemoReset
-      summary: "Pide reiniciar: apaga la muestra, retira el pool y siembra uno nuevo; lo ejecuta el worker"
+      summary: "Pide reiniciar: apaga la muestra, retira el pool y siembra uno nuevo; lo ejecuta el worker. La elección sobre las cuentas es obligatoria"
       x-permission: demo.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accounts]
+              properties:
+                accounts: {type: string, enum: [keep, delete], description: "keep conserva cuentas y saldos; delete borra todas las cuentas (el saldo queda inalcanzable)"}
       responses:
         '202': {description: Corrida pedida, content: {application/json: {schema: {type: object, required: [runId], properties: {runId: {type: integer}}}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /demo/accounts:
+    get:
+      operationId: getDemoAccounts
+      summary: "Cuentas de la muestra con el correo enmascarado (SPEC-006A)"
+      x-permission: demo.manage
+      parameters:
+        - {name: page, in: query, schema: {type: integer}}
+        - {name: perPage, in: query, schema: {type: integer}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/DemoAccountList'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /demo/accounts/{id}:
+    delete:
+      operationId: deleteDemoAccountsId
+      summary: "Borra una cuenta de la muestra (correo y huella; el saldo queda inalcanzable)"
+      x-permission: demo.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '204': {description: Borrada}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /demo/mail/test:
+    post:
+      operationId: postDemoMailTest
+      summary: "Envía un correo de prueba para comprobar el servidor de correo (SMTP o Mailpit)"
+      x-permission: demo.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [to], properties: {to: {type: string}}}
+      responses:
+        '204': {description: Enviado}
         '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
         '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
         '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}

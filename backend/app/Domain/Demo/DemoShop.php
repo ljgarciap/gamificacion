@@ -25,6 +25,7 @@ final class DemoShop
         private readonly DemoSwitch $switch = new DemoSwitch,
         private readonly DemoPoolDraw $draw = new DemoPoolDraw,
         private readonly StubBalanceProvider $balances = new StubBalanceProvider,
+        private readonly DemoAccounts $accounts = new DemoAccounts,
     ) {}
 
     /** @return array<string, mixed> configuración vigente (la muestra debe estar activa y configurada) */
@@ -39,33 +40,79 @@ final class DemoShop
     }
 
     /**
-     * @param  string|null  $resume  sujeto de una sesión anterior (si existe se reanuda con el mismo saldo; si no, se abre una nueva)
+     * Renueva el token de una sesión EXISTENTE con el `subject` que recibió quien verificó su código (ya no hay sesiones anónimas, SPEC-006A).
+     * El sujeto solo vale si su cuenta sigue existiendo: borrada la cuenta, nadie vuelve a llegar a ese saldo.
+     *
      * @return array<string, mixed>
      */
-    public function openSession(?string $resume, ?string $ip): array
+    public function resume(string $resume): array
     {
         $config = $this->config();
-        $resumed = false;
-        $subject = null;
-        if ($resume !== null && preg_match(DemoAccess::SUBJECT_PATTERN, $resume) === 1
-            && DB::selectOne('SELECT 1 AS x FROM demo_sessions WHERE subject = ?', [$resume]) !== null) {
-            $subject = $resume;
-            $resumed = true;
+        if (preg_match(DemoAccess::SUBJECT_PATTERN, $resume) !== 1 || ! $this->accounts->existsForSubject($resume)) {
+            throw new DemoShopException('demoSessionInvalid', 'Tu sesión de la muestra venció. Vuelve a ingresar con tu correo.', 401);
         }
-        if ($subject === null) {
-            $subject = $config['user']['hostUserPrefix'].'.'.bin2hex(random_bytes(12));
-            DB::transaction(function () use ($subject, $ip, $config): void {
-                DB::insert('INSERT INTO demo_sessions (subject, ip) VALUES (?, ?)', [$subject, $ip === null ? null : mb_substr($ip, 0, 64)]);
-                if ($config['user']['initialBalance'] > 0) {
-                    DB::insert("INSERT INTO demo_wallet_ledger (user_id, kind, amount) VALUES (?, 'initial', ?)", [DemoAccess::issuerPrefix().$subject, $config['user']['initialBalance']]);
-                }
-            });
+
+        return $this->session($resume, $config, true, false);
+    }
+
+    /**
+     * Ingreso con un código YA verificado: entra a la cuenta de ese correo o la crea (con el saldo inicial del escenario).
+     *
+     * @return array<string, mixed>
+     */
+    public function login(string $normalizedEmail, ?string $ip): array
+    {
+        $config = $this->config();
+        $account = $this->accounts->findByEmail($normalizedEmail);
+        $isNew = $account === null;
+        if ($isNew) {
+            try {
+                $account = $this->accounts->create($normalizedEmail, $config, $ip);
+            } catch (UniqueConstraintViolationException) {
+                // Dos verificaciones del mismo correo a la vez: gana una; la otra entra a la cuenta recién creada.
+                $account = $this->accounts->findByEmail($normalizedEmail) ?? throw new \LogicException('Cuenta duplicada sin su original.');
+                $isNew = false;
+            }
         }
+        $this->accounts->touch($account['id']);
+
+        return $this->session($account['subject'], $config, ! $isNew, $isNew);
+    }
+
+    /**
+     * Saldo y códigos de la cuenta (para volver a ver lo acumulado). Los códigos se descifran solo para su dueño.
+     *
+     * @return array{balance: int, codes: list<array{code: string, game: string, played: bool}>}
+     */
+    public function account(string $userId): array
+    {
+        $box = new \App\Domain\Admin\SecretBox;
+        $codes = [];
+        $rows = DB::select(
+            "SELECT p.game, encode(p.code_enc, 'hex') AS enc, encode(p.code_hash, 'hex') AS hash, (c.redeemed_at IS NOT NULL) AS played
+             FROM demo_pool p LEFT JOIN codes c ON c.code_hash = p.code_hash
+             WHERE p.assigned_to = ? AND p.state = 'assigned' ORDER BY p.assigned_at, p.id",
+            [$userId],
+        );
+        foreach ($rows as $r) {
+            $codes[] = ['code' => $box->open(hex2bin($r->enc), DemoSeeder::sealContext($r->hash)), 'game' => $r->game, 'played' => (bool) $r->played];
+        }
+
+        return ['balance' => $this->balances->balanceFor($userId), 'codes' => $codes];
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>
+     */
+    private function session(string $subject, array $config, bool $resumed, bool $isNew): array
+    {
         // Nunca más largo que el máximo que el verificador acepta (parámetro del panel): si no, la sesión nacería con un token rechazado.
         $issued = DevTokenIssuer::issue($subject, min(self::SESSION_TOKEN_SECONDS, Settings::int('token.max_lifetime_seconds')));
 
         return [
             'token' => $issued['token'], 'expiresIn' => $issued['expiresIn'], 'userId' => $issued['userId'], 'subject' => $subject, 'resumed' => $resumed,
+            'isNew' => $isNew,
             'displayName' => $config['user']['displayName'], 'currency' => 'COP',
             'balance' => $this->balances->balanceFor($issued['userId']),
             'products' => array_map(static fn (array $p): array => ['id' => $p['id'], 'name' => $p['name'], 'price' => $p['price']], $config['products']),

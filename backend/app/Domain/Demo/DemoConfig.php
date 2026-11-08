@@ -25,6 +25,15 @@ final class DemoConfig
 
     public const MAX_TTL_HOURS = 168;
 
+    /** Techos duros de las cuentas (SPEC-006A): los valores los fija el superadmin dentro de estos rangos. */
+    public const MAX_RETENTION_DAYS = 365;
+
+    public const MAX_ACCOUNTS = 5000;
+
+    public const MIN_CODE_TTL_MINUTES = 5;
+
+    public const MAX_CODE_TTL_MINUTES = 30;
+
     /** Escenario inicial editable. Son datos de muestra, no reglas del sistema. */
     public static function defaults(): array
     {
@@ -39,7 +48,22 @@ final class DemoConfig
                 'roulette' => ['prizes' => [['type' => 'money', 'amount' => 5_000, 'count' => 2]], 'noPrizeCount' => 8],
             ],
             'ttlHours' => 24,
+            'accounts' => self::defaultAccounts(),
         ];
+    }
+
+    /** @return array{retentionDays: int, codeTtlMinutes: int, maxAccounts: int} */
+    public static function defaultAccounts(): array
+    {
+        return ['retentionDays' => 30, 'codeTtlMinutes' => 10, 'maxAccounts' => 500];
+    }
+
+    /** Una configuración guardada ANTES de SPEC-006A no trae `accounts`: se completa con los valores por defecto. @param array<string, mixed> $config */
+    public static function withDefaults(array $config): array
+    {
+        $config['accounts'] ??= self::defaultAccounts();
+
+        return $config;
     }
 
     /**
@@ -50,7 +74,7 @@ final class DemoConfig
     {
         $fail = static fn (string $m) => throw new \InvalidArgumentException($m);
         is_array($raw) && ! array_is_list($raw) || $fail('La configuración debe ser un objeto.');
-        $extra = array_diff(array_keys($raw), ['user', 'products', 'credit', 'mix', 'ttlHours']);
+        $extra = array_diff(array_keys($raw), ['user', 'products', 'credit', 'mix', 'ttlHours', 'accounts']);
         $extra === [] || $fail('Claves desconocidas: '.implode(', ', array_map('strval', $extra)).'.');
 
         $int = static function (mixed $v, string $name, int $min, int $max) use ($fail): int {
@@ -125,7 +149,15 @@ final class DemoConfig
         $ttl = $raw['ttlHours'] ?? null;
         $ttl === null || $ttl = $int($ttl, 'ttlHours', 1, self::MAX_TTL_HOURS);
 
-        return ['user' => $user, 'products' => $products, 'credit' => $credit, 'mix' => $mix, 'ttlHours' => $ttl];
+        // Cuentas (SPEC-006A): opcional al guardar (una configuración anterior no la trae) y con los mismos techos duros.
+        $a = array_key_exists('accounts', $raw) ? $obj($raw['accounts'], 'accounts', ['retentionDays', 'codeTtlMinutes', 'maxAccounts']) : self::defaultAccounts();
+        $accounts = [
+            'retentionDays' => $int($a['retentionDays'], 'accounts.retentionDays', 1, self::MAX_RETENTION_DAYS),
+            'codeTtlMinutes' => $int($a['codeTtlMinutes'], 'accounts.codeTtlMinutes', self::MIN_CODE_TTL_MINUTES, self::MAX_CODE_TTL_MINUTES),
+            'maxAccounts' => $int($a['maxAccounts'], 'accounts.maxAccounts', 1, self::MAX_ACCOUNTS),
+        ];
+
+        return ['user' => $user, 'products' => $products, 'credit' => $credit, 'mix' => $mix, 'ttlHours' => $ttl, 'accounts' => $accounts];
     }
 
     /** @param array<string, mixed> $config */

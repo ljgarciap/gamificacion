@@ -4,6 +4,7 @@
     "userId": "standalone-dev:muestra.0123456789abcdef01234567",
     "subject": "muestra.0123456789abcdef01234567",
     "resumed": false,
+    "isNew": true,
     "displayName": "Cliente de muestra",
     "currency": "COP",
     "balance": 5000,

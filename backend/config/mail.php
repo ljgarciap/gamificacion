@@ -45,7 +45,8 @@ return [
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            // Plazo corto: el código se envía dentro de la petición del usuario (SPEC-006A); un SMTP caído debe fallar rápido, no colgar.
+            'timeout' => (int) env('MAIL_TIMEOUT', 5),
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 

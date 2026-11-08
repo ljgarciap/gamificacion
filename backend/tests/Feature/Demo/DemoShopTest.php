@@ -6,7 +6,9 @@ use App\Domain\Admin\SecretBox;
 use App\Domain\Demo\DemoConfig;
 use App\Domain\Demo\DemoSeeder;
 use App\Domain\Demo\DemoSwitch;
+use App\Mail\DemoLoginCodeMail;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 use Tests\DbTestCase;
 use Tests\Support\HostTokens;
@@ -27,6 +29,7 @@ final class DemoShopTest extends DbTestCase
         parent::setUp();
         HostTokens::configure([self::ISSUER => ['alg' => 'HS256', 'key' => base64_encode(HostTokens::SECRET)]]);
         config(['gamification.demo.allowed' => true]);
+        Mail::fake();
     }
 
     /** @return array<string, mixed> */
@@ -53,13 +56,39 @@ final class DemoShopTest extends DbTestCase
         $switch->enable('test');
     }
 
-    /** @return array<string, mixed> */
+    private int $personas = 0;
+
+    /**
+     * Abre una sesión como la app: con `$resume` renueva una existente; sin él ingresa con una persona NUEVA (correo distinto cada vez) por el
+     * flujo real de correo y código (SPEC-006A: ya no hay sesiones anónimas).
+     *
+     * @return array<string, mixed>
+     */
     private function openSession(?string $resume = null): array
     {
-        $r = $this->postJson('/v1/demo/session', $resume === null ? [] : ['resume' => $resume]);
+        if ($resume !== null) {
+            $r = $this->postJson('/v1/demo/session', ['resume' => $resume]);
+            $r->assertOk();
+
+            return $r->json();
+        }
+
+        return $this->login('persona'.(++$this->personas).'@example.com');
+    }
+
+    /** Ingreso real: pide el código (el correo se captura con Mail::fake) y lo verifica. @return array<string, mixed> */
+    private function login(string $email): array
+    {
+        $this->postJson('/v1/demo/auth/request', ['email' => $email])->assertOk();
+        $r = $this->postJson('/v1/demo/auth/verify', ['email' => $email, 'code' => $this->lastCode()]);
         $r->assertOk();
 
         return $r->json();
+    }
+
+    private function lastCode(): string
+    {
+        return Mail::sent(DemoLoginCodeMail::class)->last()->code;
     }
 
     /** @param list<array{productId: string, quantity: int}> $items */
@@ -119,6 +148,7 @@ final class DemoShopTest extends DbTestCase
         $this->assertSame([['id' => 'recarga-20', 'name' => 'Recarga $20.000', 'price' => 20000], ['id' => 'recarga-50', 'name' => 'Recarga $50.000', 'price' => 50000]], $s['products']);
         $this->assertEquals(['balancePercent' => 10, 'minPurchase' => 10000, 'codeStepAmount' => 20000, 'maxCodesPerPurchase' => 3, 'maxCodesPerSession' => 10], $s['rules']); // jsonb reordena claves
         $this->assertFalse($s['resumed']);
+        $this->assertTrue($s['isNew']);
         // El token pasa por el verificador real de la API.
         $this->getJson('/v1/balance', ['Authorization' => 'Bearer '.$s['token']])->assertOk()->assertJsonPath('amount', 1000);
     }
@@ -157,11 +187,11 @@ final class DemoShopTest extends DbTestCase
         $this->assertSame(1000 + 5000, $again['balance']);
         $this->assertSame(1000, $this->openSession($b['subject'])['balance'], 'la otra sesión no ve esa carga');
 
-        foreach (['muestra.' . str_repeat('0', 24), 'basura', ['x'], 123] as $unknown) {
-            $s = $this->openSession(is_string($unknown) ? $unknown : null);
-            $this->assertFalse($s['resumed']);
-            $this->assertNotSame($unknown, $s['subject']);
+        // Un sujeto desconocido o mal formado NO abre una sesión nueva (SPEC-006A: sin sesiones anónimas).
+        foreach (['muestra.'.str_repeat('0', 24), 'basura', ['x'], 123, null] as $unknown) {
+            $this->postJson('/v1/demo/session', ['resume' => $unknown])->assertStatus(401)->assertJsonPath('error.code', 'demoSessionInvalid');
         }
+        $this->postJson('/v1/demo/session')->assertStatus(401);
         $this->assertSame(1000, (int) DB::selectOne("SELECT amount FROM demo_wallet_ledger WHERE kind = 'initial' AND user_id = ?", [self::ISSUER.':'.$a['subject']])->amount);
     }
 

@@ -232,7 +232,7 @@ final class DemoSeedTest extends AdminTestCase
         $this->assertSame(202, $r->status());
         $id = $r->json('runId');
         $this->assertSame('pending', $this->api('GET', "/demo/runs/$id")->json('state'));
-        $dup = $this->api('POST', '/demo/reset');
+        $dup = $this->api('POST', '/demo/reset', ['accounts' => 'keep']);
         $this->assertSame(409, $dup->status());
         $this->assertSame('alreadyPending', $dup->json('error.code'));
         $this->assertSame(404, $this->api('GET', '/demo/runs/99999')->status());
@@ -296,11 +296,11 @@ final class DemoSeedTest extends AdminTestCase
         $id = $this->api('POST', '/demo/seed')->json('runId');
         DB::update("UPDATE demo_runs SET state = 'running', started_at = now() - interval '29 minutes' WHERE id = ?", [$id]);
         $this->assertSame(0, (new DemoRuns)->failStale(), 'aún dentro del plazo');
-        $this->assertSame(409, $this->api('POST', '/demo/reset')->status());
+        $this->assertSame(409, $this->api('POST', '/demo/reset', ['accounts' => 'keep'])->status());
         DB::update("UPDATE demo_runs SET started_at = now() - interval '31 minutes' WHERE id = ?", [$id]);
         $this->artisan('gamification:demo:process')->assertSuccessful();
         $this->assertSame('failed', $this->api('GET', "/demo/runs/$id")->json('state'));
-        $this->assertSame(202, $this->api('POST', '/demo/reset')->status());
+        $this->assertSame(202, $this->api('POST', '/demo/reset', ['accounts' => 'keep'])->status());
     }
 
     public function test_reiniciar_apaga_retira_el_pool_viejo_cierra_sus_lotes_y_siembra_uno_nuevo(): void
@@ -313,7 +313,7 @@ final class DemoSeedTest extends AdminTestCase
         $oldBatches = DB::table('batches')->pluck('id')->all();
         $total = DemoConfig::poolSize($this->fullConfig());
 
-        $this->assertSame(202, $this->api('POST', '/demo/reset')->status());
+        $this->assertSame(202, $this->api('POST', '/demo/reset', ['accounts' => 'keep'])->status());
         $this->artisan('gamification:demo:process')->assertSuccessful();
 
         $this->assertFalse((new DemoSwitch)->row()['enabled'], 'queda apagada: hay que volver a encenderla');

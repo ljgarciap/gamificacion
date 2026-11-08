@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Demo;
 
 use App\Domain\Auth\HostUser;
+use App\Domain\Demo\DemoEmail;
+use App\Domain\Demo\DemoLoginCodes;
 use App\Domain\Demo\DemoShop;
 use App\Domain\Demo\DemoShopException;
 use App\Domain\Demo\DemoSwitch;
@@ -24,17 +26,60 @@ final class DemoPublicController
         return response()->json(['enabled' => $switch->isActive()], 200, self::NO_STORE);
     }
 
-    /** POST /v1/demo/session {"resume"?: "<subject>"} → token + catálogo + reglas + saldo. */
-    public function session(Request $request, DemoShop $shop): JsonResponse
+    /**
+     * POST /v1/demo/auth/request {"email"} → {sent, retryAfter}. SIEMPRE la misma respuesta exista o no la cuenta (T-D11): ni siquiera se consulta.
+     * Un correo mal formado sí se rechaza (422): eso solo dice que el formato no vale, no si hay cuenta.
+     */
+    public function authRequest(Request $request, DemoLoginCodes $codes, DemoSwitch $switch): JsonResponse
     {
-        $resume = $request->input('resume');
+        $email = DemoEmail::normalize($request->input('email'));
+        if ($email === null) {
+            return ApiError::response('invalidEmail', 'Escribe un correo válido.', 422);
+        }
         try {
-            return response()->json($shop->openSession(is_string($resume) ? $resume : null, $request->ip()), 200, self::NO_STORE);
+            return response()->json($codes->request($email, $request->ip(), $switch->row()['config'] ?? throw new DemoShopException('notFound', 'La muestra no está configurada.', 404)), 200, self::NO_STORE);
+        } catch (DemoShopException $e) {
+            return ApiError::response($e->errorCode, $e->getMessage(), $e->status);
+        }
+    }
+
+    /** POST /v1/demo/auth/verify {"email","code"} → la sesión de esa cuenta (nueva o existente). Una sola causa de rechazo para todo (T-D11). */
+    public function authVerify(Request $request, DemoLoginCodes $codes, DemoShop $shop): JsonResponse
+    {
+        $email = DemoEmail::normalize($request->input('email'));
+        $code = $request->input('code');
+        if ($email === null || ! is_string($code) || ! $codes->verify($email, trim($code))) {
+            return ApiError::response('invalidCode', 'El código no es válido o ya venció. Pide uno nuevo.', 401);
+        }
+        try {
+            return response()->json($shop->login($email, $request->ip()), 200, self::NO_STORE);
         } catch (DemoShopException $e) {
             return ApiError::response($e->errorCode, $e->getMessage(), $e->status);
         } catch (DevIssuerNotConfigured $e) {
             return ApiError::response('devIssuerNotConfigured', $e->getMessage(), 503);
         }
+    }
+
+    /** POST /v1/demo/session {"resume": "<subject>"} → renueva el token de una sesión existente (ya no se abren sesiones anónimas). */
+    public function session(Request $request, DemoShop $shop): JsonResponse
+    {
+        $resume = $request->input('resume');
+        try {
+            return response()->json($shop->resume(is_string($resume) ? $resume : ''), 200, self::NO_STORE);
+        } catch (DemoShopException $e) {
+            return ApiError::response($e->errorCode, $e->getMessage(), $e->status);
+        } catch (DevIssuerNotConfigured $e) {
+            return ApiError::response('devIssuerNotConfigured', $e->getMessage(), 503);
+        }
+    }
+
+    /** GET /v1/demo/account → saldo acumulado y códigos del usuario (para volver a verlos al ingresar). */
+    public function account(Request $request, DemoShop $shop): JsonResponse
+    {
+        /** @var HostUser $user */
+        $user = $request->attributes->get('gamification_user');
+
+        return response()->json($shop->account($user->id()), 200, self::NO_STORE);
     }
 
     /** POST /v1/demo/purchase {"items":[{"productId","quantity"}]}  Idempotency-Key. */

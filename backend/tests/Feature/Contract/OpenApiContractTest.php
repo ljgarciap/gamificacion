@@ -48,7 +48,7 @@ final class OpenApiContractTest extends TestCase
 
     public function test_los_caminos_documentados_son_exactamente_los_que_existen(): void
     {
-        $this->assertSame(['/v1/balance', '/v1/codes/redeem', '/v1/demo/purchase', '/v1/demo/session', '/v1/demo/status', '/v1/dev/demo-codes', '/v1/dev/token', '/v1/spins'], $this->sorted(array_keys($this->doc['paths'])));
+        $this->assertSame(['/v1/balance', '/v1/codes/redeem', '/v1/demo/account', '/v1/demo/auth/request', '/v1/demo/auth/verify', '/v1/demo/purchase', '/v1/demo/session', '/v1/demo/status', '/v1/dev/demo-codes', '/v1/dev/token', '/v1/spins'], $this->sorted(array_keys($this->doc['paths'])));
 
         // Las rutas de desarrollo están marcadas como tales y sin autenticación (es lo que emiten).
         foreach (['/v1/dev/token' => 'post', '/v1/dev/demo-codes' => 'get'] as $path => $method) {
@@ -59,7 +59,7 @@ final class OpenApiContractTest extends TestCase
         // Las rutas reales de producción (sin las de desarrollo) coinciden con las documentadas como no-dev.
         $reales = collect(\Illuminate\Support\Facades\Route::getRoutes()->getRoutes())
             ->map(fn ($r) => '/'.$r->uri())->filter(fn ($u) => str_starts_with($u, '/v1/') && ! str_contains($u, '/dev/'))->unique()->sort()->values()->all();
-        $this->assertSame(['/v1/balance', '/v1/codes/redeem', '/v1/demo/purchase', '/v1/demo/session', '/v1/demo/status', '/v1/spins'], $reales);
+        $this->assertSame(['/v1/balance', '/v1/codes/redeem', '/v1/demo/account', '/v1/demo/auth/request', '/v1/demo/auth/verify', '/v1/demo/purchase', '/v1/demo/session', '/v1/demo/status', '/v1/spins'], $reales);
     }
 
     public function test_los_estados_http_de_canjear_son_los_que_emite_el_servicio(): void
@@ -98,6 +98,7 @@ final class OpenApiContractTest extends TestCase
             RedeemFailure::RATE_LIMITED, RedeemFailure::KEY_REUSE, 'idempotencyKeyRequired', 'unauthenticated', 'serverError',
             RedeemFailure::SPIN_NOT_FOUND, RedeemFailure::NO_SPINS_LEFT, RedeemFailure::RESERVE_EXHAUSTED,
             'demoSessionInvalid', 'demoPoolExhausted', 'invalidPurchase', // la muestra (SPEC-006)
+            'invalidEmail', 'mailUnavailable', 'accountsFull', // las cuentas de la muestra (SPEC-006A)
         ]);
         $this->assertSame($codigo, $doc);
     }

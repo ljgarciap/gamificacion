@@ -1,0 +1,15 @@
+{
+    "balance": 9000,
+    "codes": [
+        {
+            "code": "RULETA-AAAA-BBBB-CCC",
+            "game": "roulette",
+            "played": false
+        },
+        {
+            "code": "RULETA-AAAA-BBBB-CCC",
+            "game": "roulette",
+            "played": false
+        }
+    ]
+}

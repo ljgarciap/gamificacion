@@ -25,7 +25,7 @@ final class DemoSwitch
         return [
             'enabled' => (bool) $r->enabled,
             'enabled_until' => $r->enabled_until,
-            'config' => $r->config === null ? null : json_decode($r->config, true),
+            'config' => $r->config === null ? null : DemoConfig::withDefaults(json_decode($r->config, true)),
             'version' => (int) $r->version,
         ];
     }

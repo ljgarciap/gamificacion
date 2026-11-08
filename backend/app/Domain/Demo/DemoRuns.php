@@ -18,12 +18,13 @@ final class DemoRuns
 
     public function __construct(private readonly AuditLog $audit = new AuditLog) {}
 
-    public function request(string $kind, string $actor): int
+    /** @param array<string, mixed> $options p. ej. ['accounts' => 'keep'|'delete'] en un reinicio */
+    public function request(string $kind, string $actor, array $options = []): int
     {
         try {
-            return DB::transaction(function () use ($kind, $actor): int {
-                $id = (int) DB::selectOne('INSERT INTO demo_runs (kind, requested_by) VALUES (?, ?) RETURNING id', [$kind, $actor])->id;
-                $this->audit->append($actor, 'demo.run_requested', 'demo', (string) $id, ['kind' => $kind]);
+            return DB::transaction(function () use ($kind, $actor, $options): int {
+                $id = (int) DB::selectOne('INSERT INTO demo_runs (kind, requested_by, options) VALUES (?, ?, ?::jsonb) RETURNING id', [$kind, $actor, json_encode((object) $options)])->id;
+                $this->audit->append($actor, 'demo.run_requested', 'demo', (string) $id, ['kind' => $kind] + $options);
 
                 return $id;
             });
@@ -58,16 +59,16 @@ final class DemoRuns
         );
     }
 
-    /** Toma la corrida pendiente más antigua (una sola) y la pone en marcha. @return array{id: int, kind: string, requested_by: string}|null */
+    /** Toma la corrida pendiente más antigua (una sola) y la pone en marcha. @return array{id: int, kind: string, requested_by: string, options: array<string, mixed>}|null */
     public function claim(): ?array
     {
         $r = DB::selectOne(
             "UPDATE demo_runs SET state = 'running', started_at = now()
              WHERE id = (SELECT id FROM demo_runs WHERE state = 'pending' ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED)
-             RETURNING id, kind, requested_by",
+             RETURNING id, kind, requested_by, options",
         );
 
-        return $r === null ? null : ['id' => (int) $r->id, 'kind' => $r->kind, 'requested_by' => $r->requested_by];
+        return $r === null ? null : ['id' => (int) $r->id, 'kind' => $r->kind, 'requested_by' => $r->requested_by, 'options' => json_decode($r->options, true) ?? []];
     }
 
     public function finish(int $id, ?string $error = null): void

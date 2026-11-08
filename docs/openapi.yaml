@@ -154,18 +154,82 @@ paths:
                 properties:
                   enabled: { type: boolean }
 
-  /v1/demo/session:
+  /v1/demo/auth/request:
     post:
       tags: [Muestra]
-      summary: Abre (o reanuda) la sesión del usuario simulado
-      description: Emite un token de 10 minutos para un usuario simulado, con el catálogo, las reglas de carga y el saldo. `resume` (el `subject` de una sesión anterior) la reanuda con el mismo saldo.
+      summary: Pide un código de ingreso por correo (SPEC-006A)
+      description: |
+        Envía al correo un código de 6 dígitos de un solo uso. **La respuesta es idéntica exista o no la cuenta** (no revela quién está registrado) y
+        también cuando un límite de envíos impide mandar otro correo: en ese caso solo cambia `retryAfter`. No hay cuenta anónima: sin ingreso no hay sesión.
       x-demo: true
       security: []
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [email]
+              properties:
+                email: { type: string, maxLength: 254 }
+      responses:
+        '200':
+          description: Solicitud aceptada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sent, retryAfter]
+                properties:
+                  sent: { type: boolean, const: true }
+                  retryAfter: { type: integer, description: "Segundos hasta poder pedir otro código." }
+        '404': { description: La muestra está apagada o no configurada. }
+        '422': { description: Correo mal formado (`invalidEmail`). }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { description: No se pudo enviar el correo (`mailUnavailable`). }
+
+  /v1/demo/auth/verify:
+    post:
+      tags: [Muestra]
+      summary: Verifica el código y entra a la cuenta (la crea si es nueva)
+      description: Con el código correcto devuelve la sesión de la cuenta de ese correo (mismo saldo y códigos que la última vez). Cualquier causa de rechazo (errado, vencido, ya usado, sin pedido, intentos agotados) es el mismo `401 invalidCode`.
+      x-demo: true
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email: { type: string, maxLength: 254 }
+                code: { type: string, pattern: '^[0-9]{6}$' }
+      responses:
+        '200':
+          description: Sesión.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DemoSession' }
+        '401': { description: 'Código no válido o vencido (`invalidCode`).', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: La muestra está apagada o no configurada. }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { description: 'La muestra llegó a su tope de cuentas (`accountsFull`) o el emisor no está configurado.' }
+
+  /v1/demo/session:
+    post:
+      tags: [Muestra]
+      summary: Renueva el token de una sesión existente
+      description: Emite un token nuevo (de hasta 10 minutos) para la cuenta cuyo `subject` se manda en `resume` (el que recibió quien verificó su código). Ya NO abre sesiones nuevas ni anónimas. Con la cuenta borrada o un `subject` desconocido, 401.
+      x-demo: true
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resume]
               properties:
                 resume: { type: string }
       responses:
@@ -174,9 +238,28 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DemoSession' }
+        '401': { description: 'Sesión desconocida o vencida (`demoSessionInvalid`).', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '404': { description: La muestra está apagada o no configurada. }
         '429': { $ref: '#/components/responses/RateLimited' }
         '503': { description: El emisor de la demostración no está configurado. }
+
+  /v1/demo/account:
+    get:
+      tags: [Muestra]
+      summary: Saldo acumulado y códigos de la cuenta
+      description: Para volver a ver lo acumulado al ingresar de nuevo. Los códigos se descifran solo para su dueño; `played` indica si ya se jugaron.
+      x-demo: true
+      responses:
+        '200':
+          description: Cuenta.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DemoAccount' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { description: 'No es una sesión de la muestra de una cuenta viva (`demoSessionInvalid`).', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: La muestra está apagada o no configurada. }
 
   /v1/demo/purchase:
     post:
@@ -354,11 +437,15 @@ components:
         - demoSessionInvalid
         - demoPoolExhausted
         - invalidPurchase
+        - invalidEmail
+        - mailUnavailable
+        - accountsFull
 
     DemoSession:
       type: object
-      required: [token, expiresIn, userId, subject, resumed, displayName, currency, balance, products, rules]
+      required: [token, expiresIn, userId, subject, resumed, isNew, displayName, currency, balance, products, rules]
       properties:
+        isNew: { type: boolean, description: "La cuenta se creó con este ingreso." }
         token: { type: string }
         expiresIn: { type: integer }
         userId: { type: string }
@@ -382,6 +469,18 @@ components:
             codeStepAmount: { type: integer }
             maxCodesPerPurchase: { type: integer }
             maxCodesPerSession: { type: integer }
+
+    DemoAccount:
+      type: object
+      required: [balance, codes]
+      properties:
+        balance: { type: integer }
+        codes:
+          type: array
+          items:
+            type: object
+            required: [code, game, played]
+            properties: { code: { type: string }, game: { type: string }, played: { type: boolean } }
 
     DemoOrder:
       type: object

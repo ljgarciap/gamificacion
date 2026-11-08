@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Demo\DemoAccounts;
 use App\Domain\Demo\DemoConfig;
+use App\Domain\Demo\DemoLoginCodes;
 use App\Domain\Demo\DemoRuns;
 use App\Domain\Demo\DemoSeeder;
 use App\Domain\Demo\DemoSwitch;
@@ -24,6 +26,13 @@ final class DemoProcess extends Command
         if ($switch->expireIfDue()) {
             $this->info('La muestra caducó y se apagó.');
         }
+        // Retención de cuentas (D28) y purga de códigos/registros vencidos: cada minuto, barato (índices por fecha).
+        $cfg = $switch->row()['config'];
+        if ($cfg !== null) {
+            $purged = $this->laravel->make(DemoAccounts::class)->purgeStale((int) $cfg['accounts']['retentionDays']);
+            $purged > 0 && $this->info("$purged cuenta(s) sin ingreso borrada(s) por la retención.");
+        }
+        $this->laravel->make(DemoLoginCodes::class)->purge();
         $stale = $runs->failStale();
         $stale > 0 && $this->warn("$stale corrida(s) abandonada(s) marcadas como fallidas.");
 
@@ -42,6 +51,8 @@ final class DemoProcess extends Command
             if ($run['kind'] === 'reset') {
                 $switch->disable('system', 'reset');
                 $seeder->retire($actor);
+                // D27: quien reinicia elige qué pasa con las cuentas; sin elección válida NO se borra nada.
+                ($run['options']['accounts'] ?? 'keep') === 'delete' && $this->laravel->make(DemoAccounts::class)->deleteAll($actor);
             } elseif ((int) DB::selectOne("SELECT count(*) AS n FROM demo_pool WHERE state = 'available'")->n > 0) {
                 throw new \RuntimeException('Ya hay códigos disponibles: usa «Reiniciar» para empezar de cero.');
             }
