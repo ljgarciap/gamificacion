@@ -26,7 +26,40 @@ export interface DemoConfig {
   credit: { balancePercent: number; minPurchase: number; codeStepAmount: number; maxCodesPerPurchase: number; maxCodesPerSession: number };
   mix: Partial<Record<GameType, DemoMixEntry>>;
   ttlHours: number | null;
+  /** Cuentas de la muestra (SPEC-006A): retención sin ingresar, vigencia del código de ingreso y tope de cuentas. */
+  accounts: DemoAccountsConfig;
 }
+
+export interface DemoAccountsConfig {
+  retentionDays: number;
+  codeTtlMinutes: number;
+  maxAccounts: number;
+}
+
+export interface DemoAccountRow {
+  id: string;
+  /** Siempre enmascarado por el servidor (a***@dominio.com): el panel nunca ve el correo completo. */
+  email: string;
+  balance: number;
+  createdAt: string;
+  lastLoginAt: string;
+}
+
+export interface DemoAccountList {
+  items: DemoAccountRow[];
+  total: number;
+  page: number;
+  perPage: number;
+}
+
+export interface DemoMailInfo {
+  mailer: string;
+  host: string | null;
+  port: number | null;
+  from: string | null;
+}
+
+export type ResetAccounts = 'keep' | 'delete';
 
 export interface DemoRun {
   id: number;
@@ -45,6 +78,10 @@ export interface DemoLimits {
   maxCodesPerPurchase: number;
   maxPool: number;
   maxTtlHours: number;
+  maxRetentionDays: number;
+  maxAccounts: number;
+  minCodeTtlMinutes: number;
+  maxCodeTtlMinutes: number;
   games: GameType[];
   prizeTypes: PrizeType[];
 }
@@ -56,7 +93,16 @@ export interface DemoState {
   status: { enabled: boolean; enabledUntil: string | null; active: boolean; serverAllowed: boolean };
   pool: { available: number; assigned: number; retired: number };
   lastRun: DemoRun | null;
+  accounts: { total: number; active7d: number };
+  mail: DemoMailInfo;
   limits: DemoLimits;
+}
+
+/** Cómo se describe el envío de correo en el panel: `log` y `array` no envían nada; `smtp` en el puerto de Mailpit es el modo simulado. */
+export function mailMode(m: DemoMailInfo): { label: string; sends: boolean } {
+  if (m.mailer === 'smtp') return { label: m.host ? `SMTP (${m.host}${m.port ? `:${m.port}` : ''})` : 'SMTP', sends: true };
+  if (m.mailer === 'log' || m.mailer === 'array') return { label: `Sin envío real (${m.mailer}): los códigos solo quedan en el registro del servidor`, sends: false };
+  return { label: m.mailer, sends: true };
 }
 
 export const PRIZE_TYPE_LABEL: Record<PrizeType, string> = { money: 'Dinero', coupon: 'Cupón', points: 'Puntos' };
@@ -126,6 +172,9 @@ export function validateDemo(c: DemoConfig, limits: DemoLimits): string[] {
   }
   if (poolSize(c) > limits.maxPool) out.push(`Mezcla: el pool total no puede superar ${limits.maxPool} códigos (hay ${poolSize(c)}).`);
   if (c.ttlHours !== null) range(c.ttlHours, 'Caducidad (horas)', 1, limits.maxTtlHours);
+  range(c.accounts.retentionDays, 'Retención de cuentas (días)', 1, limits.maxRetentionDays);
+  range(c.accounts.codeTtlMinutes, 'Vigencia del código de ingreso (minutos)', limits.minCodeTtlMinutes, limits.maxCodeTtlMinutes);
+  range(c.accounts.maxAccounts, 'Tope de cuentas', 1, limits.maxAccounts);
   return out;
 }
 

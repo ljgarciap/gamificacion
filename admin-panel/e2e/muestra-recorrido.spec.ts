@@ -71,7 +71,7 @@ test('recorrido completo: panel (configura, siembra, enciende) → app (acceso, 
   // 1. Estado inicial conocido: configuración de esta prueba, apagada y un pool NUEVO (el reinicio retira lo anterior y siembra de nuevo).
   await apiCall(panel, 'PUT', '/demo/config', config);
   if ((await apiCall<DemoState>(panel, 'GET', '/demo')).status.enabled) await apiCall(panel, 'POST', '/demo/disable');
-  const { runId } = await apiCall<{ runId: number }>(panel, 'POST', '/demo/reset');
+  const { runId } = await apiCall<{ runId: number }>(panel, 'POST', '/demo/reset', { accounts: 'keep' });
   await waitRun(panel, runId, 'reinicio inicial');
 
   // 2. Desde el panel: la configuración guardada se ve y el pool sembrado coincide con la mezcla (20 = 10 de ruleta + 10 de dados).

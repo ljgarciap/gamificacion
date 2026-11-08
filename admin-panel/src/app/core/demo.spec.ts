@@ -1,12 +1,13 @@
-import { DemoConfig, DemoLimits, canonical, mixTotals, poolSize, previewPurchase, validateDemo } from './demo';
+import { DemoConfig, DemoLimits, canonical, mailMode, mixTotals, poolSize, previewPurchase, validateDemo } from './demo';
 
-const limits: DemoLimits = { maxProducts: 5, maxAmount: 10_000_000, maxCodesPerPurchase: 5, maxPool: 500, maxTtlHours: 168, games: ['roulette', 'scratch'], prizeTypes: ['money', 'coupon', 'points'] };
+const limits: DemoLimits = { maxProducts: 5, maxAmount: 10_000_000, maxCodesPerPurchase: 5, maxPool: 500, maxTtlHours: 168, maxRetentionDays: 365, maxAccounts: 5000, minCodeTtlMinutes: 5, maxCodeTtlMinutes: 30, games: ['roulette', 'scratch'], prizeTypes: ['money', 'coupon', 'points'] };
 const base = (): DemoConfig => ({
   user: { displayName: 'Cliente', hostUserPrefix: 'muestra', initialBalance: 0 },
   products: [{ id: 'a', name: 'Recarga', price: 20_000 }],
   credit: { balancePercent: 10, minPurchase: 10_000, codeStepAmount: 20_000, maxCodesPerPurchase: 3, maxCodesPerSession: 10 },
   mix: { roulette: { prizes: [{ type: 'money', amount: 5_000, count: 2 }], noPrizeCount: 8 } },
   ttlHours: 24,
+  accounts: { retentionDays: 30, codeTtlMinutes: 10, maxAccounts: 500 },
 });
 
 describe('muestra: cálculos del panel', () => {
@@ -69,5 +70,25 @@ describe('muestra: cálculos del panel', () => {
     expect(canonical({ b: 1, a: { d: [1, 2], c: null } })).toBe(canonical({ a: { c: null, d: [1, 2] }, b: 1 }));
     expect(canonical({ a: [1, 2] })).not.toBe(canonical({ a: [2, 1] }));
     expect(canonical({ a: 1 })).not.toBe(canonical({ a: '1' }));
+  });
+
+  it('valida los parámetros de las cuentas contra los techos del servidor', () => {
+    const c = base();
+    c.accounts = { retentionDays: 0, codeTtlMinutes: 4, maxAccounts: 5001 };
+    const m = validateDemo(c, limits).join('|');
+    expect(m).toContain('Retención de cuentas');
+    expect(m).toContain('Vigencia del código');
+    expect(m).toContain('Tope de cuentas');
+    c.accounts = { retentionDays: 365, codeTtlMinutes: 30, maxAccounts: 5000 };
+    expect(validateDemo(c, limits)).toEqual([]);
+    c.accounts = { retentionDays: 1.5, codeTtlMinutes: 5, maxAccounts: 1 };
+    expect(validateDemo(c, limits).join('|')).toContain('Retención de cuentas');
+  });
+
+  it('describe el modo de envío del correo y avisa cuando no sale ninguno', () => {
+    expect(mailMode({ mailer: 'smtp', host: 'mailpit', port: 1025, from: 'a@b.co' })).toEqual({ label: 'SMTP (mailpit:1025)', sends: true });
+    expect(mailMode({ mailer: 'smtp', host: null, port: null, from: null })).toEqual({ label: 'SMTP', sends: true });
+    expect(mailMode({ mailer: 'log', host: null, port: null, from: null }).sends).toBe(false);
+    expect(mailMode({ mailer: 'array', host: null, port: null, from: null }).sends).toBe(false);
   });
 });

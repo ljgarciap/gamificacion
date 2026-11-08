@@ -186,4 +186,131 @@ test.describe('Muestra (SPEC-006 M4)', () => {
     await page.getByTestId('displayName').fill('Cambio pendiente');
     for (const id of ['seed', 'reset', 'enable']) await expect(page.getByTestId(id)).toBeDisabled();
   });
+
+  test('cuentas (SPEC-006A): totales, lista enmascarada con páginas, borrar con confirmación y correo de prueba', async ({ page }) => {
+    await login(page, 'superadmin');
+    const real = await apiCall<State & Record<string, unknown>>(page, 'GET', '/demo');
+    const all = Array.from({ length: 25 }, (_, i) => ({
+      id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+      email: `p${i}***@ejemplo.com`,
+      balance: 1000 * i,
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+    }));
+    const calls: string[] = [];
+    let mailBody = '';
+    await page.route('**/admin/api/v1/demo**', async (route) => {
+      const req = route.request();
+      const url = new URL(req.url());
+      const path = url.pathname.replace('/admin/api/v1', '');
+      const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+      if (path === '/demo' && req.method() === 'GET') return json({ ...real, accounts: { total: all.length, active7d: 3 }, mail: { mailer: 'log', host: null, port: null, from: 'x@y.co' } });
+      if (path === '/demo/accounts' && req.method() === 'GET') {
+        const pg = Number(url.searchParams.get('page'));
+        return json({ items: all.slice((pg - 1) * 20, pg * 20), total: all.length, page: pg, perPage: 20 });
+      }
+      if (path.startsWith('/demo/accounts/') && req.method() === 'DELETE') {
+        calls.push(`DELETE ${path}`);
+        all.splice(all.findIndex((a) => path.endsWith(a.id)), 1);
+        return route.fulfill({ status: 204 });
+      }
+      if (path === '/demo/mail/test') { mailBody = req.postData() ?? ''; return route.fulfill({ status: 204 }); }
+      return route.continue();
+    });
+    await page.goto('/muestra');
+    await expect(page.getByTestId('accounts-total')).toHaveText('25');
+    await expect(page.getByTestId('accounts-active')).toHaveText('3');
+    await expect(page.getByTestId('mail-mode')).toContainText('Sin envío real');
+    await expect(page.getByTestId('mail-warning')).toBeVisible();
+    await expect(page.getByTestId('account-row')).toHaveCount(20);
+    await expect(page.getByTestId('account-row').first()).toContainText('p0***@ejemplo.com');
+    await expect(page.getByTestId('accounts-page')).toHaveText('Página 1 de 2');
+    await page.getByTestId('accounts-next').click();
+    await expect(page.getByTestId('account-row')).toHaveCount(5);
+    await expect(page.getByTestId('accounts-next')).toBeDisabled();
+
+    // Borrar pide confirmación; cancelar no llama al servidor.
+    await page.getByTestId('account-delete').first().click();
+    await expect(page.getByTestId('account-confirm')).toContainText('p20***@ejemplo.com');
+    await page.getByTestId('account-confirm-no').click();
+    expect(calls).toEqual([]);
+    await page.getByTestId('account-delete').first().click();
+    await page.getByTestId('account-confirm-yes').click();
+    await expect(page.getByTestId('accounts-total')).toHaveText('24');
+    expect(calls).toEqual(['DELETE /demo/accounts/00000000-0000-4000-8000-000000000020']);
+
+    // Correo de prueba.
+    await expect(page.getByTestId('mail-test')).toBeDisabled();
+    await page.getByTestId('mail-to').fill('ana@ejemplo.com');
+    await page.getByTestId('mail-test').click();
+    await expect(page.getByTestId('message')).toContainText('Correo de prueba enviado');
+    expect(JSON.parse(mailBody)).toEqual({ to: 'ana@ejemplo.com' });
+
+    const res = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+    expect(res.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical'), JSON.stringify(res.violations.map((v) => [v.id, v.nodes[0]?.html?.slice(0, 120)]))).toEqual([]);
+  });
+
+  test('reiniciar obliga a elegir qué pasa con las cuentas y manda la elección', async ({ page }) => {
+    await login(page, 'superadmin');
+    const real = await apiCall<State & Record<string, unknown>>(page, 'GET', '/demo');
+    const bodies: string[] = [];
+    await page.route('**/admin/api/v1/demo**', async (route) => {
+      const req = route.request();
+      const path = new URL(req.url()).pathname.replace('/admin/api/v1', '');
+      if (path === '/demo' && req.method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...real, configured: true, status: { ...real.status, serverAllowed: true } }) });
+      if (path === '/demo/reset') { bodies.push(req.postData() ?? ''); return route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ runId: 9 }) }); }
+      if (path === '/demo/runs/9') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 9, kind: 'reset', state: 'running', error: null, requestedBy: 'x', createdAt: new Date().toISOString(), startedAt: null, finishedAt: null }) });
+      return route.continue();
+    });
+    await page.goto('/muestra');
+    for (const choice of ['reset-keep', 'reset-delete']) {
+      await page.getByTestId('reset').click();
+      await expect(page.getByTestId('reset-choice')).toBeVisible();
+      await expect(page.getByTestId('reset-keep')).not.toBeChecked();
+      await expect(page.getByTestId('reset-delete')).not.toBeChecked(); // sin valor por defecto
+      await expect(page.getByTestId('confirm-yes')).toBeDisabled();
+      await page.getByTestId(choice).check();
+      await expect(page.getByTestId('confirm-yes')).toBeEnabled();
+      await page.getByTestId('confirm-yes').click();
+      await expect(page.getByTestId('message')).toContainText('Reinicio pedido');
+      await expect.poll(() => bodies.length).toBe(choice === 'reset-keep' ? 1 : 2);
+      await page.reload();
+    }
+    expect(bodies.map((b) => JSON.parse(b))).toEqual([{ accounts: 'keep' }, { accounts: 'delete' }]);
+  });
+
+  test('parámetros de las cuentas: se editan, validan contra los techos y se guardan', async ({ page }) => {
+    await login(page, 'superadmin');
+    await apiCall(page, 'POST', '/demo/disable').catch(() => undefined);
+    const original = (await apiCall<State>(page, 'GET', '/demo')).config;
+    await apiCall(page, 'PUT', '/demo/config', { ...KNOWN, accounts: { retentionDays: 30, codeTtlMinutes: 10, maxAccounts: 500 } });
+    try {
+      await page.goto('/muestra');
+      await expect(page.getByTestId('retentionDays')).toHaveValue('30');
+      await page.getByTestId('retentionDays').fill('0');
+      await expect(page.getByTestId('problems')).toContainText('Retención de cuentas');
+      await expect(page.getByTestId('save')).toBeDisabled();
+      await page.getByTestId('codeTtlMinutes').fill('31');
+      await expect(page.getByTestId('problems')).toContainText('Vigencia del código');
+      await page.getByTestId('retentionDays').fill('60');
+      await page.getByTestId('codeTtlMinutes').fill('15');
+      await page.getByTestId('maxAccounts').fill('200');
+      await expect(page.getByTestId('problems')).toHaveCount(0);
+      await page.getByTestId('save').click();
+      await expect(page.getByTestId('message')).toContainText('Configuración guardada');
+      const saved = (await apiCall<State>(page, 'GET', '/demo')).config as { accounts: unknown };
+      expect(saved.accounts).toEqual({ retentionDays: 60, codeTtlMinutes: 15, maxAccounts: 200 });
+    } finally {
+      await apiCall(page, 'PUT', '/demo/config', original).catch(() => undefined);
+    }
+  });
+
+  test('correo de prueba: un correo inválido muestra el mensaje del servidor', async ({ page }) => {
+    await login(page, 'superadmin');
+    await page.goto('/muestra');
+    await expect(page.getByTestId('mail-mode')).not.toBeEmpty();
+    await page.getByTestId('mail-to').fill('Esto no es un correo');
+    await page.getByTestId('mail-test').click();
+    await expect(page.getByTestId('fail')).toContainText('correo válido');
+  });
 });

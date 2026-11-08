@@ -2,7 +2,7 @@ import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angula
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { Api, ApiError } from '../../core/api';
-import { DemoConfig, DemoMixEntry, DemoRun, DemoState, PRIZE_TYPE_LABEL, PrizeType, canonical, mixTotals, poolSize, previewPurchase, validateDemo } from '../../core/demo';
+import { DemoAccountList, DemoAccountRow, DemoConfig, DemoMixEntry, DemoRun, DemoState, PRIZE_TYPE_LABEL, PrizeType, ResetAccounts, canonical, mailMode, mixTotals, poolSize, previewPurchase, validateDemo } from '../../core/demo';
 import { dateBogota } from '../../core/format';
 import { GameType } from '../../core/models';
 import { ErrorState } from '../../shared/state';
@@ -11,6 +11,7 @@ import { GAME_LABEL } from '../campaigns/campaign-list';
 type Confirm = 'enable' | 'disable' | 'reset' | null;
 
 const POLL_MS = 2000;
+const ACCOUNTS_PER_PAGE = 20;
 
 /**
  * Muestra real (SPEC-006, solo superadmin): escenario, reglas de carga, mezcla de premios, estado e interruptor. El servidor valida todo
@@ -39,7 +40,12 @@ const POLL_MS = 2000;
     .errors { color: var(--gp-error); margin: 8px 0 0; padding-left: 18px; }
     .ok { color: var(--gp-navy); font-weight: 600; }
     .confirm { margin-top: 12px; }
+    .choices { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; border: 0; padding: 0; }
+    .choices legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
+    .choices label { display: flex; gap: 8px; align-items: center; }
+    .pager { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
     .num { width: 120px; }
+    .wide-mail { width: 280px; max-width: 100%; }
     .wide { width: 100%; box-sizing: border-box; }
     dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
     dt { color: var(--gp-muted); }
@@ -90,8 +96,60 @@ const POLL_MS = 2000;
         @if (confirm(); as c) {
           <div class="gp-banner warning confirm" role="alertdialog" aria-labelledby="confirm-text" data-testid="confirm">
             <span id="confirm-text">{{ confirmText(c) }}</span>
-            <button mat-flat-button type="button" (click)="doConfirm()" [disabled]="busy()" data-testid="confirm-yes">Confirmar</button>
+            @if (c === 'reset') {
+              <fieldset class="choices" data-testid="reset-choice">
+                <legend>¿Qué pasa con las cuentas de la muestra y sus saldos?</legend>
+                <label><input type="radio" name="resetAccounts" value="keep" [ngModel]="resetAccounts()" (ngModelChange)="resetAccounts.set($event)" data-testid="reset-keep" /> Conservar cuentas y saldos (las personas vuelven a entrar con su correo)</label>
+                <label><input type="radio" name="resetAccounts" value="delete" [ngModel]="resetAccounts()" (ngModelChange)="resetAccounts.set($event)" data-testid="reset-delete" /> Borrar todas las cuentas (los saldos acumulados dejan de ser alcanzables)</label>
+              </fieldset>
+            }
+            <button mat-flat-button type="button" (click)="doConfirm()" [disabled]="busy() || (c === 'reset' && resetAccounts() === null)" data-testid="confirm-yes">Confirmar</button>
             <button mat-button type="button" (click)="confirm.set(null)" data-testid="confirm-no">Cancelar</button>
+          </div>
+        }
+      </section>
+
+      <section aria-labelledby="h-cuentas">
+        <h2 id="h-cuentas">Cuentas</h2>
+        <p class="gp-muted">Cada persona entra con su correo y un código de un solo uso; su saldo y sus códigos se conservan entre visitas. Aquí el correo se ve siempre enmascarado.</p>
+        <dl>
+          <dt>Cuentas</dt><dd data-testid="accounts-total">{{ st.accounts.total }}</dd>
+          <dt>Con ingreso en los últimos 7 días</dt><dd data-testid="accounts-active">{{ st.accounts.active7d }}</dd>
+          <dt>Envío de correo</dt><dd data-testid="mail-mode">{{ mailLabel() }}</dd>
+        </dl>
+        @if (!mailSends()) { <div class="gp-banner warning" role="alert" data-testid="mail-warning">Este servidor no envía correos reales: las personas no recibirán su código. Configura MAIL_MAILER (SMTP o Mailpit) en el servidor.</div> }
+        <div class="actions">
+          <label class="f">Enviar un correo de prueba a<input type="email" class="wide-mail" name="mailTo" autocomplete="off" [ngModel]="mailTo()" (ngModelChange)="mailTo.set($event)" data-testid="mail-to" /></label>
+          <button mat-stroked-button type="button" (click)="sendTest()" [disabled]="busy() || mailTo().trim() === ''" data-testid="mail-test">Enviar correo de prueba</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <caption class="gp-visually-hidden">Cuentas de la muestra</caption>
+            <thead><tr><th scope="col">Correo</th><th scope="col">Saldo</th><th scope="col">Creada</th><th scope="col">Último ingreso</th><th scope="col"><span class="gp-visually-hidden">Acción</span></th></tr></thead>
+            <tbody>
+              @for (a of accounts()?.items ?? []; track a.id) {
+                <tr data-testid="account-row">
+                  <td>{{ a.email }}</td><td>{{ money(a.balance) }}</td><td>{{ bogota(a.createdAt) }}</td><td>{{ bogota(a.lastLoginAt) }}</td>
+                  <td><button mat-button type="button" (click)="delTarget.set(a)" [disabled]="busy()" [attr.aria-label]="'Borrar la cuenta ' + a.email" data-testid="account-delete">Borrar cuenta</button></td>
+                </tr>
+              } @empty {
+                <tr><td colspan="5" class="gp-muted" data-testid="accounts-empty">Todavía no hay cuentas.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (pages() > 1) {
+          <div class="pager">
+            <button mat-button type="button" (click)="goPage(-1)" [disabled]="page() <= 1" data-testid="accounts-prev">Anterior</button>
+            <span data-testid="accounts-page">Página {{ page() }} de {{ pages() }}</span>
+            <button mat-button type="button" (click)="goPage(1)" [disabled]="page() >= pages()" data-testid="accounts-next">Siguiente</button>
+          </div>
+        }
+        @if (delTarget(); as t) {
+          <div class="gp-banner warning confirm" role="alertdialog" aria-labelledby="del-text" data-testid="account-confirm">
+            <span id="del-text">Se borrará la cuenta {{ t.email }}: esa persona ya no podrá ingresar y su saldo ({{ money(t.balance) }}) quedará inaccesible. ¿Borrar?</span>
+            <button mat-flat-button type="button" (click)="deleteAccount()" [disabled]="busy()" data-testid="account-confirm-yes">Borrar</button>
+            <button mat-button type="button" (click)="delTarget.set(null)" data-testid="account-confirm-no">Cancelar</button>
           </div>
         }
       </section>
@@ -148,6 +206,15 @@ const POLL_MS = 2000;
                 }
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section aria-labelledby="h-parametros">
+          <h2 id="h-parametros">Parámetros de las cuentas</h2>
+          <div class="grid">
+            <label class="f">Borrar cuentas sin ingresar durante (días)<input class="num" type="number" step="1" min="1" [max]="st.limits.maxRetentionDays" name="retentionDays" [(ngModel)]="d.accounts.retentionDays" data-testid="retentionDays" /></label>
+            <label class="f">Vigencia del código de ingreso (minutos)<input class="num" type="number" step="1" [min]="st.limits.minCodeTtlMinutes" [max]="st.limits.maxCodeTtlMinutes" name="codeTtlMinutes" [(ngModel)]="d.accounts.codeTtlMinutes" data-testid="codeTtlMinutes" /></label>
+            <label class="f">Máximo de cuentas<input class="num" type="number" step="1" min="1" [max]="st.limits.maxAccounts" name="maxAccounts" [(ngModel)]="d.accounts.maxAccounts" data-testid="maxAccounts" /></label>
           </div>
         </section>
 
@@ -220,6 +287,15 @@ export class DemoScreen implements OnInit {
   protected readonly fail = signal<string | null>(null);
   protected readonly busy = signal(false);
   protected readonly confirm = signal<Confirm>(null);
+  /** Elección al reiniciar: sin valor por defecto, quien reinicia tiene que decidir (borrar cuentas es irreversible). */
+  protected readonly resetAccounts = signal<ResetAccounts | null>(null);
+  protected readonly accounts = signal<DemoAccountList | null>(null);
+  protected readonly page = signal(1);
+  protected readonly delTarget = signal<DemoAccountRow | null>(null);
+  protected readonly mailTo = signal('');
+  protected readonly pages = computed(() => Math.max(1, Math.ceil((this.accounts()?.total ?? 0) / ACCOUNTS_PER_PAGE)));
+  protected readonly mailLabel = computed(() => mailMode(this.state()!.mail).label);
+  protected readonly mailSends = computed(() => mailMode(this.state()!.mail).sends);
   /** Se incrementa en cada edición del formulario: el borrador es un objeto mutable (ngModel) y los cálculos dependen de este contador. */
   private readonly rev = signal(0);
   protected readonly bogota = dateBogota;
@@ -313,7 +389,7 @@ export class DemoScreen implements OnInit {
     const s = this.state()!;
     if (c === 'enable') return `Se abrirá el acceso público a la muestra${s.config.ttlHours ? ` por ${s.config.ttlHours} horas` : ' sin caducidad'}. Quien llegue a la app podrá simular compras y recibir códigos. ¿Encender?`;
     if (c === 'disable') return 'La muestra dejará de responder de inmediato: quienes estén en ella perderán la sesión. ¿Apagar?';
-    return 'Se apagará la muestra, se retirarán los códigos actuales (también los ya entregados) y se sembrará un pool nuevo. ¿Reiniciar?';
+    return 'Se apagará la muestra, se retirarán los códigos actuales (también los ya entregados) y se sembrará un pool nuevo. Elige qué pasa con las cuentas:';
   }
 
   protected async load(): Promise<void> {
@@ -323,6 +399,7 @@ export class DemoScreen implements OnInit {
       this.state.set(s);
       this.draft.set(structuredClone(s.config));
       this.touch();
+      await this.loadAccounts();
       if (s.lastRun && ['pending', 'running'].includes(s.lastRun.state)) this.poll(s.lastRun.id);
     } catch (e) {
       this.error.set(e instanceof ApiError ? e.message : 'No se pudo cargar la muestra.');
@@ -333,6 +410,37 @@ export class DemoScreen implements OnInit {
   private async refreshStatus(): Promise<void> {
     const s = await this.api.get<DemoState>('/demo');
     this.state.set(s);
+    await this.loadAccounts();
+  }
+
+  private async loadAccounts(): Promise<void> {
+    try {
+      const q = () => ({ page: this.page(), perPage: ACCOUNTS_PER_PAGE });
+      let list = await this.api.get<DemoAccountList>('/demo/accounts', q());
+      if (list.items.length === 0 && this.page() > 1) {
+        this.page.set(Math.max(1, Math.ceil(list.total / ACCOUNTS_PER_PAGE)));
+        list = await this.api.get<DemoAccountList>('/demo/accounts', q());
+      }
+      this.accounts.set(list);
+    } catch {
+      this.accounts.set(null);
+    }
+  }
+
+  protected async goPage(delta: number): Promise<void> {
+    this.page.update((p) => Math.min(this.pages(), Math.max(1, p + delta)));
+    await this.loadAccounts();
+  }
+
+  protected async deleteAccount(): Promise<void> {
+    const t = this.delTarget();
+    if (!t) return;
+    this.delTarget.set(null);
+    if (await this.act('Cuenta borrada.', () => this.api.delete(`/demo/accounts/${t.id}`))) await this.refreshStatus();
+  }
+
+  protected async sendTest(): Promise<void> {
+    await this.act('Correo de prueba enviado: revisa la bandeja (o Mailpit).', () => this.api.post('/demo/mail/test', { to: this.mailTo().trim() }));
   }
 
   protected setTtl(v: number | null | string): void {
@@ -404,6 +512,7 @@ export class DemoScreen implements OnInit {
   }
 
   protected ask(c: Exclude<Confirm, null>): void {
+    this.resetAccounts.set(null);
     this.confirm.set(c);
   }
 
@@ -415,13 +524,13 @@ export class DemoScreen implements OnInit {
     } else if (c === 'disable') {
       if (await this.act('Muestra apagada.', () => this.api.post('/demo/disable'))) await this.refreshStatus();
     } else if (c === 'reset') {
-      await this.startRun('Reinicio pedido: el worker lo procesa en menos de un minuto.', '/demo/reset');
+      await this.startRun('Reinicio pedido: el worker lo procesa en menos de un minuto.', '/demo/reset', { accounts: this.resetAccounts() });
     }
   }
 
-  private async startRun(ok: string, path: string): Promise<void> {
+  private async startRun(ok: string, path: string, body?: unknown): Promise<void> {
     let id = 0;
-    if (!(await this.act(ok, async () => (id = (await this.api.post<{ runId: number }>(path)).runId)))) return;
+    if (!(await this.act(ok, async () => (id = (await this.api.post<{ runId: number }>(path, body)).runId)))) return;
     await this.refreshStatus();
     this.poll(id);
   }
