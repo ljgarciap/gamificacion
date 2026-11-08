@@ -119,7 +119,7 @@ void main() {
             await gate;
             if (status is Exception) throw status;
             return _json(statusCode, jsonEncode(status));
-          case '/v1/demo/session':
+          case '/v1/demo/auth/verify':
             return _json(
               200,
               jsonEncode({
@@ -143,6 +143,10 @@ void main() {
                 },
               }),
             );
+          case '/v1/demo/auth/request':
+            return _json(200, jsonEncode({'sent': true, 'retryAfter': 60}));
+          case '/v1/demo/account':
+            return _json(200, jsonEncode({'balance': 5000, 'codes': []}));
           case '/v1/dev/token':
             return _json(200, jsonEncode({'token': 'jwt-dev', 'expiresIn': 300, 'userId': 'standalone-dev:demo-user'}));
           case '/v1/dev/demo-codes':
@@ -167,13 +171,20 @@ void main() {
       (t) async {
         await pump(t, server(status: {'enabled': true}));
         expect(find.text('Bienvenido a la muestra'), findsOneWidget);
+        expect(find.byKey(const ValueKey('demo-privacy')), findsOneWidget);
         expect(find.byKey(const ValueKey('demo-banner')), findsOneWidget);
         expect(find.text('Códigos de prueba'), findsNothing);
         expect(find.byKey(const ValueKey('mode-footer')), findsNothing);
 
-        await t.tap(find.byKey(const ValueKey('demo-enter')));
+        await t.enterText(find.byKey(const ValueKey('demo-email')), 'ana@ejemplo.com');
+        await t.tap(find.byKey(const ValueKey('demo-send-code')));
+        await t.pumpAndSettle();
+        await t.enterText(find.byKey(const ValueKey('demo-code')), '123456');
+        await t.tap(find.byKey(const ValueKey('demo-verify')));
         await t.pumpAndSettle();
         expect(find.text('Recarga 20'), findsOneWidget);
+        expect(requests.map((r) => r.url.path), isNot(contains('/v1/demo/session')), reason: 'sin sesión anónima');
+        await t.pumpWidget(const SizedBox());
         expect(requests.map((r) => r.url.path), isNot(contains('/v1/dev/token')));
         expect(requests.map((r) => r.url.path), isNot(contains('/v1/dev/demo-codes')));
       },

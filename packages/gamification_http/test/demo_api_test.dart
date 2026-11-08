@@ -15,12 +15,14 @@ Map<String, Object?> _session({
   int expiresIn = 600,
   String subject = 'muestra.abc',
   bool resumed = false,
+  bool isNew = false,
 }) => {
   'token': token,
   'expiresIn': expiresIn,
   'userId': 'standalone-dev:muestra.abc',
   'subject': subject,
   'resumed': resumed,
+  'isNew': isNew,
   'displayName': 'Cliente de muestra',
   'currency': 'COP',
   'balance': 5000,
@@ -110,38 +112,143 @@ void main() {
       expect(netCalls, 3);
     });
 
-    test('openSession interpreta catálogo, reglas y saldo, y la siguiente apertura reanuda con el subject', () async {
+    test('verifyCode manda correo y código, interpreta la cuenta y no guarda nada si el servidor rechaza', () async {
       final bodies = <Map<String, dynamic>>[];
       final api = DemoApi(
         baseUrl: 'http://api.test:8000',
         client: MockClient((r) async {
-          expect(r.url.toString(), 'http://api.test:8000/v1/demo/session');
+          expect(r.url.toString(), 'http://api.test:8000/v1/demo/auth/verify');
           bodies.add(jsonDecode(r.body) as Map<String, dynamic>);
-          return _json(200, _session(resumed: bodies.length > 1));
+          return _json(200, _session(isNew: true));
         }),
       );
-      final s = await api.openSession();
-      expect((s.displayName, s.balance, s.resumed), ('Cliente de muestra', 5000, false));
+      final s = await api.verifyCode('ana@ejemplo.com', '123456');
+      expect((s.displayName, s.balance, s.resumed, s.isNew), ('Cliente de muestra', 5000, false, true));
       expect(s.products.single.price, 20000);
       expect(s.rules.preview(40000).codes, 2);
-
-      await api.openSession();
       expect(bodies, [
-        <String, dynamic>{},
-        {'resume': 'muestra.abc'},
+        {'email': 'ana@ejemplo.com', 'code': '123456'},
       ]);
+      expect(await api.token(), 'jwt-1');
     });
 
-    test('purchase manda solo ids y cantidades con la clave de idempotencia y el token de la sesión', () async {
+    test('requestCode manda el correo y devuelve la espera; el correo inválido y el envío caído se traducen', () async {
+      late http.Request seen;
+      http.Response Function(http.Request) handler = (r) {
+        seen = r;
+        return _json(200, {'sent': true, 'retryAfter': 60});
+      };
+      final api = DemoApi(baseUrl: 'http://api.test', client: MockClient((r) async => handler(r)));
+      final res = await api.requestCode('ana@ejemplo.com');
+      expect(res.retryAfter, const Duration(seconds: 60));
+      expect(seen.url.path, '/v1/demo/auth/request');
+      expect(jsonDecode(seen.body), {'email': 'ana@ejemplo.com'});
+
+      Future<DemoFailure> fail(http.Response r) async {
+        handler = (_) => r;
+        try {
+          await api.requestCode('ana@ejemplo.com');
+        } on DemoException catch (e) {
+          return e.reason;
+        }
+        throw StateError('no falló');
+      }
+
+      Map<String, Object?> err(String code) => {
+        'error': {'code': code, 'message': 'm'},
+      };
+      expect(await fail(_json(422, err('invalidEmail'))), DemoFailure.invalidEmail);
+      expect(await fail(_json(503, err('mailUnavailable'))), DemoFailure.mailUnavailable);
+      expect(await fail(_json(503, err('accountsFull'))), DemoFailure.accountsFull);
+      expect(await fail(_json(429, err('rateLimited'))), DemoFailure.rateLimited);
+      expect(await fail(_json(404, err('notFound'))), DemoFailure.off);
+      expect(
+        await fail(_json(200, {'sent': true})),
+        DemoFailure.unknown,
+        reason: 'sin retryAfter: respuesta mal formada',
+      );
+    });
+
+    test('verifyCode: el 401 invalidCode, el tope de cuentas y la muestra apagada se distinguen', () async {
+      Future<DemoFailure> fail(http.Response r) async {
+        final api = DemoApi(baseUrl: 'http://api.test', client: MockClient((_) async => r));
+        try {
+          await api.verifyCode('ana@ejemplo.com', '000000');
+        } on DemoException catch (e) {
+          return e.reason;
+        }
+        throw StateError('no falló');
+      }
+
+      Map<String, Object?> err(String code) => {
+        'error': {'code': code, 'message': 'm'},
+      };
+      expect(await fail(_json(401, err('invalidCode'))), DemoFailure.invalidCode);
+      expect(await fail(_json(503, err('accountsFull'))), DemoFailure.accountsFull);
+      expect(await fail(_json(404, err('notFound'))), DemoFailure.off);
+      expect(await fail(_json(429, err('rateLimited'))), DemoFailure.rateLimited);
+    });
+
+    test('sin ingreso no hay token ni compra ni cuenta: no se abre ninguna sesión anónima', () async {
+      var calls = 0;
+      final api = DemoApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((_) async {
+          calls++;
+          return _json(200, _session());
+        }),
+      );
+      await expectLater(
+        api.token(),
+        throwsA(isA<GamificationException>().having((e) => e.reason, 'reason', FailureReason.unauthorized)),
+      );
+      await expectLater(
+        api.purchase([const DemoLine('a', 1)], idempotencyKey: 'clave-0000'),
+        throwsA(isA<DemoException>().having((e) => e.reason, 'reason', DemoFailure.sessionInvalid)),
+      );
+      await expectLater(
+        api.account(),
+        throwsA(isA<DemoException>().having((e) => e.reason, 'reason', DemoFailure.sessionInvalid)),
+      );
+      expect(calls, 0, reason: 'ni una sola petición al servidor');
+    });
+
+    test('account trae saldo y códigos con su estado usando el token de la cuenta', () async {
       late http.Request seen;
       final api = DemoApi(
         baseUrl: 'http://api.test',
         client: MockClient((r) async {
-          if (r.url.path == '/v1/demo/session') return _json(200, _session());
+          if (r.url.path == '/v1/demo/auth/verify') return _json(200, _session());
+          seen = r;
+          return _json(200, {
+            'balance': 9000,
+            'codes': [
+              {'code': 'RULETA-AAAA-BBBB-CCC', 'game': 'roulette', 'played': false},
+              {'code': 'DADOS-AAAA-BBBB-CCC', 'game': 'dice', 'played': true},
+            ],
+          });
+        }),
+      );
+      await api.verifyCode('ana@ejemplo.com', '123456');
+      final a = await api.account();
+      expect(seen.method, 'GET');
+      expect(seen.url.path, '/v1/demo/account');
+      expect(seen.headers['Authorization'], 'Bearer jwt-1');
+      expect(a.balance, 9000);
+      expect(a.codes.map((c) => (c.game, c.played)), [('roulette', false), ('dice', true)]);
+    });
+
+    test('purchase manda solo ids y cantidades con la clave de idempotencia y el token de la cuenta', () async {
+      late http.Request seen;
+      final api = DemoApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((r) async {
+          if (r.url.path == '/v1/demo/auth/verify') return _json(200, _session());
           seen = r;
           return _json(200, _order());
         }),
       );
+      await api.verifyCode('ana@ejemplo.com', '123456');
       final order = await api.purchase([const DemoLine('recarga-20', 2)], idempotencyKey: 'clave-0001');
       expect(seen.headers['Authorization'], 'Bearer jwt-1');
       expect(seen.headers['Idempotency-Key'], 'clave-0001');
@@ -153,49 +260,56 @@ void main() {
       expect((order.credited, order.balance, order.codes.length, order.codes.first.game), (4000, 9000, 2, 'roulette'));
     });
 
-    test('el token se renueva solo, reanudando la sesión, cuando está por vencer', () async {
+    test('el token se renueva solo, reanudando la cuenta, cuando está por vencer', () async {
       var now = DateTime(2026, 11, 8, 10);
-      var opens = 0;
+      var calls = 0;
       final resumes = <Object?>[];
       final api = DemoApi(
         baseUrl: 'http://api.test',
         clock: () => now,
         client: MockClient((r) async {
-          opens++;
-          resumes.add((jsonDecode(r.body) as Map)['resume']);
-          return _json(200, _session(token: 'jwt-$opens', expiresIn: 600));
+          calls++;
+          if (r.url.path == '/v1/demo/session') resumes.add((jsonDecode(r.body) as Map)['resume']);
+          return _json(200, _session(token: 'jwt-$calls', expiresIn: 600));
         }),
       );
+      await api.verifyCode('ana@ejemplo.com', '123456');
       expect(await api.token(), 'jwt-1');
       now = now.add(const Duration(minutes: 5));
       expect(await api.token(), 'jwt-1', reason: 'aún vigente: no se vuelve a pedir');
       now = now.add(const Duration(minutes: 5)); // quedan 0 s < margen de 30 s
       expect(await api.token(), 'jwt-2');
-      expect(resumes, [null, 'muestra.abc']);
+      expect(resumes, ['muestra.abc']);
     });
 
-    test('varias peticiones simultáneas comparten UNA apertura de sesión', () async {
-      var opens = 0;
+    test('varias peticiones simultáneas comparten UNA renovación', () async {
+      var now = DateTime(2026, 11, 8, 10);
+      var renewals = 0;
       final api = DemoApi(
         baseUrl: 'http://api.test',
+        clock: () => now,
         client: MockClient((r) async {
-          opens++;
-          await Future<void>.delayed(const Duration(milliseconds: 20));
+          if (r.url.path == '/v1/demo/session') {
+            renewals++;
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+          }
           return _json(200, _session());
         }),
       );
-      await Future.wait([api.token(), api.token(), api.openSession()]);
-      expect(opens, 1);
+      await api.verifyCode('ana@ejemplo.com', '123456');
+      now = now.add(const Duration(minutes: 11));
+      await Future.wait([api.token(), api.token(), api.token()]);
+      expect(renewals, 1);
     });
 
     test('un 403 demoSessionInvalid renueva la sesión y reintenta UNA vez con la misma clave', () async {
       final keys = <String?>[];
       var purchases = 0;
-      var opens = 0;
+      var tokens = 0;
       final api = DemoApi(
         baseUrl: 'http://api.test',
         client: MockClient((r) async {
-          if (r.url.path == '/v1/demo/session') return _json(200, _session(token: 'jwt-${++opens}'));
+          if (r.url.path != '/v1/demo/purchase') return _json(200, _session(token: 'jwt-${++tokens}'));
           keys.add(r.headers['Idempotency-Key']);
           return ++purchases == 1
               ? _json(403, {
@@ -204,10 +318,11 @@ void main() {
               : _json(200, _order());
         }),
       );
+      await api.verifyCode('ana@ejemplo.com', '123456');
       final order = await api.purchase([const DemoLine('recarga-20', 1)], idempotencyKey: 'clave-0002');
       expect(order.balance, 9000);
       expect(keys, ['clave-0002', 'clave-0002']);
-      expect(opens, 2);
+      expect(tokens, 2);
     });
 
     test('si persiste el rechazo no reintenta más de una vez', () async {
@@ -215,13 +330,14 @@ void main() {
       final api = DemoApi(
         baseUrl: 'http://api.test',
         client: MockClient((r) async {
-          if (r.url.path == '/v1/demo/session') return _json(200, _session());
+          if (r.url.path != '/v1/demo/purchase') return _json(200, _session());
           purchases++;
           return _json(403, {
             'error': {'code': 'demoSessionInvalid', 'message': 'x'},
           });
         }),
       );
+      await api.verifyCode('ana@ejemplo.com', '123456');
       await expectLater(
         api.purchase([const DemoLine('a', 1)], idempotencyKey: 'clave-0003'),
         throwsA(isA<DemoException>().having((e) => e.reason, 'reason', DemoFailure.sessionInvalid)),
@@ -229,18 +345,71 @@ void main() {
       expect(purchases, 2);
     });
 
+    test('una cuenta borrada (401 al renovar) olvida la sesión: no se sigue con un token muerto', () async {
+      var now = DateTime(2026, 11, 8, 10);
+      var renewals = 0;
+      final api = DemoApi(
+        baseUrl: 'http://api.test',
+        clock: () => now,
+        client: MockClient((r) async {
+          if (r.url.path == '/v1/demo/session') {
+            renewals++;
+            return _json(401, {
+              'error': {'code': 'demoSessionInvalid', 'message': 'x'},
+            });
+          }
+          return _json(200, _session());
+        }),
+      );
+      await api.verifyCode('ana@ejemplo.com', '123456');
+      now = now.add(const Duration(minutes: 11));
+      await expectLater(
+        api.purchase([const DemoLine('a', 1)], idempotencyKey: 'clave-0005'),
+        throwsA(isA<DemoException>().having((e) => e.reason, 'reason', DemoFailure.sessionInvalid)),
+      );
+      expect(renewals, 1);
+      // Olvidada: el siguiente intento ni siquiera pregunta al servidor.
+      await expectLater(
+        api.account(),
+        throwsA(isA<DemoException>().having((e) => e.reason, 'reason', DemoFailure.sessionInvalid)),
+      );
+      expect(renewals, 1);
+    });
+
+    test('signOut olvida token y subject', () async {
+      var calls = 0;
+      final api = DemoApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((_) async {
+          calls++;
+          return _json(200, _session());
+        }),
+      );
+      await api.verifyCode('ana@ejemplo.com', '123456');
+      expect(await api.token(), 'jwt-1');
+      api.signOut();
+      await expectLater(
+        api.token(),
+        throwsA(isA<GamificationException>().having((e) => e.reason, 'reason', FailureReason.unauthorized)),
+      );
+      expect(calls, 1);
+    });
+
     test('traduce los errores del servidor sin filtrar excepciones de red o de formato', () async {
-      Future<DemoException> fail(http.Response Function(http.Request) h, {bool onSession = false}) async {
+      Future<DemoException> fail(http.Response Function(http.Request) h, {bool onLogin = false}) async {
         final api = DemoApi(
           baseUrl: 'http://api.test',
           client: MockClient(
-            (r) async => r.url.path == '/v1/demo/session' && !onSession ? _json(200, _session()) : h(r),
+            (r) async => r.url.path == '/v1/demo/auth/verify' && !onLogin ? _json(200, _session()) : h(r),
           ),
         );
         try {
-          onSession
-              ? await api.openSession()
-              : await api.purchase([const DemoLine('a', 1)], idempotencyKey: 'clave-0004');
+          if (onLogin) {
+            await api.verifyCode('ana@ejemplo.com', '123456');
+          } else {
+            await api.verifyCode('ana@ejemplo.com', '123456');
+            await api.purchase([const DemoLine('a', 1)], idempotencyKey: 'clave-0004');
+          }
         } on DemoException catch (e) {
           return e;
         }
@@ -260,11 +429,11 @@ void main() {
       expect(e.reason, DemoFailure.network);
       e = await fail((_) => throw http.ClientException('x'));
       expect(e.reason, DemoFailure.network);
-      e = await fail((_) => _json(404, err('notFound')), onSession: true);
+      e = await fail((_) => _json(404, err('notFound')), onLogin: true);
       expect(e.reason, DemoFailure.off);
-      e = await fail((_) => _json(503, err('devIssuerNotConfigured')), onSession: true);
+      e = await fail((_) => _json(503, err('devIssuerNotConfigured')), onLogin: true);
       expect(e.reason, DemoFailure.network);
-      e = await fail((_) => _json(200, {'token': 1}), onSession: true);
+      e = await fail((_) => _json(200, {'token': 1}), onLogin: true);
       expect(e.reason, DemoFailure.unknown);
       e = await fail((_) => _json(200, {'orderId': 1}));
       expect(e.reason, DemoFailure.unknown);
@@ -277,18 +446,24 @@ void main() {
         client: MockClient((_) => Completer<http.Response>().future),
       );
       await expectLater(
-        api.openSession(),
+        api.verifyCode('ana@ejemplo.com', '123456'),
         throwsA(isA<DemoException>().having((e) => e.reason, 'reason', DemoFailure.network)),
       );
     });
 
     test(
-      'como TokenProvider del repositorio: si la apertura falla por red lanza GamificationException(network)',
+      'como TokenProvider del repositorio: si la renovación falla por red lanza GamificationException(network)',
       () async {
+        var down = false;
+        var now = DateTime(2026, 11, 8, 10);
         final api = DemoApi(
           baseUrl: 'http://api.test',
-          client: MockClient((_) async => throw http.ClientException('x')),
+          clock: () => now,
+          client: MockClient((_) async => down ? throw http.ClientException('x') : _json(200, _session())),
         );
+        await api.verifyCode('ana@ejemplo.com', '123456');
+        down = true;
+        now = now.add(const Duration(minutes: 11));
         await expectLater(
           api.token(),
           throwsA(isA<GamificationException>().having((e) => e.reason, 'reason', FailureReason.network)),

@@ -28,25 +28,46 @@ const _rules = DemoRules(
   maxCodesPerSession: 10,
 );
 
-/// Servidor de la muestra simulado: registra las compras y puede fallar.
+/// Servidor de la muestra simulado: registra los pedidos de código, los ingresos y las compras, y puede fallar.
 class _FakeBackend implements DemoBackend {
   _FakeBackend({this.codes = const ['RULETA-50K'], this.capReached = false, this.rules = _rules});
   final DemoRules rules;
   final List<String> codes;
   final bool capReached;
-  var sessions = 0;
+  static const validCode = '123456';
+  final requests = <String>[];
+  final verifies = <(String, String)>[];
+  var signOuts = 0;
+  var retryAfter = const Duration(seconds: 60);
   final purchases = <(List<DemoLine>, String)>[];
+
+  /// Fallos de la próxima compra.
   final failures = <DemoException>[];
+
+  /// Fallo del próximo pedido de código / del próximo ingreso.
+  DemoException? requestFailure;
+  DemoException? verifyFailure;
   Completer<void>? gate;
   var balance = 5000;
+
+  /// Códigos que la cuenta ya tiene al entrar (cuenta que vuelve).
+  List<DemoOwnedCode> stored = const [];
 
   @override
   Future<bool> status() async => true;
 
   @override
-  Future<DemoSession> openSession() async {
-    sessions++;
-    if (failures.isNotEmpty) throw failures.removeAt(0);
+  Future<DemoCodeRequest> requestCode(String email) async {
+    requests.add(email);
+    if (requestFailure != null) throw requestFailure!;
+    return DemoCodeRequest(retryAfter: retryAfter);
+  }
+
+  @override
+  Future<DemoSession> verifyCode(String email, String code) async {
+    verifies.add((email, code));
+    if (verifyFailure != null) throw verifyFailure!;
+    if (code != validCode) throw const DemoException(DemoFailure.invalidCode);
     return DemoSession(
       displayName: 'Cliente de muestra',
       balance: balance,
@@ -58,6 +79,12 @@ class _FakeBackend implements DemoBackend {
       ],
     );
   }
+
+  @override
+  Future<DemoAccount> account() async => DemoAccount(balance: balance, codes: stored);
+
+  @override
+  void signOut() => signOuts++;
 
   @override
   Future<DemoOrder> purchase(List<DemoLine> lines, {required String idempotencyKey}) async {
@@ -101,8 +128,13 @@ String Function() _keys() {
   return () => 'clave-${++n}';
 }
 
-Future<void> _enter(WidgetTester t) async {
-  await t.tap(find.byKey(const ValueKey('demo-enter')));
+/// Ingreso completo: correo → código recibido → entra.
+Future<void> _enter(WidgetTester t, {String email = 'ana@ejemplo.com', String code = _FakeBackend.validCode}) async {
+  await t.enterText(find.byKey(const ValueKey('demo-email')), email);
+  await t.tap(find.byKey(const ValueKey('demo-send-code')));
+  await t.pumpAndSettle();
+  await t.enterText(find.byKey(const ValueKey('demo-code')), code);
+  await t.tap(find.byKey(const ValueKey('demo-verify')));
   await t.pumpAndSettle();
 }
 
@@ -295,15 +327,187 @@ void main() {
     expect(find.byKey(const ValueKey('demo-cap')), findsOneWidget);
   });
 
-  testWidgets('el acceso falla con red caída y permite reintentar', (t) async {
-    final backend = _FakeBackend()..failures.add(const DemoException(DemoFailure.off));
+  testWidgets(
+    'correo: se pide con el aviso de privacidad, un correo sin @ no llama al servidor y el código sale hacia ese correo',
+    (t) async {
+      final backend = _FakeBackend();
+      await t.pumpWidget(_app(backend));
+      expect(find.byKey(const ValueKey('demo-privacy')), findsOneWidget);
+      expect(find.textContaining('solo para enviarte el código de ingreso'), findsOneWidget);
+
+      await t.enterText(find.byKey(const ValueKey('demo-email')), 'esto no es un correo');
+      await t.tap(find.byKey(const ValueKey('demo-send-code')));
+      await t.pumpAndSettle();
+      expect(find.text('Escribe un correo válido.'), findsOneWidget);
+      expect(backend.requests, isEmpty);
+
+      await t.enterText(find.byKey(const ValueKey('demo-email')), '  ana@ejemplo.com ');
+      await t.tap(find.byKey(const ValueKey('demo-send-code')));
+      await t.pumpAndSettle();
+      expect(backend.requests, ['ana@ejemplo.com']);
+      expect(find.text('Revisa tu correo'), findsOneWidget);
+      expect(find.textContaining('ana@ejemplo.com'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('el reenvío espera lo que dice el servidor y luego se habilita', (t) async {
+    final backend = _FakeBackend()..retryAfter = const Duration(seconds: 5);
+    await t.pumpWidget(_app(backend));
+    await t.enterText(find.byKey(const ValueKey('demo-email')), 'ana@ejemplo.com');
+    await t.tap(find.byKey(const ValueKey('demo-send-code')));
+    await t.pumpAndSettle();
+    OutlinedButton resend() => t.widget<OutlinedButton>(find.byKey(const ValueKey('demo-resend')));
+    expect(resend().onPressed, isNull);
+    expect(find.textContaining('Podrás pedir otro en'), findsOneWidget);
+    await t.pump(const Duration(seconds: 6));
+    expect(resend().onPressed, isNotNull);
+    expect(find.text('Pedir otro código'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('demo-resend')));
+    await t.pump();
+    expect(backend.requests, ['ana@ejemplo.com', 'ana@ejemplo.com']);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('un código errado muestra un único mensaje y deja reintentar con el correcto', (t) async {
+    final backend = _FakeBackend();
+    await t.pumpWidget(_app(backend));
+    await _enter(t, code: '000000');
+    expect(find.text('El código no es válido o ya venció. Pide uno nuevo.'), findsOneWidget);
+    expect(find.text('Revisa tu correo'), findsOneWidget, reason: 'sigue en el paso del código');
+    expect(find.byKey(const ValueKey('demo-total')), findsNothing);
+    await t.enterText(find.byKey(const ValueKey('demo-code')), _FakeBackend.validCode);
+    await t.tap(find.byKey(const ValueKey('demo-verify')));
+    await t.pumpAndSettle();
+    expect(find.text('Tienda'), findsWidgets);
+    expect(backend.verifies.map((v) => v.$2), ['000000', '123456']);
+  });
+
+  testWidgets('un código incompleto no llama al servidor y el campo solo admite 6 dígitos', (t) async {
+    final backend = _FakeBackend();
+    await t.pumpWidget(_app(backend));
+    await t.enterText(find.byKey(const ValueKey('demo-email')), 'ana@ejemplo.com');
+    await t.tap(find.byKey(const ValueKey('demo-send-code')));
+    await t.pumpAndSettle();
+    await t.enterText(find.byKey(const ValueKey('demo-code')), '12ab34');
+    expect(t.widget<TextField>(find.byKey(const ValueKey('demo-code'))).controller!.text, '1234');
+    await t.tap(find.byKey(const ValueKey('demo-verify')));
+    await t.pumpAndSettle();
+    expect(backend.verifies, isEmpty);
+    await t.enterText(find.byKey(const ValueKey('demo-code')), '123456789');
+    expect(t.widget<TextField>(find.byKey(const ValueKey('demo-code'))).controller!.text, '123456');
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'correo que no se pudo enviar, muestra apagada y tope de cuentas: mensajes claros y se puede reintentar',
+    (t) async {
+      final backend = _FakeBackend()..requestFailure = const DemoException(DemoFailure.mailUnavailable);
+      await t.pumpWidget(_app(backend));
+      await t.enterText(find.byKey(const ValueKey('demo-email')), 'ana@ejemplo.com');
+      await t.tap(find.byKey(const ValueKey('demo-send-code')));
+      await t.pumpAndSettle();
+      expect(find.text('No pudimos enviar el correo. Inténtalo de nuevo en un momento.'), findsOneWidget);
+      expect(find.text('Revisa tu correo'), findsNothing, reason: 'no avanza si el correo no salió');
+
+      backend.requestFailure = const DemoException(DemoFailure.off);
+      await t.tap(find.byKey(const ValueKey('demo-send-code')));
+      await t.pumpAndSettle();
+      expect(find.text('La muestra no está disponible en este momento.'), findsOneWidget);
+
+      backend.requestFailure = null;
+      backend.verifyFailure = const DemoException(DemoFailure.accountsFull);
+      await _enter(t);
+      expect(find.text('La muestra llegó a su tope de cuentas. Avisa al organizador.'), findsOneWidget);
+      backend.verifyFailure = null;
+      await t.tap(find.byKey(const ValueKey('demo-verify')));
+      await t.pumpAndSettle();
+      expect(find.text('Tienda'), findsWidgets);
+      expect(backend.requests, hasLength(3));
+    },
+  );
+
+  testWidgets('«usar otro correo» vuelve al primer paso', (t) async {
+    final backend = _FakeBackend();
+    await t.pumpWidget(_app(backend));
+    await t.enterText(find.byKey(const ValueKey('demo-email')), 'ana@ejemplo.com');
+    await t.tap(find.byKey(const ValueKey('demo-send-code')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('demo-change-email')));
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('demo-email')), findsOneWidget);
+    expect(find.byKey(const ValueKey('demo-code')), findsNothing);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('cuenta que vuelve: entra a «Tus códigos» con el saldo acumulado y cada código en su estado', (t) async {
+    final backend = _FakeBackend()
+      ..balance = 9000
+      ..stored = const [
+        DemoOwnedCode(code: 'RULETA-JUGADO', game: 'roulette', played: true),
+        DemoOwnedCode(code: 'RULETA-50K', game: 'roulette', played: false),
+      ];
     await t.pumpWidget(_app(backend));
     await _enter(t);
-    expect(find.text('La muestra no está disponible en este momento.'), findsOneWidget);
-    expect(find.text('Reintentar'), findsOneWidget);
+    expect(find.text('Tus códigos'), findsWidgets);
+    expect(find.text('\$ 9.000'), findsOneWidget, reason: 'el saldo acumulado de la cuenta');
+    expect(find.text('RULETA-JUGADO'), findsOneWidget);
+    expect(find.byKey(const ValueKey('demo-played-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('demo-play-0')), findsNothing);
+    expect(find.byKey(const ValueKey('demo-play-1')), findsOneWidget, reason: 'el pendiente se puede jugar');
+    await t.tap(find.byKey(const ValueKey('demo-play-1')));
+    await t.pumpAndSettle();
+    expect(find.text('JUEGO:roulette'), findsOneWidget);
+  });
+
+  testWidgets('«Salir» olvida la sesión de este dispositivo y no deja rastro de la cuenta anterior', (t) async {
+    final backend = _FakeBackend()
+      ..stored = const [DemoOwnedCode(code: 'RULETA-DE-ANA', game: 'roulette', played: false)];
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    expect(find.text('RULETA-DE-ANA'), findsOneWidget);
+    await t.ensureVisible(find.byKey(const ValueKey('demo-signout')));
+    await t.tap(find.byKey(const ValueKey('demo-signout')));
+    await t.pumpAndSettle();
+    expect(backend.signOuts, 1);
+    expect(find.byKey(const ValueKey('demo-email')), findsOneWidget);
+    expect(t.widget<TextField>(find.byKey(const ValueKey('demo-email'))).controller!.text, isEmpty);
+    expect(find.text('RULETA-DE-ANA'), findsNothing);
+
+    // Otra persona entra en el mismo dispositivo: ve SU cuenta, no la de Ana.
+    backend.stored = const [];
+    await _enter(t, email: 'luis@ejemplo.com');
+    expect(find.text('Tienda'), findsWidgets);
+    expect(find.text('RULETA-DE-ANA'), findsNothing);
+    expect(find.byKey(const ValueKey('demo-to-codes')), findsNothing);
+  });
+
+  testWidgets('si el servidor cierra la sesión al comprar (cuenta borrada), vuelve al acceso con el motivo', (t) async {
+    final backend = _FakeBackend();
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    await _add(t, 'r20');
+    backend.failures.add(const DemoException(DemoFailure.sessionInvalid));
+    await t.tap(find.byKey(const ValueKey('demo-pay')));
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('demo-email')), findsOneWidget);
+    expect(find.text('Tu sesión de la muestra venció. Vuelve a entrar.'), findsOneWidget);
+    expect(backend.signOuts, 1);
+  });
+
+  testWidgets('el saldo que se muestra al entrar es el de la cuenta (más reciente que el de la sesión)', (t) async {
+    await t.pumpWidget(_app(_FreshBalanceBackend()));
+    await _enter(t);
+    expect(find.text('\$ 7.777'), findsOneWidget);
+    expect(find.text('\$ 5.000'), findsNothing);
+  });
+
+  testWidgets('si no se pueden traer los códigos al entrar, igual se entra con el saldo de la sesión', (t) async {
+    final backend = _FailingAccountBackend();
+    await t.pumpWidget(_app(backend));
     await _enter(t);
     expect(find.text('Tienda'), findsWidgets);
-    expect(backend.sessions, 2);
+    expect(find.text('\$ 5.000'), findsOneWidget);
   });
 
   testWidgets('varios códigos: se juegan en secuencia y cada uno queda marcado', (t) async {
@@ -357,6 +561,9 @@ void main() {
   testWidgets('en inglés los textos del recorrido salen en inglés', (t) async {
     await t.pumpWidget(_app(_FakeBackend(), locale: const Locale('en')));
     expect(find.text('Welcome to the demo'), findsOneWidget);
+    expect(find.text('Email address'), findsOneWidget);
+    expect(find.text('Send me the code'), findsOneWidget);
+    expect(find.textContaining('We will use your email only'), findsOneWidget);
     expect(find.text('DEMO · Simulated data, no real money'), findsOneWidget);
   });
 }
@@ -374,4 +581,14 @@ class _OfflineRepo implements GamificationRepository {
 
   @override
   Future<Balance> getBalance() async => throw const GamificationException(FailureReason.network);
+}
+
+class _FailingAccountBackend extends _FakeBackend {
+  @override
+  Future<DemoAccount> account() async => throw const DemoException(DemoFailure.network);
+}
+
+class _FreshBalanceBackend extends _FakeBackend {
+  @override
+  Future<DemoAccount> account() async => const DemoAccount(balance: 7777, codes: []);
 }

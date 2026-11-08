@@ -46,7 +46,7 @@ class DemoPreview {
   final int codes;
 }
 
-/// Sesión del usuario simulado.
+/// Sesión de la cuenta de la muestra (SPEC-006A): la persona entró con su correo y un código de un solo uso.
 class DemoSession {
   const DemoSession({
     required this.displayName,
@@ -54,12 +54,40 @@ class DemoSession {
     required this.products,
     required this.rules,
     required this.resumed,
+    this.isNew = false,
   });
   final String displayName;
   final int balance;
   final List<DemoProduct> products;
   final DemoRules rules;
   final bool resumed;
+
+  /// La cuenta se creó con este ingreso (la primera vez de ese correo).
+  final bool isNew;
+}
+
+/// Respuesta a «pídeme un código»: el servidor SIEMPRE dice que lo envió (no revela si el correo ya tenía cuenta); [retryAfter] es la espera
+/// antes de poder pedir otro.
+class DemoCodeRequest {
+  const DemoCodeRequest({required this.retryAfter});
+  final Duration retryAfter;
+}
+
+/// Código de la compra de una cuenta, con su estado.
+class DemoOwnedCode {
+  const DemoOwnedCode({required this.code, required this.game, required this.played});
+  final String code;
+  final String game;
+
+  /// Ya se canjeó (el resultado ya se vio).
+  final bool played;
+}
+
+/// Lo que la cuenta conserva entre visitas: saldo acumulado y los códigos que compró.
+class DemoAccount {
+  const DemoAccount({required this.balance, required this.codes});
+  final int balance;
+  final List<DemoOwnedCode> codes;
 }
 
 /// Código entregado por una compra. El resultado ya está decidido en el servidor; el cliente solo lo canjea.
@@ -102,8 +130,20 @@ enum DemoFailure {
   /// La muestra está apagada (o caducó).
   off,
 
-  /// La sesión no existe o venció y no pudo renovarse.
+  /// La sesión no existe, venció y no pudo renovarse, o la cuenta se borró.
   sessionInvalid,
+
+  /// El correo escrito no es válido.
+  invalidEmail,
+
+  /// El código es erróneo, venció, ya se usó o se agotaron los intentos (el servidor no distingue la causa a propósito).
+  invalidCode,
+
+  /// El servidor no pudo enviar el correo: nada se gastó, se puede reintentar.
+  mailUnavailable,
+
+  /// La muestra llegó a su tope de cuentas.
+  accountsFull,
 
   /// El pool de códigos se agotó.
   poolExhausted,
@@ -130,8 +170,17 @@ abstract interface class DemoBackend {
   /// ¿Está encendida la muestra? Un fallo de red cuenta como apagada.
   Future<bool> status();
 
-  /// Abre la sesión del usuario simulado; en llamadas siguientes la reanuda (mismo usuario y saldo).
-  Future<DemoSession> openSession();
+  /// Pide que se envíe un código de ingreso de un solo uso a [email]. Responde igual exista o no la cuenta.
+  Future<DemoCodeRequest> requestCode(String email);
+
+  /// Canjea el código de 6 dígitos: entra a la cuenta de ese correo (se crea si es nueva) con su saldo acumulado.
+  Future<DemoSession> verifyCode(String email, String code);
+
+  /// Saldo y códigos de la cuenta ya ingresada (para mostrarlos al volver a entrar).
+  Future<DemoAccount> account();
+
+  /// Olvida la sesión de este dispositivo (la cuenta y su saldo siguen en el servidor).
+  void signOut();
 
   /// Compra en línea simulada. Con la misma [idempotencyKey] devuelve siempre la misma orden (reintentar tras un corte no cobra dos veces).
   Future<DemoOrder> purchase(List<DemoLine> lines, {required String idempotencyKey});

@@ -108,7 +108,17 @@ abstract class GamificationStrings {
   String get demoAccessTitle;
   String get demoAccessBody;
   String demoAccessAs(String name);
-  String get demoEnter;
+  String get demoPrivacy;
+  String get demoEmailLabel;
+  String get demoSendCode;
+  String get demoCodeTitle;
+  String demoCodeSent(String email);
+  String get demoCodeLabel;
+  String get demoVerify;
+  String get demoResend;
+  String demoResendIn(int seconds);
+  String get demoChangeEmail;
+  String get demoSignOut;
   String get demoShopTitle;
   String demoAddOne(String name);
   String demoRemoveOne(String name);
@@ -392,11 +402,34 @@ class EsStrings extends GamificationStrings {
   String get demoAccessTitle => 'Bienvenido a la muestra';
   @override
   String get demoAccessBody =>
-      'Vas a vivir el recorrido completo: entras, compras en línea, recibes saldo y un código sorteado al azar.';
+      'Entra con tu correo: te enviamos un código de un solo uso. Compras en línea, recibes saldo y códigos sorteados al azar, y todo queda guardado para cuando vuelvas.';
   @override
   String demoAccessAs(String name) => 'Entrarás como $name';
+  // Aviso de privacidad PROVISIONAL: la redacción definitiva es decisión de negocio (D5, Luis); se reemplaza aquí sin tocar nada más.
   @override
-  String get demoEnter => 'Entrar a la tienda';
+  String get demoPrivacy =>
+      'Usaremos tu correo solo para enviarte el código de ingreso y guardar tu saldo y tus códigos de esta muestra. '
+      'No lo compartimos y se borra cuando se elimina tu cuenta o tras un tiempo sin ingresar.';
+  @override
+  String get demoEmailLabel => 'Correo electrónico';
+  @override
+  String get demoSendCode => 'Enviarme el código';
+  @override
+  String get demoCodeTitle => 'Revisa tu correo';
+  @override
+  String demoCodeSent(String email) => 'Enviamos un código de 6 dígitos a $email. Vence en pocos minutos.';
+  @override
+  String get demoCodeLabel => 'Código de 6 dígitos';
+  @override
+  String get demoVerify => 'Entrar';
+  @override
+  String get demoResend => 'Pedir otro código';
+  @override
+  String demoResendIn(int seconds) => 'Podrás pedir otro en $seconds s';
+  @override
+  String get demoChangeEmail => 'Usar otro correo';
+  @override
+  String get demoSignOut => 'Salir';
   @override
   String get demoShopTitle => 'Tienda';
   @override
@@ -463,6 +496,10 @@ class EsStrings extends GamificationStrings {
     DemoFailure.off => 'La muestra no está disponible en este momento.',
     DemoFailure.sessionInvalid => 'Tu sesión de la muestra venció. Vuelve a entrar.',
     DemoFailure.poolExhausted => 'La muestra se quedó sin códigos. Avisa al organizador.',
+    DemoFailure.invalidEmail => 'Escribe un correo válido.',
+    DemoFailure.invalidCode => 'El código no es válido o ya venció. Pide uno nuevo.',
+    DemoFailure.mailUnavailable => 'No pudimos enviar el correo. Inténtalo de nuevo en un momento.',
+    DemoFailure.accountsFull => 'La muestra llegó a su tope de cuentas. Avisa al organizador.',
     DemoFailure.invalidPurchase => message ?? 'La compra no es válida.',
     DemoFailure.rateLimited => 'Demasiados intentos. Espera un momento.',
     DemoFailure.network => 'Sin conexión. Verifica tu internet e inténtalo de nuevo.',
@@ -734,11 +771,34 @@ class EnStrings extends GamificationStrings {
   String get demoAccessTitle => 'Welcome to the demo';
   @override
   String get demoAccessBody =>
-      'You will live the whole journey: sign in, buy online, receive balance and a randomly drawn code.';
+      'Sign in with your email: we send you a one-time code. You buy online, receive balance and randomly drawn codes, and everything is kept for when you come back.';
   @override
   String demoAccessAs(String name) => 'You will enter as $name';
+  // PROVISIONAL privacy notice: the final wording is a business decision (D5, Luis).
   @override
-  String get demoEnter => 'Enter the shop';
+  String get demoPrivacy =>
+      'We will use your email only to send you the sign-in code and keep your balance and codes for this demo. '
+      'We do not share it, and it is deleted when your account is removed or after a while without signing in.';
+  @override
+  String get demoEmailLabel => 'Email address';
+  @override
+  String get demoSendCode => 'Send me the code';
+  @override
+  String get demoCodeTitle => 'Check your email';
+  @override
+  String demoCodeSent(String email) => 'We sent a 6-digit code to $email. It expires in a few minutes.';
+  @override
+  String get demoCodeLabel => '6-digit code';
+  @override
+  String get demoVerify => 'Sign in';
+  @override
+  String get demoResend => 'Send another code';
+  @override
+  String demoResendIn(int seconds) => 'You can ask for another in $seconds s';
+  @override
+  String get demoChangeEmail => 'Use another email';
+  @override
+  String get demoSignOut => 'Sign out';
   @override
   String get demoShopTitle => 'Shop';
   @override
@@ -805,6 +865,10 @@ class EnStrings extends GamificationStrings {
     DemoFailure.off => 'The demo is not available right now.',
     DemoFailure.sessionInvalid => 'Your demo session expired. Sign in again.',
     DemoFailure.poolExhausted => 'The demo ran out of codes. Tell the organizer.',
+    DemoFailure.invalidEmail => 'Enter a valid email address.',
+    DemoFailure.invalidCode => 'The code is not valid or has expired. Ask for a new one.',
+    DemoFailure.mailUnavailable => 'We could not send the email. Try again in a moment.',
+    DemoFailure.accountsFull => 'The demo reached its account limit. Tell the organizer.',
     DemoFailure.invalidPurchase => message ?? 'The purchase is not valid.',
     DemoFailure.rateLimited => 'Too many attempts. Wait a moment.',
     DemoFailure.network => 'No connection. Check your internet and try again.',

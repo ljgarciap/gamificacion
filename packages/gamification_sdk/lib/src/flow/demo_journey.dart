@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 import 'gamification_flow.dart';
 
-/// Recorrido de la MUESTRA REAL (SPEC-006): Acceso → Tienda → Pago simulado → Saldo cargado → Tus códigos → Juego.
+/// Recorrido de la MUESTRA REAL (SPEC-006 y SPEC-006A): Acceso (correo + código de un solo uso) → Tienda → Pago simulado → Saldo cargado →
+/// Tus códigos → Juego. La cuenta persiste en el servidor: al volver a entrar con el mismo correo se recupera el saldo acumulado y los códigos
+/// (jugados o no). El correo se pide con un aviso de privacidad visible (texto provisional, D5).
 ///
 /// El servidor decide todo (precios, saldo cargado, cuántos códigos y cuáles, el resultado de cada uno); aquí solo se muestra y se anima.
 /// Los códigos que entrega la compra se canjean con el flujo común ([GamificationFlow] con `initialCode`), sin tocar el núcleo ni los juegos.
@@ -67,6 +70,14 @@ class _DemoJourneyState extends State<DemoJourney> {
   bool _busy = false;
   DemoException? _error;
 
+  // Acceso: primero el correo, luego el código que llegó a ese correo.
+  final _emailCtl = TextEditingController();
+  final _codeCtl = TextEditingController();
+  bool _awaitingCode = false;
+  String _email = '';
+  int _secondsLeft = 0;
+  Timer? _ticker;
+
   /// Clave de la compra en curso: sobrevive a un corte de red (el reintento del MISMO carrito no cobra dos veces) y se descarta si el
   /// carrito cambia o la compra termina.
   String? _purchaseKey;
@@ -85,6 +96,9 @@ class _DemoJourneyState extends State<DemoJourney> {
 
   @override
   void dispose() {
+    _ticker?.cancel();
+    _emailCtl.dispose();
+    _codeCtl.dispose();
     _sub?.cancel();
     super.dispose();
   }
@@ -108,18 +122,88 @@ class _DemoJourneyState extends State<DemoJourney> {
 
   // --- Acciones -----------------------------------------------------------------------------------------------------
 
-  Future<void> _enter() async {
+  /// Cuenta atrás hasta poder pedir otro código (la espera la fija el servidor).
+  void _startCountdown(Duration wait) {
+    _ticker?.cancel();
+    _secondsLeft = wait.inSeconds;
+    if (_secondsLeft <= 0) return;
+    _ticker = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted || _secondsLeft <= 1) {
+        t.cancel();
+        if (mounted) setState(() => _secondsLeft = 0);
+        return;
+      }
+      setState(() => _secondsLeft--);
+    });
+  }
+
+  Future<void> _requestCode() async {
+    final email = (_awaitingCode ? _email : _emailCtl.text).trim();
+    if (_busy) return;
+    if (!email.contains('@')) {
+      setState(() => _error = const DemoException(DemoFailure.invalidEmail));
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final session = await widget.backend.openSession();
+      final res = await widget.backend.requestCode(email);
       if (!mounted) return;
       setState(() {
+        _email = email;
+        _awaitingCode = true;
+        _codeCtl.clear();
+        _busy = false;
+      });
+      _startCountdown(res.retryAfter);
+    } on DemoException catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e;
+          _busy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _verify() async {
+    final code = _codeCtl.text.trim();
+    if (_busy) return;
+    if (code.length != 6) {
+      setState(() => _error = const DemoException(DemoFailure.invalidCode));
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final session = await widget.backend.verifyCode(_email, code);
+      // Lo que la cuenta conserva: saldo acumulado y códigos (jugados o no). Si esto falla por red no se pierde nada: el saldo ya vino
+      // en la sesión y los códigos se verán al reintentar; no se bloquea el ingreso por eso.
+      DemoAccount? account;
+      try {
+        account = await widget.backend.account();
+      } on DemoException {
+        account = null;
+      }
+      if (!mounted) return;
+      _ticker?.cancel();
+      setState(() {
         _session = session;
-        _balance = session.balance;
-        _stage = _Stage.shop;
+        _balance = account?.balance ?? session.balance;
+        _codes
+          ..clear()
+          ..addAll([
+            for (final c in account?.codes ?? const <DemoOwnedCode>[]) _Owned(c.code, c.game)..played = c.played,
+          ]);
+        _cart.clear();
+        _purchaseKey = null;
+        _order = null;
+        _codeCtl.clear();
+        _stage = _codes.isEmpty ? _Stage.shop : _Stage.codes;
         _busy = false;
       });
     } on DemoException catch (e) {
@@ -130,6 +214,40 @@ class _DemoJourneyState extends State<DemoJourney> {
         });
       }
     }
+  }
+
+  void _changeEmail() {
+    _ticker?.cancel();
+    setState(() {
+      _awaitingCode = false;
+      _codeCtl.clear();
+      _error = null;
+      _secondsLeft = 0;
+    });
+  }
+
+  /// Vuelve al acceso olvidando la sesión de ESTE dispositivo (la cuenta y su saldo siguen en el servidor). [error] explica por qué, si fue
+  /// el servidor quien la cerró (cuenta borrada, sesión vencida).
+  void _toAccess({DemoException? error}) {
+    widget.backend.signOut();
+    _ticker?.cancel();
+    setState(() {
+      _session = null;
+      _balance = 0;
+      _cart.clear();
+      _codes.clear();
+      _order = null;
+      _playing = null;
+      _purchaseKey = null;
+      _awaitingCode = false;
+      _email = '';
+      _emailCtl.clear();
+      _codeCtl.clear();
+      _secondsLeft = 0;
+      _busy = false;
+      _error = error;
+      _stage = _Stage.access;
+    });
   }
 
   void _setQuantity(DemoProduct p, int quantity) {
@@ -165,6 +283,10 @@ class _DemoJourneyState extends State<DemoJourney> {
       });
     } on DemoException catch (e) {
       if (!mounted) return;
+      if (e.reason == DemoFailure.sessionInvalid) {
+        _toAccess(error: e);
+        return;
+      }
       setState(() {
         // Sin red se conserva la clave para reintentar sin cobrar dos veces; cualquier otro fallo es definitivo para esa compra.
         if (e.reason != DemoFailure.network) _purchaseKey = null;
@@ -348,7 +470,12 @@ class _DemoJourneyState extends State<DemoJourney> {
     ),
   );
 
-  Widget _access() => _page([
+  Widget _busySpinner() =>
+      const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white));
+
+  Widget _access() => _awaitingCode ? _codeStep() : _emailStep();
+
+  Widget _emailStep() => _page([
     _title(_s.demoAccessTitle),
     const SizedBox(height: 12),
     Text(
@@ -356,20 +483,78 @@ class _DemoJourneyState extends State<DemoJourney> {
       textAlign: TextAlign.center,
       style: TextStyle(fontSize: 16, color: _t.navy.withValues(alpha: 0.8)),
     ),
-    const SizedBox(height: 24),
+    const SizedBox(height: 20),
+    TextField(
+      key: const ValueKey('demo-email'),
+      controller: _emailCtl,
+      enabled: !_busy,
+      keyboardType: TextInputType.emailAddress,
+      autofillHints: const [AutofillHints.email],
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => _requestCode(),
+      decoration: InputDecoration(labelText: _s.demoEmailLabel, border: const OutlineInputBorder()),
+    ),
+    const SizedBox(height: 8),
+    Text(
+      _s.demoPrivacy,
+      key: const ValueKey('demo-privacy'),
+      style: TextStyle(fontSize: 12, color: _t.navy.withValues(alpha: 0.75)),
+    ),
+    const SizedBox(height: 16),
     FilledButton(
-      key: const ValueKey('demo-enter'),
-      onPressed: _busy ? null : _enter,
-      child: _busy
-          ? const SizedBox(
-              height: 22,
-              width: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-            )
-          : Text(_error == null ? _s.demoEnter : _s.demoRetry),
+      key: const ValueKey('demo-send-code'),
+      onPressed: _busy ? null : _requestCode,
+      child: _busy ? _busySpinner() : Text(_s.demoSendCode),
     ),
     _errorText(),
   ]);
+
+  Widget _codeStep() => _page([
+    _title(_s.demoCodeTitle),
+    const SizedBox(height: 12),
+    Text(
+      _s.demoCodeSent(_email),
+      key: const ValueKey('demo-code-sent'),
+      textAlign: TextAlign.center,
+      style: TextStyle(fontSize: 16, color: _t.navy.withValues(alpha: 0.8)),
+    ),
+    const SizedBox(height: 20),
+    TextField(
+      key: const ValueKey('demo-code'),
+      controller: _codeCtl,
+      enabled: !_busy,
+      autofocus: true,
+      keyboardType: TextInputType.number,
+      textInputAction: TextInputAction.done,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+      autofillHints: const [AutofillHints.oneTimeCode],
+      onSubmitted: (_) => _verify(),
+      textAlign: TextAlign.center,
+      style: const TextStyle(fontSize: 24, letterSpacing: 6, fontWeight: FontWeight.w700),
+      decoration: InputDecoration(labelText: _s.demoCodeLabel, border: const OutlineInputBorder()),
+    ),
+    const SizedBox(height: 16),
+    FilledButton(
+      key: const ValueKey('demo-verify'),
+      onPressed: _busy ? null : _verify,
+      child: _busy ? _busySpinner() : Text(_s.demoVerify),
+    ),
+    const SizedBox(height: 8),
+    OutlinedButton(
+      key: const ValueKey('demo-resend'),
+      onPressed: (_busy || _secondsLeft > 0) ? null : _requestCode,
+      child: Text(_secondsLeft > 0 ? _s.demoResendIn(_secondsLeft) : _s.demoResend),
+    ),
+    TextButton(
+      key: const ValueKey('demo-change-email'),
+      onPressed: _busy ? null : _changeEmail,
+      child: Text(_s.demoChangeEmail),
+    ),
+    _errorText(),
+  ]);
+
+  Widget _signOutButton() =>
+      TextButton(key: const ValueKey('demo-signout'), onPressed: _toAccess, child: Text(_s.demoSignOut));
 
   Widget _shop() {
     final session = _session!;
@@ -434,6 +619,7 @@ class _DemoJourneyState extends State<DemoJourney> {
           onPressed: () => setState(() => _stage = _Stage.codes),
           child: Text(_s.demoSeeCodes),
         ),
+      _signOutButton(),
       _errorText(),
     ]);
   }
@@ -583,6 +769,7 @@ class _DemoJourneyState extends State<DemoJourney> {
       onPressed: () => setState(() => _stage = _Stage.shop),
       child: Text(_s.demoBuyMore),
     ),
+    _signOutButton(),
   ]);
 
   Widget _codeRow(int i, _Owned c) => Card(

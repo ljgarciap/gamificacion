@@ -94,6 +94,8 @@ void main() {
       ...errorExamples.keys,
       'balance',
       'demo-session',
+      'demo-auth-request',
+      'demo-account',
       'demo-order',
       'demo-status',
     });
