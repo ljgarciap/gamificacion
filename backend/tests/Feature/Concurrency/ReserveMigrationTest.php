@@ -13,7 +13,8 @@ final class ReserveMigrationTest extends ConcurrencyTestCase
     {
         $this->assertTrue($this->tableExists('reserve_slots'));
 
-        Artisan::call('migrate:rollback', ['--force' => true, '--database' => 'conc', '--step' => 1]);
+        // Solo ESA migración (por ruta): no depende de cuántas migraciones se agreguen después.
+        Artisan::call('migrate:rollback', ['--force' => true, '--database' => 'conc', '--path' => 'database/migrations/2026_10_22_100001_add_reserve_to_batches.php']);
         $this->assertFalse($this->tableExists('reserve_slots'));
         $this->assertFalse($this->tableExists('reserve_cursors'));
         $notNull = DB::selectOne("SELECT is_nullable FROM information_schema.columns WHERE table_name = 'redemptions' AND column_name = 'code_id'")->is_nullable;

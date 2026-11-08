@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\BatchController;
 use App\Http\Controllers\Admin\CampaignController;
+use App\Http\Controllers\Admin\DemoController;
 use App\Http\Controllers\Admin\HostController;
 use App\Http\Controllers\Admin\OperationsController;
 use App\Http\Controllers\Admin\SettingsController;
@@ -98,4 +99,12 @@ Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::AUDIT_VIEW])->gr
     Route::get('/audit', [AuditController::class, 'index']);
     Route::get('/audit/verify', [AuditController::class, 'verify']);
     Route::get('/audit/anchor', [AuditController::class, 'anchor']);
+});
+
+// Muestra real / modo demo (SPEC-006): solo superadmin. El interruptor simple (sin control dual, decisión D21) queda en la bitácora.
+Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::DEMO_MANAGE])->group(function (): void {
+    Route::get('/demo', [DemoController::class, 'show']);
+    Route::put('/demo/config', [DemoController::class, 'updateConfig']);
+    Route::post('/demo/enable', [DemoController::class, 'enable']);
+    Route::post('/demo/disable', [DemoController::class, 'disable']);
 });

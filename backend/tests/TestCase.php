@@ -43,6 +43,7 @@ abstract class TestCase extends BaseTestCase
         'GAMIF_CORS_ORIGINS' => '',
         'GAMIF_DEV_ENDPOINTS' => 'false',
         'GAMIF_DEMO_MODE' => 'false',
+        'GAMIF_DEMO_ALLOWED' => 'false',
         'GAMIF_BEACON' => 'drand',
         'GAMIF_HOSTS' => '{}',
         'GAMIF_TRUSTED_PROXIES' => '',

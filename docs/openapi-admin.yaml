@@ -120,6 +120,54 @@ components:
       type: object
       required: [value]
       properties: {value: {type: integer}}
+    DemoConfig:
+      type: object
+      required: [user, products, credit, mix, ttlHours]
+      properties:
+        user:
+          type: object
+          required: [displayName, hostUserPrefix, initialBalance]
+          properties: {displayName: {type: string}, hostUserPrefix: {type: string}, initialBalance: {type: integer}}
+        products:
+          type: array
+          items:
+            type: object
+            required: [id, name, price]
+            properties: {id: {type: string}, name: {type: string}, price: {type: integer}}
+        credit:
+          type: object
+          required: [balancePercent, minPurchase, codeStepAmount, maxCodesPerPurchase]
+          properties: {balancePercent: {type: integer}, minPurchase: {type: integer}, codeStepAmount: {type: integer}, maxCodesPerPurchase: {type: integer}}
+        mix:
+          type: object
+          additionalProperties:
+            type: object
+            required: [prizes, noPrizeCount]
+            properties:
+              prizes:
+                type: array
+                items:
+                  type: object
+                  required: [type, amount, count]
+                  properties: {type: {type: string, enum: [money, coupon, points]}, amount: {type: integer}, count: {type: integer}}
+              noPrizeCount: {type: integer}
+        ttlHours: {type: [integer, "null"]}
+    DemoState:
+      type: object
+      required: [configured, config, version, status, pool, limits]
+      properties:
+        configured: {type: boolean}
+        config: {$ref: '#/components/schemas/DemoConfig'}
+        version: {type: integer}
+        status:
+          type: object
+          required: [enabled, enabledUntil, active, serverAllowed]
+          properties: {enabled: {type: boolean}, enabledUntil: {type: [string, "null"]}, active: {type: boolean}, serverAllowed: {type: boolean}}
+        pool:
+          type: object
+          required: [available, assigned, retired]
+          properties: {available: {type: integer}, assigned: {type: integer}, retired: {type: integer}}
+        limits: {type: object}
     SettingHistory:
       type: object
       required: [history]
@@ -797,6 +845,51 @@ paths:
       x-permission: audit.view
       responses:
         '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/AnchorResponse'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /demo:
+    get:
+      operationId: getDemo
+      summary: "Muestra real: configuración, estado del interruptor y pool"
+      x-permission: demo.manage
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/DemoState'}}}}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /demo/config:
+    put:
+      operationId: putDemoConfig
+      summary: "Guarda el escenario de la muestra (valida contra límites duros)"
+      x-permission: demo.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DemoConfig'}
+      responses:
+        '200': {description: OK}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /demo/enable:
+    post:
+      operationId: postDemoEnable
+      summary: "Enciende la muestra (exige servidor demo, configuración, emisor, pool y ninguna campaña real activa)"
+      x-permission: demo.manage
+      responses:
+        '204': {description: Encendida}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /demo/disable:
+    post:
+      operationId: postDemoDisable
+      summary: "Apaga la muestra de inmediato"
+      x-permission: demo.manage
+      responses:
+        '204': {description: Apagada}
         '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
         '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
         '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}

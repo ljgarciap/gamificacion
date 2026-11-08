@@ -26,6 +26,7 @@ final class AdminPermissionsTest extends TestCase
             P::BATCHES_VIEW => [P::SUPERADMIN => true, P::OPERATOR => true, P::AUDITOR => true],
             P::CAMPAIGNS_VIEW => [P::SUPERADMIN => true, P::OPERATOR => true, P::AUDITOR => true],
             P::CAMPAIGNS_MANAGE => [P::SUPERADMIN => true, P::OPERATOR => true, P::AUDITOR => false],
+            P::DEMO_MANAGE => [P::SUPERADMIN => true, P::OPERATOR => false, P::AUDITOR => false],
             P::APPROVALS_VIEW => [P::SUPERADMIN => true, P::OPERATOR => true, P::AUDITOR => true],
             P::APPROVALS_REQUEST => [P::SUPERADMIN => true, P::OPERATOR => true, P::AUDITOR => false],
             P::APPROVALS_APPROVE => [P::SUPERADMIN => true, P::OPERATOR => true, P::AUDITOR => false],

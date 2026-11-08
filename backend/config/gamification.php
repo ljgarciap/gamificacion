@@ -82,6 +82,9 @@ return [
         // /v1/demo/codes. Es un emisor de tokens abierto: solo detrás de una compuerta (clave en el proxy), nunca junto a una campaña real.
         // Ver docs/despliegue-demo.md.
         'enabled' => filter_var(env('GAMIF_DEMO_MODE', false), FILTER_VALIDATE_BOOLEAN),
+        // SPEC-006: el servidor declara que ES de demostración (infraestructura). Sin esto el panel no puede encender la muestra. Lo enciende/apaga
+        // el superadmin desde el panel (tabla `demo_config`), no el entorno.
+        'allowed' => filter_var(env('GAMIF_DEMO_ALLOWED', false), FILTER_VALIDATE_BOOLEAN),
     ],
 
     /*
