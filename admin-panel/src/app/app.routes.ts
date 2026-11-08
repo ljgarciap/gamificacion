@@ -15,6 +15,7 @@ const wizard = () => import('./features/batches/batch-wizard').then((m) => m.Bat
 const batch = () => import('./features/batches/batch-detail').then((m) => m.BatchDetail);
 const approvals = () => import('./features/approvals/approvals').then((m) => m.ApprovalsScreen);
 const outbox = () => import('./features/outbox/outbox').then((m) => m.OutboxScreen);
+const demo = () => import('./features/demo/demo').then((m) => m.DemoScreen);
 const codes = () => import('./features/codes/codes').then((m) => m.CodesScreen);
 
 export const routes: Routes = [
@@ -38,6 +39,7 @@ export const routes: Routes = [
       { path: 'hosts', loadComponent: hosts, canActivate: [permissionGuard], data: { permission: 'hosts.manage', title: 'Hosts' }, title: 'Hosts' },
       { path: 'parametros', loadComponent: settings, canActivate: [permissionGuard], data: { permission: 'settings.manage', title: 'Parámetros' }, title: 'Parámetros' },
       { path: 'usuarios', loadComponent: users, canActivate: [permissionGuard], data: { permission: 'users.manage', title: 'Usuarios' }, title: 'Usuarios' },
+      { path: 'muestra', loadComponent: demo, canActivate: [permissionGuard], data: { permission: 'demo.manage', title: 'Muestra' }, title: 'Muestra' },
       { path: 'cuenta', loadComponent: () => import('./features/account/account').then((m) => m.AccountPage), canActivate: [permissionGuard], data: { permission: 'account.self', title: 'Mi cuenta' }, title: 'Mi cuenta' },
       { path: 'sin-acceso', loadComponent: () => import('./features/shell/no-access').then((m) => m.NoAccess), title: 'Sin acceso' },
     ],

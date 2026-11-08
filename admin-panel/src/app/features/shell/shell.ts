@@ -28,6 +28,7 @@ const MENU: Entry[] = [
   { label: 'Hosts', path: '/hosts', permission: 'hosts.manage' },
   { label: 'Parámetros', path: '/parametros', permission: 'settings.manage' },
   { label: 'Usuarios', path: '/usuarios', permission: 'users.manage' },
+  { label: 'Muestra', path: '/muestra', permission: 'demo.manage' },
   { label: 'Mi cuenta', path: '/cuenta', permission: 'account.self' },
 ];
 
