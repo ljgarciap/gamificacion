@@ -10,7 +10,9 @@ Artisan::command('inspire', function () {
 
 // Tareas periódicas de producción (las ejecuta el servicio `worker`: `php artisan schedule:work`). Sin ellas los premios no llegan al host
 // y las exportaciones en claro no descargadas no se destruyen (revisión P10, hallazgo 1).
-Schedule::command('gamification:outbox:dispatch')->everyTenSeconds()->withoutOverlapping(5);
+$outboxEvery = [1 => 'everySecond', 2 => 'everyTwoSeconds', 5 => 'everyFiveSeconds', 10 => 'everyTenSeconds', 15 => 'everyFifteenSeconds', 20 => 'everyTwentySeconds', 30 => 'everyThirtySeconds'];
+$outboxEvent = Schedule::command('gamification:outbox:dispatch');
+$outboxEvent->{$outboxEvery[(int) config('gamification.outbox.dispatch_interval_seconds')] ?? 'everyTenSeconds'}()->withoutOverlapping(5);
 Schedule::command('admin:purge-exports')->everyMinute()->withoutOverlapping(5);
 
 // Muestra real (SPEC-006): caducidad y corridas de sembrado/reinicio pedidas desde el panel. Solo en servidores declarados de demostración.

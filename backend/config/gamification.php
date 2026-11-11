@@ -73,6 +73,11 @@ return [
         'max_attempts' => (int) env('GAMIF_OUTBOX_MAX_ATTEMPTS', 8),
         'backoff_base_seconds' => (int) env('GAMIF_OUTBOX_BACKOFF_BASE', 30),
         'backoff_max_seconds' => (int) env('GAMIF_OUTBOX_BACKOFF_MAX', 3600),
+        // Despacho periódico (planificador): avisos por corrida, tope de tiempo por corrida (0 = sin tope) e intervalo en segundos
+        // (1, 2, 5, 10, 15, 20 o 30; cualquier otro valor cae a 10). Los valores por defecto son los de siempre.
+        'dispatch_limit' => (int) env('GAMIF_OUTBOX_DISPATCH_LIMIT', 100),
+        'dispatch_max_seconds' => (float) env('GAMIF_OUTBOX_DISPATCH_MAX_SECONDS', 0),
+        'dispatch_interval_seconds' => (int) env('GAMIF_OUTBOX_DISPATCH_INTERVAL', 10),
     ],
 
     /* Solo para el modo independiente/demostración: saldo inicial de cada usuario. Una app host real tiene su propia billetera. */

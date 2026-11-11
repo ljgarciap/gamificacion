@@ -14,9 +14,15 @@ final class OutboxDispatcher
 {
     public function __construct(private readonly PrizeFulfillment $fulfillment) {}
 
-    /** @return array{sent: int, retry: int, failed: int} */
-    public function dispatchDue(int $limit = 100): array
+    /**
+     * @param  int  $limit  máximo de avisos por corrida
+     * @param  float|null  $maxSeconds  tope de tiempo por corrida (se revisa entre avisos; null = sin tope): sirve para seguir vaciando la cola
+     *                                  mientras queden avisos vencidos sin pasarse del intervalo del planificador
+     * @return array{sent: int, retry: int, failed: int}
+     */
+    public function dispatchDue(int $limit = 100, ?float $maxSeconds = null): array
     {
+        $deadline = $maxSeconds === null ? null : microtime(true) + $maxSeconds;
         $max = Settings::int('outbox.max_attempts');
         $base = Settings::int('outbox.backoff_base_seconds');
         $cap = Settings::int('outbox.backoff_max_seconds');
@@ -25,6 +31,9 @@ final class OutboxDispatcher
         // UNA transacción por aviso (no una para todo el lote): entregar puede tardar hasta el tiempo máximo de la llamada al host, y mantener
         // abiertos los bloqueos de 100 avisos mientras un host lento responde frenaría hasta el reintento manual del panel.
         for ($i = 0; $i < $limit; $i++) {
+            if ($deadline !== null && microtime(true) >= $deadline) {
+                break;
+            }
             $took = DB::transaction(function () use ($max, $base, $cap, &$stats): bool {
                 $row = DB::selectOne(
                     "SELECT id, payload::text AS payload, attempts FROM prize_outbox

@@ -118,6 +118,10 @@ if ($mode === 'http404') {
 
 // --- Contrato ------------------------------------------------------------------------------------------------------
 if ($path === '/callback' && $method === 'POST') {
+    // Latencia fija simulada (solo para medir): HOST_SIM_LATENCY_MS, fuera de cualquier candado. 0 = sin espera.
+    if (($latencyMs = (int) getenv('HOST_SIM_LATENCY_MS')) > 0) {
+        usleep($latencyMs * 1000);
+    }
     $why = verify($secrets, $body);
     $eventId = $_SERVER['HTTP_X_GAMIF_EVENT_ID'] ?? '';
     if ($why !== null || $eventId === '') {

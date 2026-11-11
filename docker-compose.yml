@@ -101,6 +101,8 @@ services:
       - ./verifier:/verifier:ro
       # Contrato (OpenAPI y ejemplos): las pruebas lo comparan con el código y, con UPDATE_CONTRACT_EXAMPLES=1, regeneran los ejemplos.
       - ./docs:/docs
+      # Simulador del host: las pruebas del despachador lo lanzan como proceso local (Tests\Support\HostSimProcess).
+      - ./host-sim:/host-sim:ro
 
   # --- Panel de administración (SPEC-003): la imagen de producción (nginx sin root, CSP estricta) apuntando al backend de este compose. ---
   #   docker compose up -d --build panel   -> http://localhost:4200  (la API del panel sale por el mismo origen: sin CORS)
