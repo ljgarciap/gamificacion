@@ -376,6 +376,84 @@ void main() {
       expect(renewals, 1);
     });
 
+    test('el modo por planes: la sesión trae el modo, qué productos participan y el turno otorgado', () async {
+      final api = DemoApi(
+        baseUrl: 'http://api.test',
+        client: MockClient(
+          (r) async => _json(200, {
+            ..._session(isNew: true),
+            'mode': 'plans',
+            'grant': {'plan': 'Bienvenida', 'kind': 'welcome'},
+            'products': [
+              {'id': 'a', 'name': 'A', 'price': 20000, 'participates': true},
+              {'id': 'pasa', 'name': 'Pasa Plata', 'price': 20000, 'participates': false},
+            ],
+          }),
+        ),
+      );
+      final s = await api.verifyCode('ana@ejemplo.com', '123456');
+      expect(s.byPlans, isTrue);
+      expect(s.grant?.plan, 'Bienvenida');
+      expect(s.grant?.kind, DemoGrantKind.welcome);
+      expect(s.products.map((p) => (p.id, p.participates)), [('a', true), ('pasa', false)]);
+    });
+
+    test('el turno de reactivación se lee y uno ilegible se ignora sin romper el ingreso', () async {
+      Future<DemoSession> login(Object? grant) => DemoApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((_) async => _json(200, {..._session(), 'mode': 'plans', 'grant': grant})),
+      ).verifyCode('ana@ejemplo.com', '123456');
+      expect((await login({'plan': 'Bienvenida', 'kind': 'reactivation'})).grant?.kind, DemoGrantKind.reactivation);
+      for (final bad in <Object?>[
+        null,
+        'texto',
+        {'plan': 'X'},
+        {'plan': 'X', 'kind': 'otro'},
+        {'plan': 5, 'kind': 'welcome'},
+      ]) {
+        final s = await login(bad);
+        expect(s.grant, isNull, reason: '$bad');
+        expect(s.byPlans, isTrue);
+      }
+    });
+
+    test('sin los campos nuevos (modo anterior) todo queda como antes', () async {
+      final api = DemoApi(baseUrl: 'http://api.test', client: MockClient((_) async => _json(200, _session())));
+      final s = await api.verifyCode('ana@ejemplo.com', '123456');
+      expect(s.byPlans, isFalse);
+      expect(s.grant, isNull);
+      expect(s.products.single.participates, isTrue);
+    });
+
+    test('account y purchase traen el nombre del plan de cada código cuando lo hay', () async {
+      final api = DemoApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((r) async {
+          if (r.url.path == '/v1/demo/auth/verify') return _json(200, _session());
+          if (r.url.path == '/v1/demo/account') {
+            return _json(200, {
+              'balance': 9000,
+              'codes': [
+                {'code': 'A-1', 'game': 'roulette', 'played': false, 'plan': 'Bienvenida'},
+                {'code': 'A-2', 'game': 'roulette', 'played': true},
+              ],
+            });
+          }
+          return _json(200, {
+            ..._order(),
+            'codes': [
+              {'code': 'B-1', 'game': 'roulette', 'plan': 'Oro'},
+              {'code': 'B-2', 'game': 'roulette'},
+            ],
+          });
+        }),
+      );
+      await api.verifyCode('ana@ejemplo.com', '123456');
+      expect((await api.account()).codes.map((c) => c.plan), ['Bienvenida', null]);
+      final order = await api.purchase([const DemoLine('recarga-20', 1)], idempotencyKey: 'clave-0001');
+      expect(order.codes.map((c) => c.plan), ['Oro', null]);
+    });
+
     test('signOut olvida token y subject', () async {
       var calls = 0;
       final api = DemoApi(

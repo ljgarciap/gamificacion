@@ -6,6 +6,8 @@ use App\Domain\Admin\AdminException;
 use App\Domain\Demo\DemoAccounts;
 use App\Domain\Demo\DemoConfig;
 use App\Domain\Demo\DemoEmail;
+use App\Domain\Demo\DemoGrants;
+use App\Domain\Demo\DemoPlans;
 use App\Domain\Demo\DemoRuns;
 use App\Domain\Demo\DemoSwitch;
 use App\Http\ApiError;
@@ -19,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
 /** Muestra real / modo demo (SPEC-006): configuración del escenario e interruptor. Solo superadmin (`demo.manage`). */
 final class DemoController
 {
-    public function __construct(private readonly DemoSwitch $switch, private readonly DemoRuns $runs, private readonly DemoAccounts $accounts) {}
+    public function __construct(private readonly DemoSwitch $switch, private readonly DemoRuns $runs, private readonly DemoAccounts $accounts, private readonly DemoGrants $grants) {}
 
     public function show(): JsonResponse
     {
@@ -40,6 +42,7 @@ final class DemoController
                 'serverAllowed' => (bool) config('gamification.demo.allowed'),
             ],
             'pool' => $pool,
+            'poolByPlan' => $this->poolByPlan($row['config']),
             'lastRun' => $this->runs->last(),
             'accounts' => $this->accounts->counts(),
             'mail' => $this->mailInfo(),
@@ -48,6 +51,8 @@ final class DemoController
                 'maxCodesPerPurchase' => DemoConfig::MAX_CODES_PER_PURCHASE, 'maxPool' => DemoConfig::MAX_POOL,
                 'maxTtlHours' => DemoConfig::MAX_TTL_HOURS, 'maxRetentionDays' => DemoConfig::MAX_RETENTION_DAYS, 'maxAccounts' => DemoConfig::MAX_ACCOUNTS,
                 'minCodeTtlMinutes' => DemoConfig::MIN_CODE_TTL_MINUTES, 'maxCodeTtlMinutes' => DemoConfig::MAX_CODE_TTL_MINUTES, 'games' => DemoConfig::GAMES, 'prizeTypes' => DemoConfig::PRIZE_TYPES,
+                'modes' => DemoConfig::MODES, 'welcomePlan' => DemoConfig::WELCOME_PLAN, 'maxAmountPlans' => DemoConfig::MAX_AMOUNT_PLANS,
+                'maxReactivationDays' => DemoConfig::MAX_REACTIVATION_DAYS, 'maxPlanName' => DemoConfig::MAX_PLAN_NAME,
             ],
         ], 200, ['Cache-Control' => 'no-store']);
     }
@@ -105,6 +110,47 @@ final class DemoController
         }
 
         return response()->noContent();
+    }
+
+    /** Para ver la reactivación sin esperar días (SPEC-007 §3.2). Solo mueve la marca de la cuenta hacia atrás y queda en la bitácora. */
+    public function simulateInactivity(Request $request, string $id): JsonResponse|Response
+    {
+        $config = $this->switch->row()['config'];
+        if ($config === null) {
+            return ApiError::response('wrongState', 'La muestra no está configurada.', 409);
+        }
+        try {
+            if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $id) !== 1 || ! $this->grants->simulateInactivity($id, $this->actor($request), $config)) {
+                return ApiError::response('notFound', 'Cuenta desconocida.', 404);
+            }
+        } catch (AdminException $e) {
+            return ApiError::response($e->errorCode, $e->getMessage(), $e->status);
+        }
+
+        return response()->noContent();
+    }
+
+    /**
+     * Existencias y probabilidad por plan (solo del panel: la app nunca las ve, T-D28). Vacío en el modo anterior.
+     *
+     * @param  array<string, mixed>|null  $config
+     * @return list<array<string, mixed>>
+     */
+    private function poolByPlan(?array $config): array
+    {
+        if ($config === null || DemoConfig::mode($config) !== 'plans') {
+            return [];
+        }
+        $counts = [];
+        foreach (DB::select("SELECT plan, state, count(*) AS n FROM demo_pool WHERE plan IS NOT NULL AND state <> 'retired' GROUP BY plan, state") as $r) {
+            $counts[$r->plan][$r->state] = (int) $r->n;
+        }
+
+        return array_map(static fn (array $plan): array => [
+            'id' => $plan['id'], 'name' => $plan['name'],
+            'available' => $counts[$plan['id']]['available'] ?? 0, 'assigned' => $counts[$plan['id']]['assigned'] ?? 0,
+            'probability' => DemoPlans::probability($plan),
+        ], $config['plans']);
     }
 
     /** Correo de prueba para comprobar el envío (SMTP o Mailpit). El destinatario queda en la bitácora enmascarado. */

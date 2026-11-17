@@ -1,8 +1,9 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { Api, ApiError } from '../../core/api';
-import { DemoAccountList, DemoAccountRow, DemoConfig, DemoMixEntry, DemoRun, DemoState, PRIZE_TYPE_LABEL, PrizeType, ResetAccounts, canonical, mailMode, mixTotals, poolSize, previewPurchase, validateDemo } from '../../core/demo';
+import { DemoAccountList, DemoAccountRow, DemoConfig, DemoMixEntry, DemoMode, DemoPlan, DemoRun, DemoState, PRIZE_TYPE_LABEL, PrizeType, ResetAccounts, canonical, isPlans, mailMode, mixTotals, percent, planForAmount, planProbability, planTotals, poolSize, previewPurchase, relinkPlans, toPlansMode, toStepsMode, validateDemo } from '../../core/demo';
 import { dateBogota } from '../../core/format';
 import { GameType } from '../../core/models';
 import { ErrorState } from '../../shared/state';
@@ -19,7 +20,7 @@ const ACCOUNTS_PER_PAGE = 20;
  */
 @Component({
   selector: 'app-demo',
-  imports: [FormsModule, MatButtonModule, ErrorState],
+  imports: [FormsModule, MatButtonModule, NgTemplateOutlet, ErrorState],
   styles: `
     h2 { font-size: 16px; margin: 0 0 8px; }
     section { background: var(--gp-surface); border-radius: 12px; padding: 16px; margin: 16px 0; }
@@ -47,6 +48,9 @@ const ACCOUNTS_PER_PAGE = 20;
     .num { width: 120px; }
     .wide-mail { width: 280px; max-width: 100%; }
     .wide { width: 100%; box-sizing: border-box; }
+    .plan { border: 1px solid var(--gp-background); border-radius: 8px; padding: 12px; margin: 12px 0; }
+    .plan h3 { margin: 0 0 8px; font-size: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    label.f.check { justify-content: flex-end; flex-direction: row; align-items: center; color: var(--gp-navy); font-size: 13px; }
     dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
     dt { color: var(--gp-muted); }
     dd { margin: 0; }
@@ -82,6 +86,22 @@ const ACCOUNTS_PER_PAGE = 20;
           <dt>Última corrida</dt>
           <dd data-testid="last-run">{{ runLabel(st.lastRun) }}</dd>
         </dl>
+        @if (st.poolByPlan.length > 0) {
+          <h3 class="gp-muted">Existencias por plan</h3>
+          <div class="table-wrap">
+            <table>
+              <caption class="gp-visually-hidden">Códigos disponibles y entregados por plan</caption>
+              <thead><tr><th scope="col">Plan</th><th scope="col">Disponibles</th><th scope="col">Entregados</th><th scope="col">Probabilidad de premio</th></tr></thead>
+              <tbody>
+                @for (p of st.poolByPlan; track p.id) {
+                  <tr data-testid="plan-stock-row" [attr.data-plan]="p.id">
+                    <td>{{ p.name }}</td><td data-testid="plan-available">{{ p.available }}</td><td data-testid="plan-assigned">{{ p.assigned }}</td><td>{{ pct(p.probability) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
         @if (st.lastRun?.state === 'failed' && st.lastRun?.error) { <p class="gp-banner error" role="alert" data-testid="run-error">{{ st.lastRun!.error }}</p> }
         <div class="actions">
           <button mat-stroked-button type="button" (click)="seed()" [disabled]="!canSeed()" data-testid="seed">Sembrar</button>
@@ -130,7 +150,12 @@ const ACCOUNTS_PER_PAGE = 20;
               @for (a of accounts()?.items ?? []; track a.id) {
                 <tr data-testid="account-row">
                   <td>{{ a.email }}</td><td>{{ money(a.balance) }}</td><td>{{ bogota(a.createdAt) }}</td><td>{{ bogota(a.lastLoginAt) }}</td>
-                  <td><button mat-button type="button" (click)="delTarget.set(a)" [disabled]="busy()" [attr.aria-label]="'Borrar la cuenta ' + a.email" data-testid="account-delete">Borrar cuenta</button></td>
+                  <td>
+                    @if (savedPlans()) {
+                      <button mat-button type="button" (click)="simTarget.set(a)" [disabled]="busy()" [attr.aria-label]="'Simular una semana sin comprar para la cuenta ' + a.email" data-testid="account-simulate">Simular una semana sin comprar</button>
+                    }
+                    <button mat-button type="button" (click)="delTarget.set(a)" [disabled]="busy()" [attr.aria-label]="'Borrar la cuenta ' + a.email" data-testid="account-delete">Borrar cuenta</button>
+                  </td>
                 </tr>
               } @empty {
                 <tr><td colspan="5" class="gp-muted" data-testid="accounts-empty">Todavía no hay cuentas.</td></tr>
@@ -145,6 +170,13 @@ const ACCOUNTS_PER_PAGE = 20;
             <button mat-button type="button" (click)="goPage(1)" [disabled]="page() >= pages()" data-testid="accounts-next">Siguiente</button>
           </div>
         }
+        @if (simTarget(); as t) {
+          <div class="gp-banner warning confirm" role="alertdialog" aria-labelledby="sim-text" data-testid="simulate-confirm">
+            <span id="sim-text">Se marcará la cuenta {{ t.email }} como si llevara {{ st.config.triggers?.reactivationDays }} días sin comprar: en su próximo ingreso recibirá el turno de reactivación. Queda en la bitácora. ¿Simular?</span>
+            <button mat-flat-button type="button" (click)="simulate()" [disabled]="busy()" data-testid="simulate-confirm-yes">Simular</button>
+            <button mat-button type="button" (click)="simTarget.set(null)" data-testid="simulate-confirm-no">Cancelar</button>
+          </div>
+        }
         @if (delTarget(); as t) {
           <div class="gp-banner warning confirm" role="alertdialog" aria-labelledby="del-text" data-testid="account-confirm">
             <span id="del-text">Se borrará la cuenta {{ t.email }}: esa persona ya no podrá ingresar y su saldo ({{ money(t.balance) }}) quedará inaccesible. ¿Borrar?</span>
@@ -155,6 +187,15 @@ const ACCOUNTS_PER_PAGE = 20;
       </section>
 
       <form (input)="touch()" (change)="touch()" (submit)="$event.preventDefault()" aria-label="Configuración de la muestra">
+        <section aria-labelledby="h-modo">
+          <h2 id="h-modo">Cómo se reparten los turnos</h2>
+          <fieldset class="choices" data-testid="mode-choice">
+            <legend class="gp-visually-hidden">Modo de la muestra</legend>
+            <label><input type="radio" name="mode" value="plans" [ngModel]="mode()" (ngModelChange)="setMode($event)" data-testid="mode-plans" /> Por planes (Ruleta de Aguinaldos): el monto de la compra, el primer ingreso o una semana sin comprar deciden qué plan de premios se juega</label>
+            <label><input type="radio" name="mode" value="steps" [ngModel]="mode()" (ngModelChange)="setMode($event)" data-testid="mode-steps" /> Por pasos (anterior): un código por cada tramo de monto, todos de la misma mezcla</label>
+          </fieldset>
+          @if (modeChanged()) { <p class="gp-muted" data-testid="mode-note">Cambiar de modo no toca el pool ya sembrado: guarda y vuelve a sembrar (Reiniciar) para que aplique.</p> }
+        </section>
         <section aria-labelledby="h-escenario">
           <h2 id="h-escenario">Escenario</h2>
           <div class="grid">
@@ -167,13 +208,14 @@ const ACCOUNTS_PER_PAGE = 20;
           <div class="table-wrap">
             <table>
               <caption class="gp-visually-hidden">Productos de la tienda de muestra</caption>
-              <thead><tr><th scope="col">Id</th><th scope="col">Nombre</th><th scope="col">Precio (COP)</th><th scope="col"><span class="gp-visually-hidden">Acción</span></th></tr></thead>
+              <thead><tr><th scope="col">Id</th><th scope="col">Nombre</th><th scope="col">Precio (COP)</th>@if (plans()) { <th scope="col">Participa</th> }<th scope="col"><span class="gp-visually-hidden">Acción</span></th></tr></thead>
               <tbody>
                 @for (p of d.products; track $index; let i = $index) {
                   <tr data-testid="product-row">
                     <td><input [name]="'pid' + i" [(ngModel)]="p.id" maxlength="32" [attr.aria-label]="'Id del producto ' + (i + 1)" /></td>
                     <td><input [name]="'pname' + i" [(ngModel)]="p.name" maxlength="80" [attr.aria-label]="'Nombre del producto ' + (i + 1)" /></td>
                     <td><input class="num" type="number" step="1" min="1" [name]="'pprice' + i" [(ngModel)]="p.price" [attr.aria-label]="'Precio del producto ' + (i + 1)" /></td>
+                    @if (plans()) { <td><input type="checkbox" [name]="'pparticipates' + i" [ngModel]="p.participates !== false" (ngModelChange)="p.participates = $event" [attr.aria-label]="'El producto ' + (i + 1) + ' participa'" data-testid="participates" /></td> }
                     <td><button mat-button type="button" (click)="removeProduct(i)" [disabled]="d.products.length <= 1" [attr.aria-label]="'Quitar el producto ' + (i + 1)">Quitar</button></td>
                   </tr>
                 }
@@ -187,26 +229,43 @@ const ACCOUNTS_PER_PAGE = 20;
           <h2 id="h-reglas">Reglas de carga</h2>
           <div class="grid">
             <label class="f">Saldo cargado (% de la compra)<input class="num" type="number" step="1" min="0" max="100" name="pct" [(ngModel)]="d.credit.balancePercent" data-testid="balancePercent" /></label>
-            <label class="f">Compra mínima (COP)<input class="num" type="number" step="1" min="0" name="minPurchase" [(ngModel)]="d.credit.minPurchase" data-testid="minPurchase" /></label>
-            <label class="f">Un código por cada (COP)<input class="num" type="number" step="1" min="1" name="step" [(ngModel)]="d.credit.codeStepAmount" data-testid="codeStepAmount" /></label>
-            <label class="f">Máximo de códigos por compra<input class="num" type="number" step="1" min="1" [max]="st.limits.maxCodesPerPurchase" name="perPurchase" [(ngModel)]="d.credit.maxCodesPerPurchase" data-testid="maxCodesPerPurchase" /></label>
+            @if (!plans()) {
+              <label class="f">Compra mínima (COP)<input class="num" type="number" step="1" min="0" name="minPurchase" [(ngModel)]="d.credit.minPurchase" data-testid="minPurchase" /></label>
+              <label class="f">Un código por cada (COP)<input class="num" type="number" step="1" min="1" name="step" [(ngModel)]="d.credit.codeStepAmount" data-testid="codeStepAmount" /></label>
+              <label class="f">Máximo de códigos por compra<input class="num" type="number" step="1" min="1" [max]="st.limits.maxCodesPerPurchase" name="perPurchase" [(ngModel)]="d.credit.maxCodesPerPurchase" data-testid="maxCodesPerPurchase" /></label>
+            }
             <label class="f">Máximo de códigos por sesión<input class="num" type="number" step="1" min="1" max="50" name="perSession" [(ngModel)]="d.credit.maxCodesPerSession" data-testid="maxCodesPerSession" /></label>
           </div>
+          @if (plans()) {
+            <h2 class="gp-muted">Vista previa por producto</h2>
+            <div class="table-wrap">
+              <table>
+                <caption class="gp-visually-hidden">Plan que recibe quien compra cada producto</caption>
+                <thead><tr><th scope="col">Producto</th><th scope="col">Precio</th><th scope="col">Saldo cargado</th><th scope="col">Plan de la ruleta</th></tr></thead>
+                <tbody>
+                  @for (r of planPreview(); track $index) {
+                    <tr data-testid="preview-row"><td>{{ r.name }}</td><td>{{ money(r.price) }}</td><td>{{ money(r.balance) }}</td><td>{{ r.plan }}</td></tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
           <h2 class="gp-muted">Vista previa por producto</h2>
-          <div class="table-wrap">
-            <table>
-              <caption class="gp-visually-hidden">Lo que recibe quien compra cada producto</caption>
-              <thead><tr><th scope="col">Producto</th><th scope="col">Precio</th><th scope="col">Saldo cargado</th><th scope="col">Códigos</th></tr></thead>
-              <tbody>
-                @for (r of preview(); track $index) {
-                  <tr data-testid="preview-row">
-                    <td>{{ r.name }}</td><td>{{ money(r.price) }}</td>
-                    @if (r.allowed) { <td>{{ money(r.balance) }}</td><td>{{ r.codes }}</td> } @else { <td colspan="2" class="gp-muted">Por debajo de la compra mínima</td> }
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+            <div class="table-wrap">
+              <table>
+                <caption class="gp-visually-hidden">Lo que recibe quien compra cada producto</caption>
+                <thead><tr><th scope="col">Producto</th><th scope="col">Precio</th><th scope="col">Saldo cargado</th><th scope="col">Códigos</th></tr></thead>
+                <tbody>
+                  @for (r of preview(); track $index) {
+                    <tr data-testid="preview-row">
+                      <td>{{ r.name }}</td><td>{{ money(r.price) }}</td>
+                      @if (r.allowed) { <td>{{ money(r.balance) }}</td><td>{{ r.codes }}</td> } @else { <td colspan="2" class="gp-muted">Por debajo de la compra mínima</td> }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
         </section>
 
         <section aria-labelledby="h-parametros">
@@ -218,54 +277,100 @@ const ACCOUNTS_PER_PAGE = 20;
           </div>
         </section>
 
-        <section aria-labelledby="h-mezcla">
-          <h2 id="h-mezcla">Mezcla de premios</h2>
-          <p class="gp-muted">Cada código del pool nace con su resultado ya decidido. La compra sortea uno al azar entre los disponibles.</p>
-          @for (g of gameKeys(); track g) {
-            @let e = d.mix[g]!;
+        <ng-template #mixTpl let-mix let-pfx="pfx" let-label="label">
+          @for (g of gameKeysOf(mix); track g) {
+            @let e = mix[g]!;
             <div class="game" data-testid="mix-game" [attr.data-game]="g">
-              <h3>{{ gameLabel[g] }}
+              <h3>{{ lab(label, g) }}
                 <span class="total gp-muted" data-testid="mix-total">{{ totals(e).winners }} con premio + {{ totals(e).none }} sin premio = {{ totals(e).total }} códigos</span>
-                <button mat-button type="button" (click)="removeGame(g)" [disabled]="gameKeys().length <= 1" [attr.aria-label]="'Quitar ' + gameLabel[g]">Quitar juego</button>
+                <button mat-button type="button" (click)="removeGameFrom(mix, g)" [disabled]="gameKeysOf(mix).length <= 1" [attr.aria-label]="'Quitar ' + lab(label, g)">Quitar juego</button>
               </h3>
               <div class="table-wrap">
                 <table>
-                  <caption class="gp-visually-hidden">Premios de {{ gameLabel[g] }}</caption>
+                  <caption class="gp-visually-hidden">Premios de {{ lab(label, g) }}</caption>
                   <thead><tr><th scope="col">Tipo</th><th scope="col">Monto</th><th scope="col">Cantidad</th><th scope="col"><span class="gp-visually-hidden">Acción</span></th></tr></thead>
                   <tbody>
                     @for (p of e.prizes; track $index; let j = $index) {
                       <tr data-testid="prize-row">
                         <td>
-                          <select [name]="g + 'type' + j" [(ngModel)]="p.type" [attr.aria-label]="gameLabel[g] + ' premio ' + (j + 1) + ': tipo'">
+                          <select [name]="pfx + g + 'type' + j" [(ngModel)]="p.type" [attr.aria-label]="lab(label, g) + ' premio ' + (j + 1) + ': tipo'">
                             @for (t of prizeTypes; track t[0]) { <option [value]="t[0]">{{ t[1] }}</option> }
                           </select>
                         </td>
-                        <td><input class="num" type="number" step="1" min="0" [name]="g + 'amount' + j" [(ngModel)]="p.amount" [attr.aria-label]="gameLabel[g] + ' premio ' + (j + 1) + ': monto'" /></td>
-                        <td><input class="num" type="number" step="1" min="1" [name]="g + 'count' + j" [(ngModel)]="p.count" [attr.aria-label]="gameLabel[g] + ' premio ' + (j + 1) + ': cantidad'" /></td>
-                        <td><button mat-button type="button" (click)="removePrize(e, j)" [attr.aria-label]="'Quitar el premio ' + (j + 1) + ' de ' + gameLabel[g]">Quitar</button></td>
+                        <td><input class="num" type="number" step="1" min="0" [name]="pfx + g + 'amount' + j" [(ngModel)]="p.amount" [attr.aria-label]="lab(label, g) + ' premio ' + (j + 1) + ': monto'" /></td>
+                        <td><input class="num" type="number" step="1" min="1" [name]="pfx + g + 'count' + j" [(ngModel)]="p.count" [attr.aria-label]="lab(label, g) + ' premio ' + (j + 1) + ': cantidad'" /></td>
+                        <td><button mat-button type="button" (click)="removePrize(e, j)" [attr.aria-label]="'Quitar el premio ' + (j + 1) + ' de ' + lab(label, g)">Quitar</button></td>
                       </tr>
                     }
                   </tbody>
                 </table>
               </div>
               <div class="actions">
-                <button mat-stroked-button type="button" (click)="addPrize(e)" [attr.data-testid]="'add-prize-' + g">Agregar premio</button>
-                <label class="f">Códigos sin premio<input class="num" type="number" step="1" min="0" [name]="g + 'none'" [(ngModel)]="e.noPrizeCount" [attr.data-testid]="'none-' + g" /></label>
+                <button mat-stroked-button type="button" (click)="addPrize(e)" [attr.data-testid]="'add-prize-' + pfx + g">Agregar premio</button>
+                <label class="f">Códigos sin premio<input class="num" type="number" step="1" min="0" [name]="pfx + g + 'none'" [(ngModel)]="e.noPrizeCount" [attr.data-testid]="'none-' + pfx + g" /></label>
               </div>
             </div>
           }
-          @if (freeGames().length > 0) {
+          @if (freeGamesOf(mix).length > 0) {
             <div class="actions">
-              <label class="f">Agregar juego
-                <select name="newGame" [ngModel]="''" (ngModelChange)="addGame($event)" data-testid="add-game">
+              <label class="f">Agregar juego{{ label ? ' a ' + label : '' }}
+                <select [name]="pfx + 'newGame'" [ngModel]="''" (ngModelChange)="addGameTo(mix, $event)" [attr.data-testid]="'add-game' + (pfx ? '-' + pfx : '')">
                   <option value="">Elegir…</option>
-                  @for (g of freeGames(); track g) { <option [value]="g">{{ gameLabel[g] }}</option> }
+                  @for (g of freeGamesOf(mix); track g) { <option [value]="g">{{ gameLabel[g] }}</option> }
                 </select>
               </label>
             </div>
           }
-          <p data-testid="pool-total"><strong>Pool total: {{ size() }}</strong> <span class="gp-muted">de máximo {{ st.limits.maxPool }} códigos</span></p>
-        </section>
+        </ng-template>
+
+        @if (!plans()) {
+          <section aria-labelledby="h-mezcla">
+            <h2 id="h-mezcla">Mezcla de premios</h2>
+            <p class="gp-muted">Cada código del pool nace con su resultado ya decidido. La compra sortea uno al azar entre los disponibles.</p>
+            <ng-container *ngTemplateOutlet="mixTpl; context: { $implicit: d.mix, pfx: '', label: '' }" />
+            <p data-testid="pool-total"><strong>Pool total: {{ size() }}</strong> <span class="gp-muted">de máximo {{ st.limits.maxPool }} códigos</span></p>
+          </section>
+        } @else {
+          <section aria-labelledby="h-disparadores">
+            <h2 id="h-disparadores">Disparadores</h2>
+            <p class="gp-muted">Cuándo se entrega un turno de la ruleta: al comprar (el plan sale del monto de lo que participa), al ingresar por primera vez y al volver tras unos días sin comprar (ambos del plan de bienvenida).</p>
+            <div class="grid">
+              <label class="f">Días sin comprar para la reactivación<input class="num" type="number" step="1" min="1" [max]="st.limits.maxReactivationDays" name="reactivationDays" [(ngModel)]="d.triggers!.reactivationDays" data-testid="reactivationDays" /></label>
+              <label class="f">Turnos por compra<input class="num" type="number" step="1" min="1" [max]="st.limits.maxCodesPerPurchase" name="turnsPerPurchase" [(ngModel)]="d.triggers!.turnsPerPurchase" data-testid="turnsPerPurchase" /></label>
+              <label class="f check"><span><input type="checkbox" name="welcomeOnFirstLogin" [(ngModel)]="d.triggers!.welcomeOnFirstLogin" data-testid="welcomeOnFirstLogin" /> Turno de bienvenida al primer ingreso</span></label>
+            </div>
+          </section>
+
+          <section aria-labelledby="h-planes">
+            <h2 id="h-planes">Planes de premio</h2>
+            <p class="gp-muted">Cada plan tiene su propio pool con su mezcla exacta: la probabilidad de premio es premios ÷ códigos del plan. El plan por monto lo decide el servidor con lo que participa de la compra.</p>
+            @for (pl of d.plans!; track pl.id; let i = $index) {
+              <div class="plan" data-testid="plan-card" [attr.data-plan]="pl.id">
+                <h3>{{ pl.name }}
+                  <span class="total gp-muted" data-testid="plan-summary">{{ planSum(pl).winners }} con premio + {{ planSum(pl).none }} sin premio = {{ planSum(pl).total }} códigos · probabilidad <strong data-testid="plan-probability">{{ pct(planProb(pl)) }}</strong></span>
+                </h3>
+                <div class="grid">
+                  <label class="f">Nombre del plan<input [name]="pl.id + 'name'" [(ngModel)]="pl.name" [attr.maxlength]="st.limits.maxPlanName" [attr.data-testid]="'plan-name-' + pl.id" /></label>
+                  @if (pl.kind === 'amount') {
+                    <label class="f">Desde (COP)<input class="num" type="number" step="1" min="1" [name]="pl.id + 'min'" [(ngModel)]="pl.minAmount" [readonly]="isLinked(pl)" [attr.data-testid]="'plan-min-' + pl.id" /></label>
+                    <label class="f">Hasta (COP)
+                      @if (isLastAmount(pl)) {
+                        <input class="num" name="lastMax" value="Sin tope" disabled [attr.data-testid]="'plan-max-' + pl.id" />
+                      } @else {
+                        <input class="num" type="number" step="1" min="1" [name]="pl.id + 'max'" [ngModel]="pl.maxAmount" (ngModelChange)="setMax(pl, $event)" [attr.data-testid]="'plan-max-' + pl.id" />
+                      }
+                    </label>
+                  } @else {
+                    <p class="gp-muted">Primer ingreso y regreso tras {{ d.triggers!.reactivationDays }} días sin comprar.</p>
+                  }
+                  <label class="f">Premio máximo en dinero (COP)<input class="num" type="number" step="1" min="1" [name]="pl.id + 'cap'" [(ngModel)]="pl.maxMoneyPrize" [attr.data-testid]="'plan-cap-' + pl.id" /></label>
+                </div>
+                <ng-container *ngTemplateOutlet="mixTpl; context: { $implicit: pl.mix, pfx: pl.id + '-', label: pl.name }" />
+              </div>
+            }
+            <p data-testid="pool-total"><strong>Pool total: {{ size() }}</strong> <span class="gp-muted">de máximo {{ st.limits.maxPool }} códigos</span></p>
+          </section>
+        }
 
         @if (problems().length > 0) {
           <ul class="errors" role="alert" data-testid="problems">@for (m of problems(); track m) { <li>{{ m }}</li> }</ul>
@@ -292,6 +397,7 @@ export class DemoScreen implements OnInit {
   protected readonly accounts = signal<DemoAccountList | null>(null);
   protected readonly page = signal(1);
   protected readonly delTarget = signal<DemoAccountRow | null>(null);
+  protected readonly simTarget = signal<DemoAccountRow | null>(null);
   protected readonly mailTo = signal('');
   protected readonly pages = computed(() => Math.max(1, Math.ceil((this.accounts()?.total ?? 0) / ACCOUNTS_PER_PAGE)));
   protected readonly mailLabel = computed(() => mailMode(this.state()!.mail).label);
@@ -304,15 +410,22 @@ export class DemoScreen implements OnInit {
   private timer?: ReturnType<typeof setTimeout>;
   private destroyed = false;
 
-  protected readonly gameKeys = computed(() => {
+  /** El borrador está en el modo por planes (SPEC-007). */
+  protected readonly plans = computed(() => {
     this.rev();
-    const mix = this.draft()?.mix ?? {};
-    return (Object.keys(GAME_LABEL) as GameType[]).filter((g) => mix[g] !== undefined);
+    const d = this.draft();
+    return d !== null && isPlans(d);
   });
-  protected readonly freeGames = computed(() => {
+  /** La configuración GUARDADA está en el modo por planes: de eso depende lo que se puede hacer con las cuentas (simular reactivación). */
+  protected readonly savedPlans = computed(() => {
+    const s = this.state();
+    return s !== null && isPlans(s.config);
+  });
+  protected readonly mode = computed<DemoMode>(() => (this.plans() ? 'plans' : 'steps'));
+  protected readonly modeChanged = computed(() => {
     this.rev();
-    const mix = this.draft()?.mix ?? {};
-    return (this.state()?.limits.games ?? []).filter((g) => mix[g] === undefined);
+    const s = this.state();
+    return s !== null && this.plans() !== isPlans(s.config);
   });
   protected readonly dirty = computed(() => {
     this.rev();
@@ -330,6 +443,20 @@ export class DemoScreen implements OnInit {
     this.rev();
     const d = this.draft();
     return d ? poolSize(d) : 0;
+  });
+  protected readonly planPreview = computed(() => {
+    this.rev();
+    const d = this.draft();
+    if (!d || !isPlans(d)) return [];
+    return d.products.map((p) => {
+      const plan = p.participates === false ? null : planForAmount(d.plans ?? [], p.price);
+      return {
+        name: p.name,
+        price: p.price,
+        balance: Math.floor((p.price * d.credit.balancePercent) / 100),
+        plan: p.participates === false ? 'No participa (no da ruleta)' : (plan?.name ?? 'Sin ruleta (por debajo del primer plan)'),
+      };
+    });
   });
   protected readonly preview = computed(() => {
     this.rev();
@@ -439,6 +566,13 @@ export class DemoScreen implements OnInit {
     if (await this.act('Cuenta borrada.', () => this.api.delete(`/demo/accounts/${t.id}`))) await this.refreshStatus();
   }
 
+  protected async simulate(): Promise<void> {
+    const t = this.simTarget();
+    if (!t) return;
+    this.simTarget.set(null);
+    await this.act('Listo: en su próximo ingreso con código recibirá el turno de reactivación.', () => this.api.post(`/demo/accounts/${t.id}/simulate-inactivity`));
+  }
+
   protected async sendTest(): Promise<void> {
     await this.act('Correo de prueba enviado: revisa la bandeja (o Mailpit).', () => this.api.post('/demo/mail/test', { to: this.mailTo().trim() }));
   }
@@ -461,14 +595,69 @@ export class DemoScreen implements OnInit {
     this.touch();
   }
 
-  protected addGame(g: string): void {
+  protected gameKeysOf(mix: Partial<Record<GameType, DemoMixEntry>>): GameType[] {
+    this.rev();
+    return (Object.keys(GAME_LABEL) as GameType[]).filter((g) => mix[g] !== undefined);
+  }
+
+  protected freeGamesOf(mix: Partial<Record<GameType, DemoMixEntry>>): GameType[] {
+    this.rev();
+    return (this.state()?.limits.games ?? []).filter((g) => mix[g] === undefined);
+  }
+
+  protected addGameTo(mix: Partial<Record<GameType, DemoMixEntry>>, g: string): void {
     if (!g) return;
-    this.draft()!.mix[g as GameType] = { prizes: [{ type: 'money', amount: 5_000, count: 1 }], noPrizeCount: 4 };
+    mix[g as GameType] = { prizes: [{ type: 'money', amount: 5_000, count: 1 }], noPrizeCount: 4 };
     this.touch();
   }
 
-  protected removeGame(g: GameType): void {
-    delete this.draft()!.mix[g];
+  protected removeGameFrom(mix: Partial<Record<GameType, DemoMixEntry>>, g: GameType): void {
+    delete mix[g];
+    this.touch();
+  }
+
+  /** Nombre de un juego, con el plan delante cuando hay varios (para etiquetas accesibles únicas). */
+  protected lab(label: string, g: GameType): string {
+    return label ? `${label} · ${GAME_LABEL[g]}` : GAME_LABEL[g];
+  }
+
+  protected pct(p: number): string {
+    return percent(p);
+  }
+
+  protected planSum(p: DemoPlan) {
+    return planTotals(p);
+  }
+
+  protected planProb(p: DemoPlan): number {
+    return planProbability(p);
+  }
+
+  private amountPlans(): DemoPlan[] {
+    return (this.draft()?.plans ?? []).filter((x) => x.kind === 'amount');
+  }
+
+  /** Los planes por monto salvo el primero empiezan solos donde termina el anterior (sin huecos ni solapes). */
+  protected isLinked(p: DemoPlan): boolean {
+    return this.amountPlans()[0] !== p;
+  }
+
+  /** El último plan por monto no tiene tope. */
+  protected isLastAmount(p: DemoPlan): boolean {
+    const a = this.amountPlans();
+    return a[a.length - 1] === p;
+  }
+
+  protected setMax(p: DemoPlan, v: number | string | null): void {
+    p.maxAmount = v === null || v === '' ? null : Number(v);
+    relinkPlans(this.draft()!.plans!);
+    this.touch();
+  }
+
+  protected setMode(m: DemoMode): void {
+    const s = this.state()!;
+    if (m === this.mode()) return;
+    this.draft.set(m === 'plans' ? toPlansMode(this.draft()!, s.limits.maxProducts) : toStepsMode(this.draft()!));
     this.touch();
   }
 

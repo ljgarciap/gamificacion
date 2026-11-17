@@ -988,6 +988,18 @@ paths:
         '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
         '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
         '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /demo/accounts/{id}/simulate-inactivity:
+    post:
+      operationId: postDemoAccountsIdSimulateInactivity
+      summary: "Simula que la cuenta lleva los días configurados sin comprar (SPEC-007): solo mueve su marca hacia atrás y queda en la bitácora"
+      x-permission: demo.manage
+      parameters:
+        - {$ref: '#/components/parameters/Id'}
+      responses:
+        '204': {description: Simulada}
+        '401': {description: Sin sesión completa, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '403': {description: Sin permiso, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '4XX': {description: Error de negocio o validación, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
   /demo/mail/test:
     post:
       operationId: postDemoMailTest

@@ -112,9 +112,16 @@ class DemoApi implements DemoBackend, TokenProvider {
         balance: (j['balance'] as num).toInt(),
         resumed: j['resumed'] as bool,
         isNew: (j['isNew'] as bool?) ?? false,
+        byPlans: j['mode'] == 'plans',
+        grant: _readGrant(j['grant']),
         products: [
           for (final p in j['products'] as List)
-            DemoProduct(id: (p as Map)['id'] as String, name: p['name'] as String, price: (p['price'] as num).toInt()),
+            DemoProduct(
+              id: (p as Map)['id'] as String,
+              name: p['name'] as String,
+              price: (p['price'] as num).toInt(),
+              participates: (p['participates'] as bool?) ?? true,
+            ),
         ],
         rules: DemoRules(
           balancePercent: (rules['balancePercent'] as num).toInt(),
@@ -131,6 +138,18 @@ class DemoApi implements DemoBackend, TokenProvider {
     } catch (_) {
       throw const DemoException(DemoFailure.unknown);
     }
+  }
+
+  /// Turno que otorgó el ingreso (solo en el modo por planes). Un valor ilegible se ignora: es un aviso, no algo de lo que dependa el ingreso.
+  DemoGrant? _readGrant(Object? raw) {
+    if (raw is! Map) return null;
+    final plan = raw['plan'];
+    final kind = switch (raw['kind']) {
+      'welcome' => DemoGrantKind.welcome,
+      'reactivation' => DemoGrantKind.reactivation,
+      _ => null,
+    };
+    return plan is String && kind != null ? DemoGrant(plan: plan, kind: kind) : null;
   }
 
   /// Renueva el token reanudando la cuenta del ingreso. Sin ingreso previo no hay nada que reanudar. Varias peticiones simultáneas comparten
@@ -204,7 +223,12 @@ class DemoApi implements DemoBackend, TokenProvider {
         balance: (j['balance'] as num).toInt(),
         codes: [
           for (final c in j['codes'] as List)
-            DemoOwnedCode(code: (c as Map)['code'] as String, game: c['game'] as String, played: c['played'] as bool),
+            DemoOwnedCode(
+              code: (c as Map)['code'] as String,
+              game: c['game'] as String,
+              played: c['played'] as bool,
+              plan: c['plan'] as String?,
+            ),
         ],
       );
     } catch (_) {
@@ -243,7 +267,11 @@ class DemoApi implements DemoBackend, TokenProvider {
         replayed: j['replayed'] as bool,
         codes: [
           for (final c in j['codes'] as List)
-            DemoDeliveredCode(code: (c as Map)['code'] as String, game: c['game'] as String),
+            DemoDeliveredCode(
+              code: (c as Map)['code'] as String,
+              game: c['game'] as String,
+              plan: c['plan'] as String?,
+            ),
         ],
       );
     } catch (_) {

@@ -23,6 +23,17 @@ final class DemoConfig
 
     public const MAX_POOL = 500;
 
+    /** Planes de premio (SPEC-007): techos duros; los valores de negocio los fija el superadmin dentro de ellos. */
+    public const MODES = ['steps', 'plans'];
+
+    public const WELCOME_PLAN = 'welcome';
+
+    public const MAX_AMOUNT_PLANS = 5;
+
+    public const MAX_REACTIVATION_DAYS = 60;
+
+    public const MAX_PLAN_NAME = 40;
+
     public const MAX_TTL_HOURS = 168;
 
     /** Techos duros de las cuentas (SPEC-006A): los valores los fija el superadmin dentro de estos rangos. */
@@ -74,8 +85,16 @@ final class DemoConfig
     {
         $fail = static fn (string $m) => throw new \InvalidArgumentException($m);
         is_array($raw) && ! array_is_list($raw) || $fail('La configuración debe ser un objeto.');
-        $extra = array_diff(array_keys($raw), ['user', 'products', 'credit', 'mix', 'ttlHours', 'accounts']);
+        $extra = array_diff(array_keys($raw), ['user', 'products', 'credit', 'mix', 'ttlHours', 'accounts', 'mode', 'plans', 'triggers']);
         $extra === [] || $fail('Claves desconocidas: '.implode(', ', array_map('strval', $extra)).'.');
+        // Sin `mode` es el modo anterior («steps»): las muestras configuradas antes de SPEC-007 no cambian (CA-79).
+        $mode = $raw['mode'] ?? 'steps';
+        in_array($mode, self::MODES, true) || $fail('mode: '.implode(' o ', self::MODES).'.');
+        if ($mode === 'steps') {
+            foreach (['plans', 'triggers'] as $k) {
+                ! array_key_exists($k, $raw) || $fail("$k: solo existe en el modo «plans».");
+            }
+        }
 
         $int = static function (mixed $v, string $name, int $min, int $max) use ($fail): int {
             is_int($v) && $v >= $min && $v <= $max || $fail("$name: entero entre $min y $max.");
@@ -104,12 +123,21 @@ final class DemoConfig
         $products = [];
         $seen = [];
         foreach ($p as $i => $item) {
+            // `participates` es opcional y solo del modo «plans» (SPEC-007 §3.3); omitido vale «participa».
+            $hasFlag = is_array($item) && array_key_exists('participates', $item);
+            $flag = $hasFlag ? $item['participates'] : true;
+            if ($hasFlag) {
+                $mode === 'plans' || $fail("products[$i].participates: solo existe en el modo «plans».");
+                is_bool($flag) || $fail("products[$i].participates: verdadero o falso.");
+                unset($item['participates']);
+            }
             $item = $obj($item, "products[$i]", ['id', 'name', 'price']);
             is_string($item['id']) && preg_match('/^[a-z0-9_-]{1,32}$/', $item['id']) === 1 || $fail("products[$i].id: minúsculas, dígitos, guion y guion bajo, hasta 32.");
             ! isset($seen[$item['id']]) || $fail("products[$i].id: repetido.");
             $seen[$item['id']] = true;
             is_string($item['name']) && mb_strlen(trim($item['name'])) >= 1 && mb_strlen($item['name']) <= 80 || $fail("products[$i].name: de 1 a 80 caracteres.");
-            $products[] = ['id' => $item['id'], 'name' => trim($item['name']), 'price' => $int($item['price'], "products[$i].price", 1, self::MAX_AMOUNT)];
+            $products[] = ['id' => $item['id'], 'name' => trim($item['name']), 'price' => $int($item['price'], "products[$i].price", 1, self::MAX_AMOUNT)]
+                + ($mode === 'plans' ? ['participates' => $flag] : []);
         }
 
         $c = $obj($raw['credit'] ?? null, 'credit', ['balancePercent', 'minPurchase', 'codeStepAmount', 'maxCodesPerPurchase', 'maxCodesPerSession']);
@@ -121,30 +149,27 @@ final class DemoConfig
             'maxCodesPerSession' => $int($c['maxCodesPerSession'], 'credit.maxCodesPerSession', 1, self::MAX_CODES_PER_SESSION),
         ];
 
-        $m = $raw['mix'] ?? null;
-        is_array($m) && ! array_is_list($m) && $m !== [] || $fail('mix: al menos un juego.');
+        $plansMode = $mode === 'plans';
         $mix = [];
+        $plans = [];
         $total = 0;
-        foreach ($m as $game => $entry) {
-            in_array($game, self::GAMES, true) || $fail('mix: juego desconocido «'.(string) $game.'».');
-            $entry = $obj($entry, "mix.$game", ['prizes', 'noPrizeCount']);
-            is_array($entry['prizes']) && array_is_list($entry['prizes']) || $fail("mix.$game.prizes: debe ser una lista.");
-            $prizes = [];
-            foreach ($entry['prizes'] as $j => $prize) {
-                $prize = $obj($prize, "mix.$game.prizes[$j]", ['type', 'amount', 'count']);
-                in_array($prize['type'], self::PRIZE_TYPES, true) || $fail("mix.$game.prizes[$j].type: ".implode(', ', self::PRIZE_TYPES).'.');
-                $amount = $int($prize['amount'], "mix.$game.prizes[$j].amount", $prize['type'] === 'coupon' ? 0 : 1, self::MAX_AMOUNT);
-                $count = $int($prize['count'], "mix.$game.prizes[$j].count", 1, self::MAX_POOL);
-                $prizes[] = ['type' => $prize['type'], 'amount' => $amount, 'count' => $count];
-                $total += $count;
-            }
-            $none = $int($entry['noPrizeCount'], "mix.$game.noPrizeCount", 0, self::MAX_POOL);
-            $total += $none;
-            $prizes !== [] || $none > 0 || $fail("mix.$game: sin premios ni códigos sin premio.");
-            $mix[$game] = ['prizes' => $prizes, 'noPrizeCount' => $none];
-            DemoGameTemplates::assertPlayable($game, $mix[$game]);
+        if ($plansMode) {
+            [$plans, $total] = self::validatePlans($raw['plans'] ?? null, $int, $obj, $fail);
+        } else {
+            [$mix, $total] = self::validateMix($raw['mix'] ?? null, 'mix', $int, $obj, $fail);
         }
-        $total <= self::MAX_POOL || $fail('mix: el pool total no puede superar '.self::MAX_POOL.' códigos (hay '.$total.').');
+        $total <= self::MAX_POOL || $fail(($plansMode ? 'plans' : 'mix').': el pool total no puede superar '.self::MAX_POOL.' códigos (hay '.$total.').');
+
+        $triggers = null;
+        if ($plansMode) {
+            $t = $obj($raw['triggers'] ?? null, 'triggers', ['reactivationDays', 'turnsPerPurchase', 'welcomeOnFirstLogin']);
+            is_bool($t['welcomeOnFirstLogin']) || $fail('triggers.welcomeOnFirstLogin: verdadero o falso.');
+            $triggers = [
+                'reactivationDays' => $int($t['reactivationDays'], 'triggers.reactivationDays', 1, self::MAX_REACTIVATION_DAYS),
+                'turnsPerPurchase' => $int($t['turnsPerPurchase'], 'triggers.turnsPerPurchase', 1, self::MAX_CODES_PER_PURCHASE),
+                'welcomeOnFirstLogin' => $t['welcomeOnFirstLogin'],
+            ];
+        }
 
         $ttl = $raw['ttlHours'] ?? null;
         $ttl === null || $ttl = $int($ttl, 'ttlHours', 1, self::MAX_TTL_HOURS);
@@ -157,17 +182,119 @@ final class DemoConfig
             'maxAccounts' => $int($a['maxAccounts'], 'accounts.maxAccounts', 1, self::MAX_ACCOUNTS),
         ];
 
-        return ['user' => $user, 'products' => $products, 'credit' => $credit, 'mix' => $mix, 'ttlHours' => $ttl, 'accounts' => $accounts];
+        $out = ['user' => $user, 'products' => $products, 'credit' => $credit, 'mix' => $mix, 'ttlHours' => $ttl, 'accounts' => $accounts];
+        if ($plansMode) {
+            $out = ['mode' => 'plans'] + $out + ['plans' => $plans, 'triggers' => $triggers];
+        }
+
+        return $out;
+    }
+
+    public static function mode(array $config): string
+    {
+        return ($config['mode'] ?? 'steps') === 'plans' ? 'plans' : 'steps';
+    }
+
+    /**
+     * Mezcla de premios por juego (la misma forma en el modo «steps» y dentro de cada plan). Devuelve la mezcla normalizada y el tamaño del pool.
+     *
+     * @return array{0: array<string, mixed>, 1: int}
+     */
+    private static function validateMix(mixed $m, string $path, \Closure $int, \Closure $obj, \Closure $fail, ?int $maxMoneyPrize = null): array
+    {
+        is_array($m) && ! array_is_list($m) && $m !== [] || $fail("$path: al menos un juego.");
+        $mix = [];
+        $total = 0;
+        foreach ($m as $game => $entry) {
+            in_array($game, self::GAMES, true) || $fail("$path: juego desconocido «".(string) $game.'».');
+            $entry = $obj($entry, "$path.$game", ['prizes', 'noPrizeCount']);
+            is_array($entry['prizes']) && array_is_list($entry['prizes']) || $fail("$path.$game.prizes: debe ser una lista.");
+            $prizes = [];
+            foreach ($entry['prizes'] as $j => $prize) {
+                $prize = $obj($prize, "$path.$game.prizes[$j]", ['type', 'amount', 'count']);
+                in_array($prize['type'], self::PRIZE_TYPES, true) || $fail("$path.$game.prizes[$j].type: ".implode(', ', self::PRIZE_TYPES).'.');
+                $amount = $int($prize['amount'], "$path.$game.prizes[$j].amount", $prize['type'] === 'coupon' ? 0 : 1, self::MAX_AMOUNT);
+                $maxMoneyPrize === null || $prize['type'] !== 'money' || $amount <= $maxMoneyPrize
+                    || $fail("$path.$game.prizes[$j].amount: supera el premio máximo en dinero del plan ($maxMoneyPrize).");
+                $count = $int($prize['count'], "$path.$game.prizes[$j].count", 1, self::MAX_POOL);
+                $prizes[] = ['type' => $prize['type'], 'amount' => $amount, 'count' => $count];
+                $total += $count;
+            }
+            $none = $int($entry['noPrizeCount'], "$path.$game.noPrizeCount", 0, self::MAX_POOL);
+            $total += $none;
+            $prizes !== [] || $none > 0 || $fail("$path.$game: sin premios ni códigos sin premio.");
+            $mix[$game] = ['prizes' => $prizes, 'noPrizeCount' => $none];
+            DemoGameTemplates::assertPlayable($game, $mix[$game]);
+        }
+
+        return [$mix, $total];
+    }
+
+    /**
+     * Planes de la muestra (SPEC-007 §3.1): uno de evento («welcome») y de 1 a MAX_AMOUNT_PLANS por monto, con rangos contiguos y sin huecos.
+     *
+     * @return array{0: list<array<string, mixed>>, 1: int} los planes normalizados y el pool total
+     */
+    private static function validatePlans(mixed $raw, \Closure $int, \Closure $obj, \Closure $fail): array
+    {
+        is_array($raw) && array_is_list($raw) && count($raw) >= 2 && count($raw) <= self::MAX_AMOUNT_PLANS + 1
+            || $fail('plans: el plan de bienvenida y de 1 a '.self::MAX_AMOUNT_PLANS.' planes por monto.');
+        $plans = [];
+        $total = 0;
+        $ids = [];
+        $events = 0;
+        $expectedMin = null;
+        $closed = false;
+        foreach ($raw as $i => $p) {
+            is_array($p) && ($p['kind'] ?? null) !== null || $fail("plans[$i].kind: «event» o «amount».");
+            $kind = $p['kind'];
+            in_array($kind, ['event', 'amount'], true) || $fail("plans[$i].kind: «event» o «amount».");
+            $p = $obj($p, "plans[$i]", $kind === 'event' ? ['id', 'kind', 'name', 'maxMoneyPrize', 'mix'] : ['id', 'kind', 'name', 'minAmount', 'maxAmount', 'maxMoneyPrize', 'mix']);
+            is_string($p['id']) && preg_match('/^[a-z0-9_-]{1,32}$/D', $p['id']) === 1 || $fail("plans[$i].id: minúsculas, dígitos, guion y guion bajo, hasta 32.");
+            ! isset($ids[$p['id']]) || $fail("plans[$i].id: repetido.");
+            $ids[$p['id']] = true;
+            is_string($p['name']) && mb_strlen(trim($p['name'])) >= 1 && mb_strlen($p['name']) <= self::MAX_PLAN_NAME || $fail("plans[$i].name: de 1 a ".self::MAX_PLAN_NAME.' caracteres.');
+            $max = $int($p['maxMoneyPrize'], "plans[$i].maxMoneyPrize", 1, self::MAX_AMOUNT);
+            [$mix, $n] = self::validateMix($p['mix'], "plans[$i].mix", $int, $obj, $fail, $max);
+            $total += $n;
+            $plan = ['id' => $p['id'], 'kind' => $kind, 'name' => trim($p['name'])];
+            if ($kind === 'event') {
+                $p['id'] === self::WELCOME_PLAN || $fail("plans[$i].id: el plan de evento se llama «".self::WELCOME_PLAN.'».');
+                $events++;
+                $events === 1 || $fail('plans: solo un plan de bienvenida.');
+            } else {
+                $p['id'] !== self::WELCOME_PLAN || $fail("plans[$i].id: «".self::WELCOME_PLAN.'» está reservado.');
+                $closed && $fail("plans[$i]: un plan por monto sin tope debe ser el último.");
+                $min = $int($p['minAmount'], "plans[$i].minAmount", 1, self::MAX_AMOUNT);
+                $expectedMin === null || $min === $expectedMin || $fail("plans[$i].minAmount: debe ser $expectedMin (el tope del plan anterior + 1), sin huecos ni solapes.");
+                if ($p['maxAmount'] === null) {
+                    $closed = true;
+                    $maxAmount = null;
+                } else {
+                    $maxAmount = $int($p['maxAmount'], "plans[$i].maxAmount", $min, self::MAX_AMOUNT);
+                    $expectedMin = $maxAmount + 1;
+                }
+                $plan += ['minAmount' => $min, 'maxAmount' => $maxAmount];
+            }
+            $plans[] = $plan + ['maxMoneyPrize' => $max, 'mix' => $mix];
+        }
+        $events === 1 || $fail('plans: falta el plan de bienvenida («'.self::WELCOME_PLAN.'»).');
+        $closed || $fail('plans: el último plan por monto no debe tener tope (maxAmount nulo), así todo monto grande cae en algún plan.');
+
+        return [$plans, $total];
     }
 
     /** @param array<string, mixed> $config */
     public static function poolSize(array $config): int
     {
         $n = 0;
-        foreach ($config['mix'] as $entry) {
-            $n += $entry['noPrizeCount'];
-            foreach ($entry['prizes'] as $prize) {
-                $n += $prize['count'];
+        $mixes = self::mode($config) === 'plans' ? array_column($config['plans'], 'mix') : [$config['mix']];
+        foreach ($mixes as $mix) {
+            foreach ($mix as $entry) {
+                $n += $entry['noPrizeCount'];
+                foreach ($entry['prizes'] as $prize) {
+                    $n += $prize['count'];
+                }
             }
         }
 

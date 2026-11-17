@@ -24,17 +24,21 @@ final class DemoPoolDraw
         $this->randomInt = $randomInt !== null ? \Closure::fromCallable($randomInt) : random_int(...);
     }
 
-    /** @return list<array{code: string, game: string}> */
-    public function draw(string $userId, string $orderId, int $n): array
+    /** @return list<array{code: string, game: string, plan: string|null}> */
+    public function draw(string $userId, ?string $orderId, int $n, ?string $plan = null, ?int $grantId = null): array
     {
         if (DB::transactionLevel() < 1) {
             throw new \LogicException('El sorteo debe correr dentro de una transacción.');
+        }
+        if (($orderId === null) === ($grantId === null)) {
+            throw new \LogicException('Un código se entrega por una compra O por un turno otorgado, no por ambos ni por ninguno.');
         }
         if ($n < 1) {
             return [];
         }
         DB::select('SELECT pg_advisory_xact_lock(?)', [self::LOCK_KEY]);
-        $available = (int) DB::selectOne("SELECT count(*) AS n FROM demo_pool WHERE state = 'available'")->n;
+        // `plan` NULL = modo anterior; con plan, SOLO se sortea entre los códigos de ese plan (SPEC-007 A2): los demás planes no se tocan.
+        $available = (int) DB::selectOne("SELECT count(*) AS n FROM demo_pool WHERE state = 'available' AND plan IS NOT DISTINCT FROM ?", [$plan])->n;
         if ($available < $n) {
             throw new DemoPoolExhausted("Quedan $available código(s) y se pidieron $n.");
         }
@@ -42,15 +46,15 @@ final class DemoPoolDraw
         $out = [];
         for ($i = 0; $i < $n; $i++, $available--) {
             $k = ($this->randomInt)(0, $available - 1);
-            $row = DB::selectOne("SELECT id, game, encode(code_enc, 'hex') AS enc, encode(code_hash, 'hex') AS hash FROM demo_pool WHERE state = 'available' ORDER BY id OFFSET ? LIMIT 1", [$k]);
+            $row = DB::selectOne("SELECT id, game, encode(code_enc, 'hex') AS enc, encode(code_hash, 'hex') AS hash FROM demo_pool WHERE state = 'available' AND plan IS NOT DISTINCT FROM ? ORDER BY id OFFSET ? LIMIT 1", [$plan, $k]);
             $updated = DB::update(
-                "UPDATE demo_pool SET state = 'assigned', assigned_to = ?, assigned_at = clock_timestamp(), order_id = ? WHERE id = ? AND state = 'available'",
-                [$userId, $orderId, $row->id],
+                "UPDATE demo_pool SET state = 'assigned', assigned_to = ?, assigned_at = clock_timestamp(), order_id = ?, grant_id = ? WHERE id = ? AND state = 'available'",
+                [$userId, $orderId, $grantId, $row->id],
             );
             if ($updated !== 1) {
                 throw new \LogicException('El código sorteado dejó de estar disponible dentro del bloqueo.'); // no debería pasar
             }
-            $out[] = ['code' => $this->box->open(hex2bin($row->enc), DemoSeeder::sealContext($row->hash)), 'game' => $row->game];
+            $out[] = ['code' => $this->box->open(hex2bin($row->enc), DemoSeeder::sealContext($row->hash)), 'game' => $row->game] + ($plan === null ? [] : ['plan' => $plan]);
         }
 
         return $out;
