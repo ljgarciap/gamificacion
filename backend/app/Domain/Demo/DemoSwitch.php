@@ -86,6 +86,15 @@ final class DemoSwitch
             if ($available === 0) {
                 throw new AdminException('wrongState', 'El pool de códigos está vacío: siembra la muestra antes de encenderla.', 409);
             }
+            if (DemoConfig::mode($config) === 'plans') {
+                // Cada plan necesita al menos un código disponible: encender con un plan vacío daría 409 en cuanto alguien compre en ese rango.
+                foreach ($config['plans'] as $plan) {
+                    $n = (int) DB::selectOne("SELECT count(*) AS n FROM demo_pool WHERE state = 'available' AND plan = ?", [$plan['id']])->n;
+                    if ($n === 0) {
+                        throw new AdminException('wrongState', "El plan «{$plan['name']}» no tiene códigos disponibles: siembra la muestra antes de encenderla.", 409);
+                    }
+                }
+            }
             $real = (int) DB::selectOne("SELECT count(DISTINCT c.id) AS n FROM campaigns c JOIN batches b ON b.campaign_id = c.id WHERE NOT c.is_demo AND b.state = 'active'")->n;
             if ($real > 0) {
                 throw new AdminException('wrongState', "Hay $real campaña(s) real(es) activa(s): la muestra no puede convivir con campañas reales.", 409);

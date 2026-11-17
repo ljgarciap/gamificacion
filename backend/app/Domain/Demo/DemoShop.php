@@ -87,15 +87,16 @@ final class DemoShop
     public function account(string $userId): array
     {
         $box = new \App\Domain\Admin\SecretBox;
+        $config = $this->config();
         $codes = [];
         $rows = DB::select(
-            "SELECT p.game, encode(p.code_enc, 'hex') AS enc, encode(p.code_hash, 'hex') AS hash, (c.redeemed_at IS NOT NULL) AS played
+            "SELECT p.game, p.plan, encode(p.code_enc, 'hex') AS enc, encode(p.code_hash, 'hex') AS hash, (c.redeemed_at IS NOT NULL) AS played
              FROM demo_pool p LEFT JOIN codes c ON c.code_hash = p.code_hash
              WHERE p.assigned_to = ? AND p.state = 'assigned' ORDER BY p.assigned_at, p.id",
             [$userId],
         );
         foreach ($rows as $r) {
-            $codes[] = ['code' => $box->open(hex2bin($r->enc), DemoSeeder::sealContext($r->hash)), 'game' => $r->game, 'played' => (bool) $r->played];
+            $codes[] = ['code' => $box->open(hex2bin($r->enc), DemoSeeder::sealContext($r->hash)), 'game' => $r->game, 'played' => (bool) $r->played] + $this->planField($r->plan, $config);
         }
 
         return ['balance' => $this->balances->balanceFor($userId), 'codes' => $codes];
@@ -116,7 +117,7 @@ final class DemoShop
             'displayName' => $config['user']['displayName'], 'currency' => 'COP',
             'balance' => $this->balances->balanceFor($issued['userId']),
             'products' => array_map(static fn (array $p): array => ['id' => $p['id'], 'name' => $p['name'], 'price' => $p['price']], $config['products']),
-            'rules' => $config['credit'],
+            'rules' => $this->rulesFor($config),
         ];
     }
 
@@ -164,14 +165,25 @@ final class DemoShop
             $total += $prices[$l['productId']] * $l['quantity'];
         }
         $rules = $config['credit'];
-        if ($total < $rules['minPurchase'] || $total < 1) {
+        $plansMode = DemoConfig::mode($config) === 'plans';
+        // En el modo «plans» cualquier compra se procesa (puede dar cero turnos, SPEC-007 D32); en «steps» rige la compra mínima.
+        if ($total < 1 || (! $plansMode && $total < $rules['minPurchase'])) {
             throw new DemoShopException('invalidPurchase', 'La compra no alcanza el mínimo de la muestra ($ '.number_format($rules['minPurchase'], 0, ',', '.').').', 422);
         }
 
         $credited = intdiv($total * $rules['balancePercent'], 100);
         $already = (int) DB::selectOne('SELECT COALESCE(SUM(codes_granted), 0) AS n FROM demo_orders WHERE user_id = ?', [$userId])->n;
         $room = max(0, $rules['maxCodesPerSession'] - $already);
-        $wanted = min(intdiv($total, $rules['codeStepAmount']), $rules['maxCodesPerPurchase']);
+        $planId = null;
+        if ($plansMode) {
+            // El plan sale SOLO del catálogo guardado y de las cantidades validadas, nunca de algo que mande el cliente (T-D21), y solo de lo que
+            // participa (T-D23).
+            $plan = DemoPlans::forAmount($config, DemoPlans::eligibleTotal($lines, $config));
+            $planId = $plan['id'] ?? null;
+            $wanted = $plan === null ? 0 : $config['triggers']['turnsPerPurchase'];
+        } else {
+            $wanted = min(intdiv($total, $rules['codeStepAmount']), $rules['maxCodesPerPurchase']);
+        }
         $granted = min($wanted, $room);
 
         $orderId = (string) Str::uuid();
@@ -183,7 +195,7 @@ final class DemoShop
             DB::insert("INSERT INTO demo_wallet_ledger (user_id, kind, amount, order_id) VALUES (?, 'purchase_credit', ?, ?)", [$userId, $credited, $orderId]);
         }
         try {
-            $codes = $this->draw->draw($userId, $orderId, $granted);
+            $codes = $this->named($this->draw->draw($userId, $orderId, $granted, $planId), $config);
         } catch (DemoPoolExhausted) {
             throw new DemoShopException('demoPoolExhausted', 'La muestra se quedó sin códigos. Avisa al organizador.', 409);
         }
@@ -192,6 +204,50 @@ final class DemoShop
             'orderId' => $orderId, 'total' => $total, 'credited' => $credited, 'codes' => $codes,
             'capReached' => $granted < $wanted, 'balance' => $this->balances->balanceFor($userId), 'replayed' => false,
         ];
+    }
+
+    /**
+     * Reglas que ve la app. En el modo «plans» la compra mínima visible es la del primer plan por monto (por debajo no hay turno).
+     *
+     * @param  array<string, mixed>  $config
+     * @return array<string, int>
+     */
+    private function rulesFor(array $config): array
+    {
+        $rules = $config['credit'];
+        if (DemoConfig::mode($config) === 'plans') {
+            foreach ($config['plans'] as $plan) {
+                if ($plan['kind'] === 'amount') {
+                    $rules['minPurchase'] = $plan['minAmount'];
+                    break;
+                }
+            }
+        }
+
+        return $rules;
+    }
+
+    /**
+     * El código lleva el NOMBRE visible de su plan (no el id ni los umbrales: la app no conoce la mezcla, T-D28). Sin plan = modo anterior.
+     *
+     * @param  list<array<string, mixed>>  $codes
+     * @param  array<string, mixed>  $config
+     * @return list<array<string, mixed>>
+     */
+    private function named(array $codes, array $config): array
+    {
+        return array_map(fn (array $c): array => array_diff_key($c, ['plan' => 1]) + $this->planField($c['plan'] ?? null, $config), $codes);
+    }
+
+    /** @return array{plan?: string} */
+    private function planField(?string $planId, array $config): array
+    {
+        if ($planId === null) {
+            return [];
+        }
+        $plan = DemoPlans::find($config, $planId);
+
+        return $plan === null ? [] : ['plan' => $plan['name']];
     }
 
     /** @return array<string, mixed> */
@@ -203,8 +259,8 @@ final class DemoShop
         $order = DB::selectOne('SELECT id, total, credited, codes_granted FROM demo_orders WHERE id = ?', [$existing->id]);
         $box = new \App\Domain\Admin\SecretBox;
         $codes = [];
-        foreach (DB::select("SELECT game, encode(code_enc, 'hex') AS enc, encode(code_hash, 'hex') AS hash FROM demo_pool WHERE order_id = ? ORDER BY assigned_at, id", [$order->id]) as $r) {
-            $codes[] = ['code' => $box->open(hex2bin($r->enc), DemoSeeder::sealContext($r->hash)), 'game' => $r->game];
+        foreach (DB::select("SELECT game, plan, encode(code_enc, 'hex') AS enc, encode(code_hash, 'hex') AS hash FROM demo_pool WHERE order_id = ? ORDER BY assigned_at, id", [$order->id]) as $r) {
+            $codes[] = ['code' => $box->open(hex2bin($r->enc), DemoSeeder::sealContext($r->hash)), 'game' => $r->game] + $this->planField($r->plan, $this->config());
         }
 
         return [

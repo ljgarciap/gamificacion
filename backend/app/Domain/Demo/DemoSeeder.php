@@ -47,9 +47,20 @@ final class DemoSeeder
         $generation = 1 + (int) DB::selectOne('SELECT COALESCE(MAX(generation), 0) AS g FROM demo_pool')->g;
 
         $built = [];
-        foreach (DemoConfig::GAMES as $game) {
-            if (isset($config['mix'][$game])) {
-                $built[] = $this->build($game, $config['mix'][$game], $actor);
+        if (DemoConfig::mode($config) === 'plans') {
+            // Un lote por (plan, juego): cada plan es un conjunto de códigos con su mezcla exacta (SPEC-007 A1).
+            foreach ($config['plans'] as $plan) {
+                foreach (DemoConfig::GAMES as $game) {
+                    if (isset($plan['mix'][$game])) {
+                        $built[] = $this->build($game, $plan['mix'][$game], $actor, $plan['id']);
+                    }
+                }
+            }
+        } else {
+            foreach (DemoConfig::GAMES as $game) {
+                if (isset($config['mix'][$game])) {
+                    $built[] = $this->build($game, $config['mix'][$game], $actor);
+                }
             }
         }
         foreach ($built as $b) {
@@ -83,9 +94,9 @@ final class DemoSeeder
 
     /**
      * @param  array{prizes: list<array{type: string, amount: int, count: int}>, noPrizeCount: int}  $entry
-     * @return array{game: string, batch: string, campaign: string, codes: list<string>}
+     * @return array{game: string, batch: string, campaign: string, codes: list<string>, plan: string|null}
      */
-    private function build(string $game, array $entry, string $actor): array
+    private function build(string $game, array $entry, string $actor, ?string $planId = null): array
     {
         $plan = DemoGameTemplates::plan($game, $entry);
 
@@ -101,7 +112,7 @@ final class DemoSeeder
             ]);
         }
 
-        $batch = $this->lifecycle->createDraft($campaign, 'Muestra '.$plan['prefix'], $plan['pool'], $actor);
+        $batch = $this->lifecycle->createDraft($campaign, 'Muestra '.$plan['prefix'].($planId === null ? '' : ' '.$planId), $plan['pool'], $actor);
         $csv = tempnam(sys_get_temp_dir(), 'demo-muestra-');
         unlink($csv); // el generador crea el archivo (0600) y no sobrescribe uno existente
         try {
@@ -113,10 +124,10 @@ final class DemoSeeder
         array_shift($codes); // encabezado
         $this->lifecycle->commit($batch, $actor);
 
-        return ['game' => $game, 'batch' => $batch, 'campaign' => $campaign, 'codes' => $codes];
+        return ['game' => $game, 'batch' => $batch, 'campaign' => $campaign, 'codes' => $codes, 'plan' => $planId];
     }
 
-    /** @param array{game: string, batch: string, campaign: string, codes: list<string>} $b */
+    /** @param array{game: string, batch: string, campaign: string, codes: list<string>, plan: string|null} $b */
     private function fillPool(array $b, int $generation): int
     {
         $vault = new PrizeVault;
@@ -129,10 +140,10 @@ final class DemoSeeder
                 $row = DB::selectOne("SELECT idx, encode(prize_enc, 'hex') AS p FROM codes WHERE code_hash = decode(?, 'hex')", [bin2hex($hash)]);
                 $prize = $vault->decryptPrize($b['batch'], (int) $row->idx, hex2bin($row->p));
                 DB::insert(
-                    "INSERT INTO demo_pool (batch_id, code_enc, code_hash, game, description, generation) VALUES (?, decode(?, 'hex'), decode(?, 'hex'), ?, ?, ?)",
+                    "INSERT INTO demo_pool (batch_id, code_enc, code_hash, game, description, generation, plan) VALUES (?, decode(?, 'hex'), decode(?, 'hex'), ?, ?, ?, ?)",
                     [
                         $b['batch'], bin2hex($this->box->seal($code, self::sealContext(bin2hex($hash)))), bin2hex($hash), $b['game'],
-                        DemoGameTemplates::SHORT[$b['game']].': '.($labels[$prize] ?? $prize), $generation,
+                        DemoGameTemplates::SHORT[$b['game']].': '.($labels[$prize] ?? $prize), $generation, $b['plan'],
                     ],
                 );
             }
