@@ -26,6 +26,7 @@ final class DemoShop
         private readonly DemoPoolDraw $draw = new DemoPoolDraw,
         private readonly StubBalanceProvider $balances = new StubBalanceProvider,
         private readonly DemoAccounts $accounts = new DemoAccounts,
+        private readonly DemoGrants $grants = new DemoGrants,
     ) {}
 
     /** @return array<string, mixed> configuración vigente (la muestra debe estar activa y configurada) */
@@ -75,8 +76,9 @@ final class DemoShop
             }
         }
         $this->accounts->touch($account['id']);
+        $grant = $this->grants->onLogin($account, $isNew, $config);
 
-        return $this->session($account['subject'], $config, ! $isNew, $isNew);
+        return $this->session($account['subject'], $config, ! $isNew, $isNew) + ($grant === null ? [] : ['grant' => $grant]);
     }
 
     /**
@@ -187,6 +189,7 @@ final class DemoShop
         $granted = min($wanted, $room);
 
         $orderId = (string) Str::uuid();
+        $this->grants->markPurchase($userId);
         DB::insert(
             'INSERT INTO demo_orders (id, user_id, items, total, credited, codes_granted, idempotency_key, request_hash) VALUES (?, ?, ?::jsonb, ?, ?, ?, ?, ?)',
             [$orderId, $userId, json_encode($lines), $total, $credited, $granted, $key, $requestHash],

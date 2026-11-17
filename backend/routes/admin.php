@@ -112,5 +112,6 @@ Route::middleware(['admin.auth', 'admin.can:'.AdminPermissions::DEMO_MANAGE])->g
     Route::get('/demo/runs/{id}', [DemoController::class, 'run'])->whereNumber('id');
     Route::get('/demo/accounts', [DemoController::class, 'accounts']);
     Route::delete('/demo/accounts/{id}', [DemoController::class, 'deleteAccount']);
+    Route::post('/demo/accounts/{id}/simulate-inactivity', [DemoController::class, 'simulateInactivity']);
     Route::post('/demo/mail/test', [DemoController::class, 'mailTest'])->middleware('throttle:10,1');
 });

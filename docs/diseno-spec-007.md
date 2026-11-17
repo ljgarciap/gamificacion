@@ -75,7 +75,7 @@ CHECK sobre demo_pool: un código 'assigned' tiene order_id o grant_id (no ambos
    - cuenta nueva y `welcomeOnFirstLogin` → grant `welcome`.
    - cuenta existente con `now − activity_at ≥ reactivationDays` → grant `reactivation` y `activity_at = now`.
    - cada grant: sortea 1 código del plan `welcome`; si no hay (A7), anota `demo.grant_skipped` y sigue.
-   - la respuesta de sesión trae `grant: { plan: "<nombre>", kind } | null` (campo **aditivo**).
+   - la respuesta de `auth/verify` trae `grant: { plan: "<nombre>", kind }` **solo cuando se otorgó un turno** (campo aditivo, ausente si no; renovar el token con `session` nunca otorga).
 4. **Simulación** (`DemoGrants::simulateInactivity`): `activity_at = LEAST(activity_at, now − reactivationDays)` — solo mueve **hacia atrás**; bitácora `demo.inactivity_simulated` con quién la pidió y de qué cuenta.
 5. **Cuenta** (`DemoShop::account`) y respuesta de compra: cada código trae `plan` (el **nombre visible** del plan, tomado de la configuración; la app no conoce ids ni umbrales de planes). Aditivo.
 

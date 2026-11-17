@@ -446,6 +446,13 @@ components:
       required: [token, expiresIn, userId, subject, resumed, isNew, displayName, currency, balance, products, rules]
       properties:
         isNew: { type: boolean, description: "La cuenta se creó con este ingreso." }
+        grant:
+          type: object
+          description: "Solo en el modo por planes (SPEC-007): este ingreso otorgó un turno (bienvenida o reactivación). Ausente si no."
+          required: [plan, kind]
+          properties:
+            plan: { type: string, description: "Nombre visible del plan." }
+            kind: { type: string, enum: [welcome, reactivation] }
         token: { type: string }
         expiresIn: { type: integer }
         userId: { type: string }
@@ -480,7 +487,11 @@ components:
           items:
             type: object
             required: [code, game, played]
-            properties: { code: { type: string }, game: { type: string }, played: { type: boolean } }
+            properties:
+              code: { type: string }
+              game: { type: string }
+              played: { type: boolean }
+              plan: { type: string, description: "Nombre visible del plan que otorgó el turno (solo en el modo por planes, SPEC-007)." }
 
     DemoOrder:
       type: object
@@ -494,7 +505,10 @@ components:
           items:
             type: object
             required: [code, game]
-            properties: { code: { type: string }, game: { type: string } }
+            properties:
+              code: { type: string }
+              game: { type: string }
+              plan: { type: string, description: "Nombre visible del plan (solo en el modo por planes, SPEC-007)." }
         capReached: { type: boolean, description: "Se llegó al tope de códigos por sesión: se entregaron menos de los que correspondían." }
         balance: { type: integer }
         replayed: { type: boolean }
