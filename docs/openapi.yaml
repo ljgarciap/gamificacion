@@ -446,6 +446,10 @@ components:
       required: [token, expiresIn, userId, subject, resumed, isNew, displayName, currency, balance, products, rules]
       properties:
         isNew: { type: boolean, description: "La cuenta se creó con este ingreso." }
+        mode:
+          type: string
+          const: plans
+          description: "Solo en el modo por planes (SPEC-007): los turnos dependen del plan y no de un tramo de monto; ausente en el modo anterior."
         grant:
           type: object
           description: "Solo en el modo por planes (SPEC-007): este ingreso otorgó un turno (bienvenida o reactivación). Ausente si no."
@@ -466,7 +470,11 @@ components:
           items:
             type: object
             required: [id, name, price]
-            properties: { id: { type: string }, name: { type: string }, price: { type: integer } }
+            properties:
+              id: { type: string }
+              name: { type: string }
+              price: { type: integer }
+              participates: { type: boolean, description: "Solo en el modo por planes: el producto cuenta para la ruleta. Los que no participan se compran pero no dan turno." }
         rules:
           type: object
           required: [balancePercent, minPurchase, codeStepAmount, maxCodesPerPurchase, maxCodesPerSession]

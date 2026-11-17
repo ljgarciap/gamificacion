@@ -30,8 +30,22 @@ const _rules = DemoRules(
 
 /// Servidor de la muestra simulado: registra los pedidos de código, los ingresos y las compras, y puede fallar.
 class _FakeBackend implements DemoBackend {
-  _FakeBackend({this.codes = const ['RULETA-50K'], this.capReached = false, this.rules = _rules});
+  _FakeBackend({
+    this.codes = const ['RULETA-50K'],
+    this.capReached = false,
+    this.rules = _rules,
+    this.byPlans = false,
+    this.grant,
+    this.deliveredPlan,
+  });
   final DemoRules rules;
+
+  /// Modo por planes (SPEC-007): la sesión lo dice, trae un producto que no participa y puede traer el turno del ingreso.
+  final bool byPlans;
+  final DemoGrant? grant;
+
+  /// Plan con el que se entregan los códigos de una compra (null = sin plan).
+  final String? deliveredPlan;
   final List<String> codes;
   final bool capReached;
   static const validCode = '123456';
@@ -73,9 +87,12 @@ class _FakeBackend implements DemoBackend {
       balance: balance,
       resumed: false,
       rules: rules,
-      products: const [
-        DemoProduct(id: 'r20', name: 'Recarga 20', price: 20000),
-        DemoProduct(id: 'r50', name: 'Recarga 50', price: 50000),
+      byPlans: byPlans,
+      grant: grant,
+      products: [
+        const DemoProduct(id: 'r20', name: 'Recarga 20', price: 20000),
+        const DemoProduct(id: 'r50', name: 'Recarga 50', price: 50000),
+        if (byPlans) const DemoProduct(id: 'pasa', name: 'Pasa Plata', price: 30000, participates: false),
       ],
     );
   }
@@ -91,14 +108,24 @@ class _FakeBackend implements DemoBackend {
     purchases.add((lines, idempotencyKey));
     await gate?.future;
     if (failures.isNotEmpty) throw failures.removeAt(0);
-    final total = lines.fold(0, (s, l) => s + l.quantity * (l.productId == 'r20' ? 20000 : 50000));
+    final total = lines.fold(
+      0,
+      (s, l) =>
+          s +
+          l.quantity *
+              switch (l.productId) {
+                'r20' => 20000,
+                'pasa' => 30000,
+                _ => 50000,
+              },
+    );
     final credited = total * 10 ~/ 100;
     balance += credited;
     return DemoOrder(
       orderId: 'o-${purchases.length}',
       total: total,
       credited: credited,
-      codes: [for (final c in codes) DemoDeliveredCode(code: c, game: 'roulette')],
+      codes: [for (final c in codes) DemoDeliveredCode(code: c, game: 'roulette', plan: deliveredPlan)],
       capReached: capReached,
       balance: balance,
       replayed: false,
@@ -571,6 +598,183 @@ void main() {
     expect(find.textContaining('We will use your email only'), findsOneWidget);
     expect(find.text('DEMO · Simulated data, no real money'), findsOneWidget);
   });
+
+  const plansRules = DemoRules(
+    balancePercent: 10,
+    minPurchase: 1000,
+    codeStepAmount: 20000,
+    maxCodesPerPurchase: 3,
+    maxCodesPerSession: 10,
+  );
+
+  testWidgets(
+    'por planes: la vista previa no cuenta códigos, dice si la compra da ruleta y los productos que no participan no la dan',
+    (t) async {
+      await t.pumpWidget(_app(_FakeBackend(byPlans: true, rules: plansRules)));
+      await _enter(t);
+      await _tap(t, 'demo-add-r20');
+      await t.pump();
+      expect(find.textContaining('una ruleta según el valor de tu compra'), findsOneWidget);
+      expect(find.textContaining('1 código'), findsNothing);
+      expect(tester(t, 'demo-pay').onPressed, isNotNull);
+
+      // Solo un producto que no participa: se puede comprar pero la vista previa avisa que no da ruleta.
+      await _tap(t, 'demo-remove-r20');
+      await _tap(t, 'demo-add-pasa');
+      await t.pump();
+      expect(find.textContaining('Esta compra no dio ruleta'), findsNothing);
+      expect(find.textContaining('no da ruleta'), findsOneWidget);
+      expect(tester(t, 'demo-pay').onPressed, isNotNull);
+    },
+  );
+
+  testWidgets(
+    'por planes: una compra menor al mínimo de la ruleta igual se puede pagar (el servidor decide si da turno)',
+    (t) async {
+      final backend = _FakeBackend(
+        byPlans: true,
+        rules: const DemoRules(
+          balancePercent: 10,
+          minPurchase: 25000,
+          codeStepAmount: 20000,
+          maxCodesPerPurchase: 3,
+          maxCodesPerSession: 10,
+        ),
+      );
+      await t.pumpWidget(_app(backend));
+      await _enter(t);
+      await _tap(t, 'demo-add-r20'); // $ 20.000 < mínimo de la ruleta ($ 25.000)
+      await t.pump();
+      expect(tester(t, 'demo-pay').onPressed, isNotNull, reason: 'en el modo por planes cualquier compra se procesa');
+      expect(find.textContaining('no da ruleta'), findsOneWidget);
+      expect(find.textContaining('La compra mínima'), findsNothing);
+    },
+  );
+
+  testWidgets('por planes: el ingreso con turno de bienvenida lo anuncia y cada código dice su plan', (t) async {
+    final backend = _FakeBackend(
+      byPlans: true,
+      rules: plansRules,
+      grant: const DemoGrant(plan: 'Bienvenida', kind: DemoGrantKind.welcome),
+    )..stored = const [DemoOwnedCode(code: 'BIEN-1', game: 'roulette', played: false, plan: 'Bienvenida')];
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    expect(find.byKey(const ValueKey('demo-grant')), findsOneWidget);
+    expect(find.textContaining('ruleta de bienvenida'), findsOneWidget);
+    expect(find.byKey(const ValueKey('demo-plan-0')), findsOneWidget);
+    expect(find.text('Plan Bienvenida'), findsOneWidget);
+  });
+
+  testWidgets('por planes: el aviso de reactivación dice otra cosa y no vuelve después de jugar', (t) async {
+    final backend = _FakeBackend(
+      byPlans: true,
+      rules: plansRules,
+      grant: const DemoGrant(plan: 'Bienvenida', kind: DemoGrantKind.reactivation),
+    )..stored = const [DemoOwnedCode(code: 'RULETA-50K', game: 'roulette', played: false, plan: 'Bienvenida')];
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    expect(find.textContaining('verte de nuevo'), findsOneWidget);
+    expect(find.textContaining('ruleta de bienvenida'), findsNothing);
+
+    await _tap(t, 'demo-play-0');
+    await t.pumpAndSettle();
+    await t.tap(find.text('empezar'));
+    await t.pump();
+    await t.tap(find.text('terminar'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Continuar'));
+    await t.pumpAndSettle();
+    expect(find.text('Tus códigos'), findsWidgets);
+    expect(find.byKey(const ValueKey('demo-played-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('demo-grant')), findsNothing, reason: 'el turno ya se usó: el aviso no reaparece');
+  });
+
+  testWidgets('el aviso del turno se va con la primera compra', (t) async {
+    final backend = _FakeBackend(
+      byPlans: true,
+      rules: plansRules,
+      grant: const DemoGrant(plan: 'Bienvenida', kind: DemoGrantKind.welcome),
+    )..stored = const [DemoOwnedCode(code: 'BIEN-1', game: 'roulette', played: false, plan: 'Bienvenida')];
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    expect(find.byKey(const ValueKey('demo-grant')), findsOneWidget);
+    await _tap(t, 'demo-buy-more');
+    await _tap(t, 'demo-add-r50');
+    await _tap(t, 'demo-pay');
+    await t.pumpAndSettle();
+    await _tap(t, 'demo-see-codes');
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('demo-grant')), findsNothing);
+  });
+
+  testWidgets('sin turno otorgado no hay aviso', (t) async {
+    final backend = _FakeBackend(byPlans: true, rules: plansRules)
+      ..stored = const [DemoOwnedCode(code: 'BIEN-1', game: 'roulette', played: false, plan: 'Bienvenida')];
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    expect(find.byKey(const ValueKey('demo-grant')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('demo-plan-0')),
+      findsOneWidget,
+      reason: 'el plan del código se ve aunque no haya aviso',
+    );
+  });
+
+  testWidgets('por planes: la compra muestra el plan de cada código nuevo y una compra sin ruleta lo dice', (t) async {
+    final backend = _FakeBackend(byPlans: true, rules: plansRules, deliveredPlan: 'Oro');
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    await _tap(t, 'demo-add-r50');
+    await t.pump();
+    await _tap(t, 'demo-pay');
+    await t.pumpAndSettle();
+    await _tap(t, 'demo-see-codes');
+    await t.pumpAndSettle();
+    expect(find.text('Plan Oro'), findsOneWidget);
+
+    final none = _FakeBackend(byPlans: true, rules: plansRules, codes: const []);
+    await t.pumpWidget(const SizedBox.shrink()); // pantalla nueva: sin el estado del recorrido anterior
+    await t.pumpWidget(_app(none));
+    await _enter(t, email: 'otra@ejemplo.com');
+    await _tap(t, 'demo-add-pasa');
+    await t.pump();
+    await _tap(t, 'demo-pay');
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('demo-delivered')), findsOneWidget);
+    expect(find.text('Esta compra no dio ruleta'), findsOneWidget);
+  });
+
+  testWidgets('por planes en inglés', (t) async {
+    final backend = _FakeBackend(
+      byPlans: true,
+      rules: plansRules,
+      grant: const DemoGrant(plan: 'Gold', kind: DemoGrantKind.welcome),
+    )..stored = const [DemoOwnedCode(code: 'BIEN-1', game: 'roulette', played: false, plan: 'Gold')];
+    await t.pumpWidget(_app(backend, locale: const Locale('en')));
+    await t.enterText(find.byKey(const ValueKey('demo-email')), 'ana@ejemplo.com');
+    await _tap(t, 'demo-send-code');
+    await t.pumpAndSettle();
+    await t.enterText(find.byKey(const ValueKey('demo-code')), _FakeBackend.validCode);
+    await _tap(t, 'demo-verify');
+    await t.pumpAndSettle();
+    expect(find.text('A welcome spin is waiting for you! (Gold plan)'), findsOneWidget);
+    expect(find.text('Gold plan'), findsOneWidget);
+  });
+
+  testWidgets('en el modo anterior no hay aviso ni plan en los códigos', (t) async {
+    final backend = _FakeBackend()..stored = const [DemoOwnedCode(code: 'RULETA-1', game: 'roulette', played: false)];
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    expect(find.byKey(const ValueKey('demo-grant')), findsNothing);
+    expect(find.byKey(const ValueKey('demo-plan-0')), findsNothing);
+  });
+}
+
+/// Toca un botón de la pantalla: con tres productos la página es más alta que la ventana de pruebas y hay que desplazarla hasta él.
+Future<void> _tap(WidgetTester t, String key) async {
+  await t.ensureVisible(find.byKey(ValueKey(key)));
+  await t.tap(find.byKey(ValueKey(key)));
+  await t.pump();
 }
 
 FilledButton tester(WidgetTester t, String key) => t.widget<FilledButton>(find.byKey(ValueKey(key)));

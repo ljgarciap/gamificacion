@@ -125,6 +125,12 @@ abstract class GamificationStrings {
   String demoQuantity(String name, int n);
   String get demoTotal;
   String demoYouGet(String balance, int codes);
+  String demoYouGetPlans(String balance);
+  String demoYouGetNoRoulette(String balance);
+  String get demoNoRouletteDelivered;
+  String demoPlanOf(String plan);
+  String demoGrantWelcome(String plan);
+  String demoGrantReactivation(String plan);
   String demoBelowMin(String min);
   String get demoEmptyCart;
   String get demoPay;
@@ -443,6 +449,18 @@ class EsStrings extends GamificationStrings {
   @override
   String demoYouGet(String balance, int codes) =>
       codes == 1 ? 'Recibirás $balance de saldo y 1 código' : 'Recibirás $balance de saldo y $codes códigos';
+  @override
+  String demoYouGetPlans(String balance) => 'Recibirás $balance de saldo y una ruleta según el valor de tu compra';
+  @override
+  String demoYouGetNoRoulette(String balance) => 'Recibirás $balance de saldo. Esta compra no da ruleta';
+  @override
+  String get demoNoRouletteDelivered => 'Esta compra no dio ruleta';
+  @override
+  String demoPlanOf(String plan) => 'Plan $plan';
+  @override
+  String demoGrantWelcome(String plan) => '¡Tienes una ruleta de bienvenida esperándote! (Plan $plan)';
+  @override
+  String demoGrantReactivation(String plan) => '¡Qué bueno verte de nuevo! Tienes una ruleta de regreso (Plan $plan)';
   @override
   String demoBelowMin(String min) => 'La compra mínima es $min.';
   @override
@@ -813,6 +831,19 @@ class EnStrings extends GamificationStrings {
   String demoYouGet(String balance, int codes) => codes == 1
       ? 'You will receive $balance of balance and 1 code'
       : 'You will receive $balance of balance and $codes codes';
+  @override
+  String demoYouGetPlans(String balance) =>
+      'You will receive $balance of balance and a spin based on the value of your purchase';
+  @override
+  String demoYouGetNoRoulette(String balance) => 'You will receive $balance of balance. This purchase gives no spin';
+  @override
+  String get demoNoRouletteDelivered => 'This purchase gave no spin';
+  @override
+  String demoPlanOf(String plan) => '$plan plan';
+  @override
+  String demoGrantWelcome(String plan) => 'A welcome spin is waiting for you! ($plan plan)';
+  @override
+  String demoGrantReactivation(String plan) => 'Good to see you again! You have a comeback spin ($plan plan)';
   @override
   String demoBelowMin(String min) => 'The minimum purchase is $min.';
   @override

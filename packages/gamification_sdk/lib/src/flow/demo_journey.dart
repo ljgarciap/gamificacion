@@ -52,9 +52,10 @@ class DemoJourney extends StatefulWidget {
 enum _Stage { access, shop, paying, loaded, codes, play }
 
 class _Owned {
-  _Owned(this.code, this.game);
+  _Owned(this.code, this.game, [this.plan]);
   final String code;
   final String game;
+  final String? plan;
   bool played = false;
 }
 
@@ -65,6 +66,9 @@ class _DemoJourneyState extends State<DemoJourney> {
   final _cart = <String, int>{};
   final _codes = <_Owned>[];
   DemoOrder? _order;
+
+  /// Turno que otorgó el último ingreso (bienvenida o regreso); se muestra en la lista de códigos hasta que se juega o se compra.
+  DemoGrant? _grant;
   _Owned? _playing;
   bool _validated = false;
   bool _busy = false;
@@ -115,6 +119,12 @@ class _DemoJourneyState extends State<DemoJourney> {
   int get _total {
     final products = _session?.products ?? const [];
     return products.fold(0, (sum, p) => sum + p.price * (_cart[p.id] ?? 0));
+  }
+
+  /// Parte del total que corresponde a productos que participan en la ruleta (solo importa en el modo por planes).
+  int get _eligibleTotal {
+    final products = _session?.products ?? const [];
+    return products.fold(0, (sum, p) => p.participates ? sum + p.price * (_cart[p.id] ?? 0) : sum);
   }
 
   List<DemoLine> get _lines => [
@@ -205,11 +215,13 @@ class _DemoJourneyState extends State<DemoJourney> {
       _ticker?.cancel();
       setState(() {
         _session = session;
+        _grant = session.grant;
         _balance = account?.balance ?? session.balance;
         _codes
           ..clear()
           ..addAll([
-            for (final c in account?.codes ?? const <DemoOwnedCode>[]) _Owned(c.code, c.game)..played = c.played,
+            for (final c in account?.codes ?? const <DemoOwnedCode>[])
+              _Owned(c.code, c.game, c.plan)..played = c.played,
           ]);
         _cart.clear();
         _purchaseKey = null;
@@ -290,7 +302,8 @@ class _DemoJourneyState extends State<DemoJourney> {
         _cart.clear();
         _order = order;
         _balance = order.balance;
-        _codes.addAll([for (final c in order.codes) _Owned(c.code, c.game)]);
+        _codes.addAll([for (final c in order.codes) _Owned(c.code, c.game, c.plan)]);
+        _grant = null;
         _stage = _Stage.loaded;
       });
     } on DemoException catch (e) {
@@ -312,6 +325,7 @@ class _DemoJourneyState extends State<DemoJourney> {
     _validated = false;
     setState(() {
       _playing = owned;
+      _grant = null;
       _stage = _Stage.play;
     });
   }
@@ -572,7 +586,7 @@ class _DemoJourneyState extends State<DemoJourney> {
   Widget _shop() {
     final session = _session!;
     final total = _total;
-    final preview = session.rules.preview(total);
+    final preview = session.preview(total, _eligibleTotal);
     final canPay = total > 0 && preview.allowed;
     return _page([
       _title(_s.demoShopTitle),
@@ -616,6 +630,15 @@ class _DemoJourneyState extends State<DemoJourney> {
           key: const ValueKey('demo-hint'),
           textAlign: TextAlign.center,
           style: TextStyle(color: _t.error, fontWeight: FontWeight.w600),
+        )
+      else if (session.byPlans)
+        Text(
+          preview.codes > 0
+              ? _s.demoYouGetPlans(formatCop(preview.balance))
+              : _s.demoYouGetNoRoulette(formatCop(preview.balance)),
+          key: const ValueKey('demo-hint'),
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _t.navy.withValues(alpha: 0.85)),
         )
       else
         Text(
@@ -733,7 +756,9 @@ class _DemoJourneyState extends State<DemoJourney> {
               ),
               const SizedBox(height: 12),
               Text(
-                _s.demoCodesDelivered(order.codes.length),
+                order.codes.isEmpty && (_session?.byPlans ?? false)
+                    ? _s.demoNoRouletteDelivered
+                    : _s.demoCodesDelivered(order.codes.length),
                 key: const ValueKey('demo-delivered'),
                 style: TextStyle(fontWeight: FontWeight.w700, color: _t.navy),
               ),
@@ -763,6 +788,24 @@ class _DemoJourneyState extends State<DemoJourney> {
   Widget _codesList() => _page([
     _title(_s.demoCodesTitle),
     const SizedBox(height: 12),
+    if (_grant case final grant?)
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Card(
+          color: _t.navy.withValues(alpha: 0.08),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              grant.kind == DemoGrantKind.welcome
+                  ? _s.demoGrantWelcome(grant.plan)
+                  : _s.demoGrantReactivation(grant.plan),
+              key: const ValueKey('demo-grant'),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.w700, color: _t.navy),
+            ),
+          ),
+        ),
+      ),
     Card(
       child: Padding(padding: const EdgeInsets.all(12), child: _balanceLine()),
     ),
@@ -798,6 +841,12 @@ class _DemoJourneyState extends State<DemoJourney> {
                   _s.demoGameName(c.game),
                   style: TextStyle(fontWeight: FontWeight.w700, color: _t.navy),
                 ),
+                if (c.plan != null)
+                  Text(
+                    _s.demoPlanOf(c.plan!),
+                    key: ValueKey('demo-plan-$i'),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _t.navy.withValues(alpha: 0.75)),
+                  ),
                 Text(c.code, style: TextStyle(letterSpacing: 1, color: _t.navy.withValues(alpha: 0.7))),
               ],
             ),

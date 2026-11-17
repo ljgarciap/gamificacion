@@ -255,6 +255,28 @@ final class DemoPlansShopTest extends DbTestCase
         $this->assertSame(1000, $this->login()['rules']['minPurchase']);
     }
 
+    public function test_la_sesion_indica_el_modo_por_planes_y_que_productos_participan(): void
+    {
+        $this->arm();
+        $s = $this->login();
+        $this->assertSame('plans', $s['mode']);
+        $this->assertSame(
+            ['a999' => true, 'b1000' => true, 'c10001' => true, 'd50001' => true, 'pasa' => false],
+            collect($s['products'])->pluck('participates', 'id')->all(),
+        );
+    }
+
+    public function test_el_modo_anterior_no_agrega_mode_ni_participa_a_la_sesion(): void
+    {
+        $cfg = DemoConfig::validate(DemoConfig::defaults());
+        (new DemoSwitch)->saveConfig($cfg, 'test');
+        $this->app->make(DemoSeeder::class)->seed($cfg, 'test');
+        (new DemoSwitch)->enable('test');
+        $s = $this->login();
+        $this->assertArrayNotHasKey('mode', $s);
+        $this->assertArrayNotHasKey('participates', $s['products'][0]);
+    }
+
     // --- Compatibilidad con el modo anterior (CA-79) ------------------------------------------------------------------
 
     public function test_el_modo_anterior_no_agrega_el_campo_plan_a_los_codigos(): void

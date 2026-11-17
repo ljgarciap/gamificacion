@@ -118,9 +118,12 @@ final class DemoShop
             'isNew' => $isNew,
             'displayName' => $config['user']['displayName'], 'currency' => 'COP',
             'balance' => $this->balances->balanceFor($issued['userId']),
-            'products' => array_map(static fn (array $p): array => ['id' => $p['id'], 'name' => $p['name'], 'price' => $p['price']], $config['products']),
+            'products' => array_map(
+                static fn (array $p): array => ['id' => $p['id'], 'name' => $p['name'], 'price' => $p['price']] + (DemoConfig::mode($config) === 'plans' ? ['participates' => ($p['participates'] ?? true) === true] : []),
+                $config['products'],
+            ),
             'rules' => $this->rulesFor($config),
-        ];
+        ] + (DemoConfig::mode($config) === 'plans' ? ['mode' => 'plans'] : []);
     }
 
     /**
