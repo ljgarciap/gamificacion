@@ -37,7 +37,7 @@ class DemoApi implements DemoBackend, TokenProvider {
   String? _token;
   String? _subject;
   DateTime? _validUntil;
-  Future<void>? _renewing;
+  Future<DemoSession>? _renewing;
 
   Uri _url(String path) {
     final prefix = _base.path.endsWith('/') ? _base.path.substring(0, _base.path.length - 1) : _base.path;
@@ -154,9 +154,12 @@ class DemoApi implements DemoBackend, TokenProvider {
 
   /// Renueva el token reanudando la cuenta del ingreso. Sin ingreso previo no hay nada que reanudar. Varias peticiones simultáneas comparten
   /// UNA renovación.
-  Future<void> _renew() => _renewing ??= _renewOnce().whenComplete(() => _renewing = null);
+  Future<DemoSession> _renew() => _renewing ??= _renewOnce().whenComplete(() => _renewing = null);
 
-  Future<void> _renewOnce() async {
+  @override
+  Future<DemoSession> refresh() => _renew();
+
+  Future<DemoSession> _renewOnce() async {
     final subject = _subject;
     if (subject == null) throw const DemoException(DemoFailure.sessionInvalid);
     final r = await _send(
@@ -172,7 +175,7 @@ class DemoApi implements DemoBackend, TokenProvider {
       if (failure.reason == DemoFailure.sessionInvalid) signOut();
       throw failure;
     }
-    _readSession(r);
+    return _readSession(r);
   }
 
   /// Token vigente de la cuenta; si está por vencer lo renueva. Sin ingreso previo falla (`unauthorized`).
