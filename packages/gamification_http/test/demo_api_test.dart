@@ -454,6 +454,61 @@ void main() {
       expect(order.codes.map((c) => c.plan), ['Oro', null]);
     });
 
+    test('refresh trae las reglas y el catálogo de AHORA reanudando la cuenta, y deja el token nuevo en uso', () async {
+      final resumes = <Object?>[];
+      var percent = 10;
+      var calls = 0;
+      final api = DemoApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((r) async {
+          calls++;
+          if (r.url.path == '/v1/demo/session') resumes.add((jsonDecode(r.body) as Map)['resume']);
+          final body = _session(token: 'jwt-$calls');
+          (body['rules'] as Map)['balancePercent'] = percent;
+          return _json(200, body);
+        }),
+      );
+      final first = await api.verifyCode('ana@ejemplo.com', '123456');
+      expect(first.rules.balancePercent, 10);
+      percent = 100; // el superadmin lo cambia con la persona dentro
+      final fresh = await api.refresh();
+      expect(fresh.rules.balancePercent, 100);
+      expect(fresh.products.single.id, 'recarga-20');
+      expect(resumes, ['muestra.abc']);
+      expect(await api.token(), 'jwt-2', reason: 'el token de la renovación queda vigente');
+    });
+
+    test('refresh sin ingreso previo o con la cuenta borrada falla con sessionInvalid y olvida la sesión', () async {
+      final sinIngreso = DemoApi(baseUrl: 'http://api.test', client: MockClient((_) async => _json(200, _session())));
+      await expectLater(
+        sinIngreso.refresh(),
+        throwsA(isA<DemoException>().having((e) => e.reason, 'reason', DemoFailure.sessionInvalid)),
+      );
+      var renewals = 0;
+      final api = DemoApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((r) async {
+          if (r.url.path == '/v1/demo/session') {
+            renewals++;
+            return _json(401, {
+              'error': {'code': 'demoSessionInvalid', 'message': 'x'},
+            });
+          }
+          return _json(200, _session());
+        }),
+      );
+      await api.verifyCode('ana@ejemplo.com', '123456');
+      await expectLater(
+        api.refresh(),
+        throwsA(isA<DemoException>().having((e) => e.reason, 'reason', DemoFailure.sessionInvalid)),
+      );
+      await expectLater(
+        api.refresh(),
+        throwsA(isA<DemoException>().having((e) => e.reason, 'reason', DemoFailure.sessionInvalid)),
+      );
+      expect(renewals, 1, reason: 'olvidada: el segundo intento ni pregunta al servidor');
+    });
+
     test('signOut olvida token y subject', () async {
       var calls = 0;
       final api = DemoApi(

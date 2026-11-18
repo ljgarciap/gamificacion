@@ -38,7 +38,9 @@ class _FakeBackend implements DemoBackend {
     this.grant,
     this.deliveredPlan,
   });
-  final DemoRules rules;
+
+  /// Reglas vigentes: el superadmin puede cambiarlas con la persona dentro (`refresh` devuelve las de ahora).
+  DemoRules rules;
 
   /// Modo por planes (SPEC-007): la sesión lo dice, trae un producto que no participa y puede traer el turno del ingreso.
   final bool byPlans;
@@ -82,19 +84,35 @@ class _FakeBackend implements DemoBackend {
     verifies.add((email, code));
     if (verifyFailure != null) throw verifyFailure!;
     if (code != validCode) throw const DemoException(DemoFailure.invalidCode);
-    return DemoSession(
-      displayName: 'Cliente de muestra',
-      balance: balance,
-      resumed: false,
-      rules: rules,
-      byPlans: byPlans,
-      grant: grant,
-      products: [
-        const DemoProduct(id: 'r20', name: 'Recarga 20', price: 20000),
-        const DemoProduct(id: 'r50', name: 'Recarga 50', price: 50000),
-        if (byPlans) const DemoProduct(id: 'pasa', name: 'Pasa Plata', price: 30000, participates: false),
-      ],
-    );
+    return _session();
+  }
+
+  DemoSession _session() => DemoSession(
+    displayName: 'Cliente de muestra',
+    balance: balance,
+    resumed: false,
+    rules: rules,
+    byPlans: byPlans,
+    grant: grant,
+    products:
+        refreshedProducts ??
+        [
+          const DemoProduct(id: 'r20', name: 'Recarga 20', price: 20000),
+          const DemoProduct(id: 'r50', name: 'Recarga 50', price: 50000),
+          if (byPlans) const DemoProduct(id: 'pasa', name: 'Pasa Plata', price: 30000, participates: false),
+        ],
+  );
+
+  /// Catálogo que verá quien vuelva a la tienda (null = el de siempre).
+  List<DemoProduct>? refreshedProducts;
+  DemoException? refreshFailure;
+  var refreshes = 0;
+
+  @override
+  Future<DemoSession> refresh() async {
+    refreshes++;
+    if (refreshFailure != null) throw refreshFailure!;
+    return _session();
   }
 
   @override
@@ -229,6 +247,117 @@ void main() {
     expect(find.byKey(const ValueKey('demo-play-0')), findsNothing);
     // Premio de dinero: el saldo se refrescó con el repositorio (120.000 + 50.000 del mock).
     expect(find.text('\$ 170.000'), findsOneWidget);
+  });
+
+  testWidgets('al volver a la tienda la vista previa usa las reglas VIGENTES, no las del ingreso', (t) async {
+    final backend = _FakeBackend();
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    await _add(t, 'r20');
+    expect(find.text('Recibirás \$ 2.000 de saldo y 1 código'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('demo-pay')));
+    await t.pumpAndSettle();
+
+    // El superadmin sube el porcentaje de saldo a 100 mientras la persona sigue dentro.
+    backend.rules = const DemoRules(
+      balancePercent: 100,
+      minPurchase: 10000,
+      codeStepAmount: 20000,
+      maxCodesPerPurchase: 3,
+      maxCodesPerSession: 10,
+    );
+    await t.tap(find.byKey(const ValueKey('demo-see-codes')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('demo-buy-more')));
+    await t.pumpAndSettle();
+    expect(backend.refreshes, 1);
+    await _add(t, 'r20');
+    expect(find.text('Recibirás \$ 20.000 de saldo y 1 código'), findsOneWidget);
+    expect(find.textContaining('2.000 de saldo'), findsNothing);
+  });
+
+  testWidgets('si no se pueden traer las reglas (sin red) la tienda sigue con las que tenía', (t) async {
+    final backend = _FakeBackend();
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    await _add(t, 'r20');
+    await t.tap(find.byKey(const ValueKey('demo-pay')));
+    await t.pumpAndSettle();
+    backend.refreshFailure = const DemoException(DemoFailure.network);
+    await t.tap(find.byKey(const ValueKey('demo-see-codes')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('demo-buy-more')));
+    await t.pumpAndSettle();
+    expect(backend.refreshes, 1);
+    expect(find.text('Tienda'), findsWidgets);
+    await _add(t, 'r20');
+    expect(find.text('Recibirás \$ 2.000 de saldo y 1 código'), findsOneWidget);
+  });
+
+  testWidgets('si al volver a la tienda la cuenta ya no existe, vuelve al acceso con el motivo', (t) async {
+    final backend = _FakeBackend();
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    await _add(t, 'r20');
+    await t.tap(find.byKey(const ValueKey('demo-pay')));
+    await t.pumpAndSettle();
+    backend.refreshFailure = const DemoException(DemoFailure.sessionInvalid);
+    await t.tap(find.byKey(const ValueKey('demo-see-codes')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('demo-buy-more')));
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('demo-email')), findsOneWidget);
+    expect(find.text('Tu sesión de la muestra venció. Vuelve a entrar.'), findsOneWidget);
+  });
+
+  testWidgets('un producto que ya no está en el catálogo se quita del carrito al refrescar tras un rechazo', (t) async {
+    final backend = _FakeBackend();
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    await _add(t, 'r20');
+    expect(tester(t, 'demo-pay').onPressed, isNotNull);
+    // El superadmin quita «Recarga 20» del catálogo; el servidor rechaza la compra y la tienda se refresca.
+    backend.refreshedProducts = const [DemoProduct(id: 'r50', name: 'Recarga 50', price: 50000)];
+    backend.failures.add(const DemoException(DemoFailure.invalidPurchase));
+    await t.tap(find.byKey(const ValueKey('demo-pay')));
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('demo-add-r20')), findsNothing);
+    expect(find.byKey(const ValueKey('demo-add-r50')), findsOneWidget);
+    expect(
+      tester(t, 'demo-pay').onPressed,
+      isNull,
+      reason: 'el carrito quedó vacío: no se puede pagar un producto que ya no existe',
+    );
+  });
+
+  testWidgets('un rechazo del servidor refresca las reglas que se muestran', (t) async {
+    final backend = _FakeBackend();
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    await _add(t, 'r20');
+    backend.failures.add(const DemoException(DemoFailure.invalidPurchase));
+    backend.rules = const DemoRules(
+      balancePercent: 50,
+      minPurchase: 10000,
+      codeStepAmount: 20000,
+      maxCodesPerPurchase: 3,
+      maxCodesPerSession: 10,
+    );
+    await t.tap(find.byKey(const ValueKey('demo-pay')));
+    await t.pumpAndSettle();
+    expect(backend.refreshes, 1);
+    expect(find.text('Recibirás \$ 10.000 de saldo y 1 código'), findsOneWidget);
+  });
+
+  testWidgets('un fallo de red al pagar NO refresca (se conserva la compra para reintentar)', (t) async {
+    final backend = _FakeBackend();
+    await t.pumpWidget(_app(backend));
+    await _enter(t);
+    await _add(t, 'r20');
+    backend.failures.add(const DemoException(DemoFailure.network));
+    await t.tap(find.byKey(const ValueKey('demo-pay')));
+    await t.pumpAndSettle();
+    expect(backend.refreshes, 0);
   });
 
   testWidgets('el aviso de muestra y la barra de pasos están en todas las etapas', (t) async {

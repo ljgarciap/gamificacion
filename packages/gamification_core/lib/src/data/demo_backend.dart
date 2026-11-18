@@ -216,6 +216,10 @@ abstract interface class DemoBackend {
   /// Canjea el código de 6 dígitos: entra a la cuenta de ese correo (se crea si es nueva) con su saldo acumulado.
   Future<DemoSession> verifyCode(String email, String code);
 
+  /// Vuelve a pedir el catálogo y las reglas VIGENTES de la cuenta ya ingresada (el superadmin puede cambiarlos mientras la persona está
+  /// dentro). No otorga turnos ni cambia el saldo. Falla con `sessionInvalid` si la cuenta ya no existe.
+  Future<DemoSession> refresh();
+
   /// Saldo y códigos de la cuenta ya ingresada (para mostrarlos al volver a entrar).
   Future<DemoAccount> account();
 

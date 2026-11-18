@@ -318,6 +318,26 @@ class _DemoJourneyState extends State<DemoJourney> {
         _error = e;
         _stage = _Stage.shop;
       });
+      // Un rechazo puede deberse a que el superadmin cambió las reglas: se muestran las vigentes.
+      if (e.reason != DemoFailure.network) await _refreshShop();
+    }
+  }
+
+  /// Vuelve a la tienda con las reglas y el catálogo vigentes (la vista previa «Recibirás…» sale de ellos).
+  Future<void> _toShop() async {
+    setState(() => _stage = _Stage.shop);
+    await _refreshShop();
+  }
+
+  /// Pide al servidor las reglas y el catálogo de ahora: el superadmin pudo cambiarlos con la persona ya dentro. Un fallo de red deja lo que
+  /// había (es informativo: manda la respuesta de la compra); una cuenta que ya no existe vuelve al acceso.
+  Future<void> _refreshShop() async {
+    try {
+      final fresh = await widget.backend.refresh();
+      if (!mounted || _stage != _Stage.shop) return;
+      setState(() => _session = fresh);
+    } on DemoException catch (e) {
+      if (mounted && e.reason == DemoFailure.sessionInvalid) _toAccess(error: e);
     }
   }
 
@@ -820,11 +840,7 @@ class _DemoJourneyState extends State<DemoJourney> {
       ),
     for (var i = 0; i < _codes.length; i++) _codeRow(i, _codes[i]),
     const SizedBox(height: 12),
-    OutlinedButton(
-      key: const ValueKey('demo-buy-more'),
-      onPressed: () => setState(() => _stage = _Stage.shop),
-      child: Text(_s.demoBuyMore),
-    ),
+    OutlinedButton(key: const ValueKey('demo-buy-more'), onPressed: _toShop, child: Text(_s.demoBuyMore)),
     _signOutButton(),
   ]);
 

@@ -47,3 +47,9 @@ Spec: `spec-007-planes-por-monto.md` (APROBADA; valores ⚑ provisionales) · Di
 - Fuera de alcance (spec §4): correos a ganadores, Kupi real y productos del portafolio, push y campanita, pop-up del host, control por fechas de campaña.
 - Riesgos aceptados de una demo: farmear bienvenidas con correos desechables (lo acotan el tope de cuentas y el stock) y vaciar un plan alto con compras simuladas (el panel muestra el stock por plan).
 - Sin desplegar: los commits siguen locales; un push a `master` despliega por CI y aplica las migraciones `demo_plans` y `demo_grants`.
+
+## Hallazgo posterior al despliegue (2026-11-18) — vista previa con reglas viejas
+- **Qué pasó:** con la muestra ya desplegada, el superadmin subió «Saldo cargado (% de la compra)» de 10 a 100 con una persona dentro de la app. El servidor acreditó con el 100 % (verificado en `demo_orders`), pero el aviso «Recibirás $X de saldo…» seguía calculando con el 10 %: la app guardaba las reglas SOLO al ingresar y la vista previa salía de esa copia.
+- **Corrección:** `DemoBackend.refresh()` (reanuda la cuenta con `/v1/demo/session`, sin otorgar turnos ni mover saldo) y el recorrido la llama al volver a la tienda («Comprar más») y tras un rechazo que no sea de red. Un fallo de red conserva lo que había; una cuenta borrada vuelve al acceso.
+- **Pruebas:** 5 del recorrido y 2 del cliente HTTP; mutaciones: volver a la tienda sin refrescar, no refrescar tras un rechazo, refrescar también sin red, sesión inválida sin volver al acceso y reanudar con otro subject, todas atrapadas (una limpieza redundante del carrito se eliminó por ser código muerto).
+- **Límite:** mientras la persona permanece en la MISMA pantalla de tienda sin volver a entrar a ella, el aviso conserva lo que tenía; manda siempre la respuesta de la compra.
