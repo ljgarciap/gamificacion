@@ -144,6 +144,14 @@ Verificado después: el trabajo `web` del CI pasó (1 min 37 s) y, tras desplega
 - Capturas de ingreso y estado inicial de los 7 juegos: única diferencia, ≈4 px más de margen en la etiqueta «Código promocional» en móvil. **Aprobada por Luis** (2026-11-26). No cubre CA-6 completo (faltan resultados y el recorrido de la muestra).
 - 471 pruebas en local (465 + 6 de los palos); los 11 proyectos pasan también dentro de Docker. CI sin probar.
 
+### T4 (Android e iOS)
+
+- Android: Gradle 9.5.0, AGP 9.3.1, Kotlin 2.4.20, Java 17, sin `kotlin-android` y con **Kotlin integrado** (`android.builtInKotlin=true`, probado). Queda `android.newDsl=false`, puesto por el migrador.
+- APK de depuración (159 MB) y de publicación (50,5 MB) generados; `minSdk` 24, `targetSdk` 36.
+- iOS: compila para simulador con el SDK 27.2; mínimo 15.0 y UIScene presentes en la app compilada.
+- **Sin probar: arrancar y jugar (CA-7 y CA-8).** En la máquina local la imagen del sistema Android está incompleta (sin `system.img`), no hay ningún simulador iOS instalado y quedan ≈ 6 GB libres.
+- Hallazgo previo a esta tarea: el manifiesto principal de Android no declara `android.permission.INTERNET` (solo depuración y perfil), así que el APK de publicación no puede conectarse a un backend.
+
 ## 12. Fuentes
 
 - [Cambios incompatibles](https://docs.flutter.dev/release/breaking-changes)
