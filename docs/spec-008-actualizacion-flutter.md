@@ -1,6 +1,6 @@
 # SPEC-008 — Actualización a Flutter 3.50.1
 
-**Estado: APROBADA** por Luis (T0 completa; T1 implementada y probada en local, pendiente del PR y su CI) · 2026-11-25
+**Estado: APROBADA** por Luis (2026-11-25). T0 completa; T1 fusionada y desplegada (PR #4); T2 y T3 en la rama `feat/spec-008-flutter-350` (2026-11-26).
 
 ## 1. Resumen
 
@@ -133,7 +133,16 @@ Probado en local: la web y la etapa `sdk` construyen; con un SHA-256 alterado la
 
 Revisión (Senior Reviewer y Cybersecurity, en la misma sesión): aprobada para PR con dos ajustes ya hechos (descarga solo por HTTPS con TLS ≥ 1.2; `.env`, `deploy/*.env`, credenciales y `node_modules` fuera del contexto de construcción, que antes entraban a la etapa intermedia). Quedan como estaban: paquetes `apt` sin versión fija y `nginx:1.27-alpine` sin digest y como root.
 
-Sin probar: el trabajo `web` del CI y el espacio en disco del servidor.
+Verificado después: el trabajo `web` del CI pasó (1 min 37 s) y, tras desplegar, los servicios quedaron arriba con 39 GB libres en el servidor.
+
+### T2 y T3 (3.50.1 y `material_ui`)
+
+- Local: la versión queda fijada con FVM (`.fvmrc`), sin cambiar el Flutter global. CI y Dockerfile suben a 3.50.1 con su SHA-256.
+- Migración automática: 41 cambios de importación y 5 de `unnecessary_underscores`; `material_ui` 1.11.1 (editor `flutter.dev`) en 10 proyectos; `dart format` sin cambios, así que no hace falta el commit de formato aparte.
+- Póker: la web de 3.50.1 tomaba ♥ y ♦ de la fuente de emojis. Los palos pasan a dibujarse (`suit_mark.dart`), sin depender de fuentes.
+- `pubspec.lock` estaba fuera de git, así que la mitigación de la sección 10 no se cumplía. Decisión de Luis (2026-11-26): se versiona, y el CI y Docker usan `pub get --enforce-lockfile`.
+- Capturas de ingreso y estado inicial de los 7 juegos: única diferencia, ≈4 px más de margen en la etiqueta «Código promocional» en móvil. **Aprobada por Luis** (2026-11-26). No cubre CA-6 completo (faltan resultados y el recorrido de la muestra).
+- 471 pruebas en local (465 + 6 de los palos); los 11 proyectos pasan también dentro de Docker. CI sin probar.
 
 ## 12. Fuentes
 
