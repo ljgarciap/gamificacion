@@ -160,6 +160,17 @@ Verificado después: el trabajo `web` del CI pasó (1 min 37 s) y, tras desplega
 - Se quita `--pwa-strategy`. `web/flutter_bootstrap.js` no registra ningún service worker; el que genera Flutter se publica para dar de baja el registro vacío que dejaba la versión anterior.
 - **CA-9 probado en local** (imagen final, Chromium con perfil persistente, partiendo de una compilación 3.32.8 con la configuración anterior): tras recargar llega la versión nueva, pide las fuentes en `r2/`, quedan 0 service workers y no hay errores. Esos navegadores ven **una recarga automática** la primera vez. Falta repetirlo en la demo desplegada y en Safari y Firefox.
 
+### T6 (revisión)
+
+Revisión de Senior Reviewer y Cybersecurity en la misma sesión que implementó (no es independiente).
+
+- **CI del PR #5:** los cinco trabajos en verde (CA-2).
+- **Hallazgo alto, corregido** (decisión de Luis, 2026-11-26): un anfitrión con Flutter 3.50 que siguiera con `package:flutter/material.dart`, o sin Material, no podía embeber el SDK (`No MaterialLocalizations found`). `MaterialHost` aporta los textos de Material y Cupertino solo si faltan; la hoja de ayuda y el menú de selección de texto se envuelven aparte. Dependencia nueva: `cupertino_ui` 1.1.7 (`flutter.dev`, ya estaba como indirecta).
+  - Límite: esos textos de respaldo (copiar, pegar…) salen **en inglés**.
+  - Probado en pruebas de widgets (6 plataformas simuladas, los 7 juegos al abrirse, mutación). No probado en una app anfitriona real ni el menú nativo de iOS.
+  - Total: 538 pruebas en local.
+- **Pendiente (bajo, anterior a esta tarea):** `gradle-wrapper.properties` no fija `distributionSha256Sum`; siguen los puntos de la imagen anotados en T1.
+
 ## 12. Fuentes
 
 - [Cambios incompatibles](https://docs.flutter.dev/release/breaking-changes)

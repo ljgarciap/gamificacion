@@ -19,6 +19,7 @@ Juegos: Ruleta, Raspa y Gana, Concéntrese (memoria de parejas) y Dados (SPEC-00
 - Moneda fija COP. Branding por defecto SuperGIROS (reemplazable por tema).
 - Dependencias: `game_*` → `gamification_core`; `sdk` → core + juegos; `apps` → sdk. Los juegos no se conocen entre sí.
 - Nuevo juego = módulo que implementa `GameModule`, sin tocar el núcleo.
+- El SDK debe funcionar en anfitriones sin `material_ui` (`MaterialHost`): en widgets del SDK, las hojas se abren con `showSdkBottomSheet` y todo `TextField` lleva `contextMenuBuilder: sdkTextMenu`; cualquier otra capa nueva (diálogo, menú) necesita su envoltura y un caso en `legacy_host_test.dart`.
 - Navegación interna con `Navigator` simple (no go_router) para no chocar con el host al embeber.
 - Los paquetes llevan `publish_to: none` mientras usen dependencias `path`; quitarlo al publicar.
 - Validación visual en navegador real con Playwright CLI (no Claude in Chrome).
