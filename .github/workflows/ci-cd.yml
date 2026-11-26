@@ -6,7 +6,7 @@ on:
   push:
     branches: [master]
   pull_request:
-  workflow_dispatch: # «Run workflow» sobre una rama/etiqueta/commit: sirve para volver a una versión anterior (rollback)
+  workflow_dispatch: # «Run workflow»: solo despliega desde master; para volver atrás se revierte el cambio en master (docs/ci-cd.md)
 
 permissions:
   contents: read

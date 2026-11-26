@@ -1,6 +1,6 @@
 # SPEC-008 — Actualización a Flutter 3.50.1
 
-**Estado: APROBADA** por Luis (2026-11-25). T0 completa; T1 fusionada y desplegada (PR #4); T2 y T3 en la rama `feat/spec-008-flutter-350` (2026-11-26).
+**Estado: APROBADA** por Luis (2026-11-25). T0 completa; T1 fusionada y desplegada (PR #4); T2 a T6 en la rama `feat/spec-008-flutter-350` (PR #5, borrador); T7 con la web probada y Android e iOS pendientes (`docs/qa-spec-008.md`).
 
 ## 1. Resumen
 
@@ -99,7 +99,7 @@ Revisado y sin uso en el código: `Radio`, `DropdownButtonFormField`, `SnackBar`
 
 T1 va en su propio PR: se puede desplegar y verificar sin tocar Flutter, y separa los fallos de imagen de los fallos de versión.
 
-**Entrega y vuelta atrás:** un merge a `master` despliega solo a la demo, así que T2–T5 viven en una rama hasta que QA apruebe. Para volver atrás se ejecuta el flujo de CI (`workflow_dispatch`) sobre el commit anterior; antes del merge se confirma que ese commit todavía construye.
+**Entrega y vuelta atrás:** un merge a `master` despliega solo a la demo, así que T2–T5 viven en una rama hasta que QA apruebe. Para volver atrás se revierte en `master` el commit del merge (corregido en QA: `deploy` no corre desde otras ramas ni commits); ver `docs/qa-spec-008.md`.
 
 ## 9. Decisiones (tomadas por Luis, 2026-11-25)
 
@@ -170,6 +170,10 @@ Revisión de Senior Reviewer y Cybersecurity en la misma sesión que implementó
   - Probado en pruebas de widgets (6 plataformas simuladas, los 7 juegos al abrirse, mutación). No probado en una app anfitriona real ni el menú nativo de iOS.
   - Total: 538 pruebas en local.
 - **Pendiente (bajo, anterior a esta tarea):** `gradle-wrapper.properties` no fija `distributionSha256Sum`; siguen los puntos de la imagen anotados en T1.
+
+### T7 y T8
+
+Informe en `docs/qa-spec-008.md`. Documentación actualizada: `CLAUDE.md` y `docs/ci-cd.md`.
 
 ## 12. Fuentes
 

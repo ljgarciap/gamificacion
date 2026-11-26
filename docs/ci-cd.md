@@ -49,7 +49,7 @@ rm deploy_key deploy_key.pub
 Opcional pero recomendable: en *Settings → Environments → demo* agregar **Required reviewers**: cada despliegue espera una aprobación manual en GitHub.
 
 ## Volver a una versión anterior (rollback)
-*Actions → CI/CD → Run workflow*, elegir la rama o crear una desde el commit bueno. El flujo vuelve a probar y a desplegar ese commit. (Las migraciones no se deshacen solas: un cambio de esquema destructivo requiere un plan aparte.)
+`deploy` solo corre desde `master`: ejecutar el flujo sobre otra rama o etiqueta prueba el código pero **no lo despliega**. Para volver atrás se revierte en `master` el cambio defectuoso (`git revert <commit>` y `git push`); el flujo prueba y despliega el resultado. (Las migraciones no se deshacen solas: un cambio de esquema destructivo requiere un plan aparte.)
 
 ## Seguridad
 - El repositorio es público: **nunca** se versionan secretos (`deploy/demo.env` está en `.gitignore`); los de CI viven en *Secrets*, que GitHub no entrega a los pull requests de forks.
