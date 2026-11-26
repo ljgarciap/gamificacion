@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamification_core/gamification_core.dart';
 
@@ -227,7 +227,7 @@ class _Header extends StatelessWidget {
                         tween: IntTween(end: balance!.amount),
                         duration: reduce ? Duration.zero : const Duration(milliseconds: 900),
                         curve: Curves.easeOut,
-                        builder: (_, value, __) => Text(
+                        builder: (_, value, _) => Text(
                           formatCop(value),
                           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: theme.navy),
                         ),

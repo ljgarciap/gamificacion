@@ -17,3 +17,6 @@ deploy/demo.env
 deploy/demo-credentials.txt
 deploy/seed.log
 deploy/.seeded
+
+# FVM Version Cache
+.fvm/

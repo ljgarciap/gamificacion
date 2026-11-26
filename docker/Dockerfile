@@ -8,8 +8,8 @@
 
 # amd64 forzado: el SDK oficial de Linux es x64 (y el Dart arm64 de la imagen anterior abortaba con Bus error en Docker Desktop).
 FROM --platform=linux/amd64 debian:12-slim@sha256:e67eeead736ff7bbe258ef088bff683635c561b1fcfefad0806c1df4ab49ce0e AS sdk
-ARG FLUTTER_VERSION=3.32.8
-ARG FLUTTER_SHA256=c2c7d75f9be53f10f3fdba2f7e042b2ef0852cc088392b374bcec34c6204ed8c
+ARG FLUTTER_VERSION=3.50.1
+ARG FLUTTER_SHA256=4ad17fc8462fbcef2ba19ff4a78c0a16b7147fde1add8578e267ea62cdb92678
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl git unzip xz-utils \
  && rm -rf /var/lib/apt/lists/* \

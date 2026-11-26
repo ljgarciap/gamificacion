@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:gamification_core/gamification_core.dart';
 
@@ -768,7 +768,7 @@ class _DemoJourneyState extends State<DemoJourney> {
                 tween: IntTween(begin: order.balance - order.credited, end: order.balance),
                 duration: reduce ? Duration.zero : const Duration(milliseconds: 900),
                 curve: Curves.easeOut,
-                builder: (_, v, __) => Text(
+                builder: (_, v, _) => Text(
                   formatCop(v),
                   key: const ValueKey('demo-loaded-balance'),
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: _t.navy),

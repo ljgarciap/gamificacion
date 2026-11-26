@@ -1,6 +1,6 @@
 # Gamificación — minijuegos promocionales (Flutter multiplataforma)
 
-Stack: Flutter 3.32.8 / Dart 3.8.1, pub workspaces + Melos, Riverpod. Backend de premios: **Laravel 13 (PHP 8.3) + PostgreSQL 16** (SPEC-002) y/o adaptador del host.
+Stack: Flutter 3.50.1 / Dart 3.14.0 (fijado en `.fvmrc`: en local usar `fvm flutter` / `fvm dart`; Material viene del paquete `material_ui`), pub workspaces + Melos, Riverpod. Backend de premios: **Laravel 13 (PHP 8.3) + PostgreSQL 16** (SPEC-002) y/o adaptador del host.
 Juegos: Ruleta, Raspa y Gana, Concéntrese (memoria de parejas) y Dados (SPEC-004).
 
 ## Docs vigentes

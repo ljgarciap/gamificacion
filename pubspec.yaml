@@ -2,7 +2,7 @@ name: gamificacion_workspace
 publish_to: none
 
 environment:
-  sdk: ^3.8.1
+  sdk: ^3.14.0
 
 workspace:
   - packages/gamification_core
