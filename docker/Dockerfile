@@ -36,7 +36,7 @@ ARG GAMIF_API_URL=""
 # --pwa-strategy=none: sin service worker. Con el service worker por defecto el navegador sigue
 # sirviendo la versión anterior tras reconstruir (síntoma: "juego no disponible" con un juego nuevo)
 # y además borra el service worker viejo que ya hubiera guardado. Revisar para producción.
-RUN flutter pub get \
+RUN flutter pub get --enforce-lockfile \
  && cd apps/standalone \
  && flutter build web --release --pwa-strategy=none --dart-define=GAMIF_API_URL=${GAMIF_API_URL}
 

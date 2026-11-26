@@ -50,7 +50,7 @@ jobs:
           flutter-version: 3.50.1
           channel: stable
           cache: true
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - name: Formato y análisis
         run: |
           dart format --set-exit-if-changed packages apps

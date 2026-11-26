@@ -24,6 +24,7 @@ Juegos: Ruleta, Raspa y Gana, Concéntrese (memoria de parejas) y Dados (SPEC-00
 - Validación visual en navegador real con Playwright CLI (no Claude in Chrome).
 
 ## Comandos
+- `pubspec.lock` (raíz) está versionado y el CI y Docker usan `pub get --enforce-lockfile`: al tocar dependencias o cambiar de Flutter, correr `fvm flutter pub get` y commitear el lock.
 - `flutter pub get` (raíz) · `melos run analyze` · `melos run test` · `dart format .` (ancho 120 fijado en el `analysis_options.yaml` de cada paquete: `formatter: page_width: 120`)
 
 ## Despliegue de demostración
