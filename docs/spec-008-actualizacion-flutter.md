@@ -150,7 +150,7 @@ Verificado después: el trabajo `web` del CI pasó (1 min 37 s) y, tras desplega
 - APK de depuración (159 MB) y de publicación (50,5 MB) generados; `minSdk` 24, `targetSdk` 36.
 - iOS: compila para simulador con el SDK 27.2; mínimo 15.0 y UIScene presentes en la app compilada.
 - **Sin probar: arrancar y jugar (CA-7 y CA-8).** En la máquina local la imagen del sistema Android está incompleta (sin `system.img`), no hay ningún simulador iOS instalado y quedan ≈ 6 GB libres.
-- Hallazgo previo a esta tarea: el manifiesto principal de Android no declara `android.permission.INTERNET` (solo depuración y perfil), así que el APK de publicación no puede conectarse a un backend.
+- Hallazgo previo a esta tarea, **corregido** por decisión de Luis (2026-11-26): el manifiesto principal de Android no declaraba `android.permission.INTERNET` (solo depuración y perfil), así que el APK de publicación no podía conectarse a un backend. Verificado en el APK de publicación; la conexión real no se ha probado.
 
 ## 12. Fuentes
 
