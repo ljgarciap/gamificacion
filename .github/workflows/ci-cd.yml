@@ -66,6 +66,15 @@ jobs:
             fi
           done
 
+  web:
+    name: Compilación web e imagen Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      # La misma imagen que construye el servidor al desplegar: descarga el SDK verificando su sha256 y compila la web.
+      - run: docker compose build web
+
   panel:
     name: Panel de administración (Angular)
     runs-on: ubuntu-latest
@@ -90,7 +99,7 @@ jobs:
 
   deploy:
     name: Desplegar a la demostración
-    needs: [backend, verifier, flutter, panel]
+    needs: [backend, verifier, flutter, web, panel]
     # Solo desde master (push o ejecución manual), nunca desde un pull request ni desde un fork.
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
