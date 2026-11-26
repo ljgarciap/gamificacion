@@ -35,6 +35,7 @@ Juegos: Ruleta, Raspa y Gana, Concéntrese (memoria de parejas) y Dados (SPEC-00
 - `docker compose up -d --build web` → build de producción en http://localhost:8080
 - `docker compose up dev` → hot reload en http://localhost:8081 · `docker compose run --rm tools all` → analyze + tests
 - **Imagen Flutter propia** (`docker/Dockerfile`, etapas `sdk`/`build`/`web`): descarga el SDK oficial y verifica su SHA-256; versión y SHA se cambian juntos, y también en el CI. Siempre `linux/amd64` (el SDK de Linux es x64); más lento por emulación en Apple Silicon. `dev`/`tools` corren sin privilegios (uid 10001): en un host Linux ese usuario necesita permiso de escritura sobre el repo.
+- Caché web (SPEC-008 T5): los archivos de Flutter no llevan hash, así que todo va con `Cache-Control: no-cache`; **nunca** marcarlos `immutable`. La imagen publica los recursos en `r2/assets/` (`assetBase`) y `apps/standalone/web/flutter_bootstrap.js` no registra service worker.
 - Volúmenes nombrados para `.dart_tool` y pub-cache: evitan que el contenedor pise el `.dart_tool` del host.
 - nginx: un `add_header` en un `location` anula los del `server`; las cabeceras de seguridad (`frame-ancestors` vía `ALLOWED_FRAME_ANCESTORS`) se repiten en cada `location`.
 - Para flujo diario rápido usar `flutter run -d chrome` en el host; Docker es para reproducibilidad y despliegue.

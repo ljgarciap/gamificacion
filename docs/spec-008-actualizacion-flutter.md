@@ -152,6 +152,14 @@ Verificado después: el trabajo `web` del CI pasó (1 min 37 s) y, tras desplega
 - **Sin probar: arrancar y jugar (CA-7 y CA-8).** En la máquina local la imagen del sistema Android está incompleta (sin `system.img`), no hay ningún simulador iOS instalado y quedan ≈ 6 GB libres.
 - Hallazgo previo a esta tarea, **corregido** por decisión de Luis (2026-11-26): el manifiesto principal de Android no declaraba `android.permission.INTERNET` (solo depuración y perfil), así que el APK de publicación no podía conectarse a un backend. Verificado en el APK de publicación; la conexión real no se ha probado.
 
+### T5 (web: service worker y caché)
+
+- **Problema encontrado:** nginx entregaba como «inmutables» por un año archivos sin hash en el nombre (fuentes de íconos, `canvaskit/`). Un navegador que ya había cargado la 3.32.8 seguía usando las fuentes viejas.
+- `Cache-Control: no-cache` para todo (se revalida con ETag; sin cambios responde 304).
+- Los navegadores ya afectados no revalidan: en la imagen Docker los recursos se publican en `r2/assets/` (`assetBase`). Con `flutter run` siguen en `assets/`.
+- Se quita `--pwa-strategy`. `web/flutter_bootstrap.js` no registra ningún service worker; el que genera Flutter se publica para dar de baja el registro vacío que dejaba la versión anterior.
+- **CA-9 probado en local** (imagen final, Chromium con perfil persistente, partiendo de una compilación 3.32.8 con la configuración anterior): tras recargar llega la versión nueva, pide las fuentes en `r2/`, quedan 0 service workers y no hay errores. Esos navegadores ven **una recarga automática** la primera vez. Falta repetirlo en la demo desplegada y en Safari y Firefox.
+
 ## 12. Fuentes
 
 - [Cambios incompatibles](https://docs.flutter.dev/release/breaking-changes)
