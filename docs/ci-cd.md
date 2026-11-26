@@ -8,8 +8,9 @@ Archivo: `.github/workflows/ci-cd.yml`. Cada cambio se prueba y, si es un push a
 | `backend` | PR y push | `docker compose` con PostgreSQL 16 y `php artisan test` (≈ 874 pruebas, con concurrencia real) |
 | `verifier` | PR y push | Pruebas del verificador independiente (Python) y que `vectors.json` es el que genera el verificador |
 | `flutter` | PR y push | `dart format`, `flutter analyze` y las pruebas de cada paquete y de la app (Flutter 3.32.8) |
+| `web` | PR y push | Construye la imagen Docker de la web (`docker/Dockerfile`: SDK oficial de Flutter verificado por SHA-256) y la compila |
 | `panel` | PR y push | Pruebas unitarias, compilación de producción y `npm audit` (solo dependencias de producción, nivel alto) |
-| `deploy` | **solo push a `master`** (o ejecución manual desde `master`), después de que pasen los cuatro | Sube el código al servidor con `rsync` y corre `deploy/demo-up.sh` |
+| `deploy` | **solo push a `master`** (o ejecución manual desde `master`), después de que pasen los cinco | Sube el código al servidor con `rsync` y corre `deploy/demo-up.sh` |
 
 Las pruebas E2E del navegador (`admin-panel/e2e`) no corren en CI: necesitan la pila completa y gastan códigos reales; se corren a mano (`docs/qa-spec-005.md`).
 

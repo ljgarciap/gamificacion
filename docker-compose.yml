@@ -20,7 +20,8 @@ services:
     platform: linux/amd64
     build:
       context: .
-      dockerfile: docker/Dockerfile.dev
+      dockerfile: docker/Dockerfile
+      target: sdk
     working_dir: /app/apps/standalone
     command: >
       sh -c "cd /app && flutter pub get &&
@@ -31,9 +32,9 @@ services:
       - "8081:8081"
     volumes:
       - .:/app
-      - pub-cache:/root/.pub-cache
-      - dart-tool:/app/.dart_tool
-      - dart-tool-app:/app/apps/standalone/.dart_tool
+      - flutter-pub-cache:/home/flutter/.pub-cache
+      - flutter-dart-tool:/app/.dart_tool
+      - flutter-dart-tool-app:/app/apps/standalone/.dart_tool
     stdin_open: true
     tty: true
 
@@ -41,14 +42,15 @@ services:
     platform: linux/amd64
     build:
       context: .
-      dockerfile: docker/Dockerfile.dev
+      dockerfile: docker/Dockerfile
+      target: sdk
     working_dir: /app
     entrypoint: ["sh", "/app/docker/tools.sh"]
     volumes:
       - .:/app
-      - pub-cache:/root/.pub-cache
-      - dart-tool:/app/.dart_tool
-      - dart-tool-app:/app/apps/standalone/.dart_tool
+      - flutter-pub-cache:/home/flutter/.pub-cache
+      - flutter-dart-tool:/app/.dart_tool
+      - flutter-dart-tool-app:/app/apps/standalone/.dart_tool
 
   # --- Backend de premios (SPEC-002) ---
   #   docker compose up -d db backend          -> API en http://localhost:8000 (GET /up = salud)
@@ -136,6 +138,6 @@ services:
 volumes:
   db-data:
   backend-vendor:
-  pub-cache:
-  dart-tool:
-  dart-tool-app:
+  flutter-pub-cache:
+  flutter-dart-tool:
+  flutter-dart-tool-app:

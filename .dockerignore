@@ -6,3 +6,8 @@
 **/android/.gradle/
 .git/
 docs/
+# Secretos: la compilación de la web no los necesita.
+**/.env
+deploy/*.env
+deploy/demo-credentials.txt
+**/node_modules/
