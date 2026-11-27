@@ -2,7 +2,7 @@
 
 2026-11-26 · Rama `feat/spec-008-flutter-350` (`b087b32`) · PR #5 (borrador)
 
-**Resultado: web aprobada en local (capturas aprobadas por Luis). Android e iOS NO están aprobados** (nunca se arrancaron). Por decisión de Luis (2026-11-26), el PR no se fusiona hasta probar los móviles. No se encontraron fallos en lo probado.
+**Resultado: web aprobada en local (capturas aprobadas por Luis) y Android probado en emulador. iOS NO está aprobado** (nunca se arrancó). Por decisión de Luis (2026-11-26), el PR no se fusiona hasta probar los móviles. No se encontraron fallos de la app en lo probado.
 
 QA hecha en la misma sesión que implementó: no es independiente.
 
@@ -16,10 +16,21 @@ QA hecha en la misma sesión que implementó: no es independiente.
 | CA-4 | SHA-256 alterado detiene la imagen | Cumple | Con la 3.50.1 y un carácter cambiado: `computed checksum did NOT match`, sin imagen |
 | CA-5 | E2E de juegos y muestra contra Docker | Cumple | `juegos.spec.ts` 15/15; `muestra-recorrido` y `muestra-planes-recorrido` 2/2, con drand real, Mailpit y verificador independiente |
 | CA-6 | Capturas antes/después aprobadas | Cumple con la cobertura descrita abajo | **Aprobadas por Luis** (2026-11-26) |
-| CA-7 | APK y partida en emulador | **Parcial** | APK de depuración y publicación generados (antes de la corrección T6). No se arrancó: la imagen del emulador local está incompleta |
+| CA-7 | APK y partida en emulador | Cumple en emulador | APK de depuración (159 MB) y de publicación (50,5 MB) de `40b83a4`; se jugó con el de publicación en un emulador Android 16 (API 36, arm64, perfil Pixel 6): ver abajo |
 | CA-8 | Partida en simulador iOS 27 | **Pendiente** | Compila para simulador (antes de T6); no hay simulador instalado |
 | CA-9 | Navegador con la versión anterior recibe la nueva | Cumple en local | Chromium con perfil persistente sobre la imagen de T5. Falta Safari, Firefox y la demo |
 | CA-10 | Verificación tras desplegar y vuelta atrás | **Pendiente** | No se ha desplegado. Vuelta atrás documentada abajo, sin ensayar |
+
+## CA-7: Android
+
+Emulador contra el backend local (`adb reverse tcp:8000`), con códigos de demostración reales.
+
+- Los 7 juegos, con y sin premio (14 partidas): llegan al resultado y el saldo de la API cambia exactamente lo que dice el premio. Se terminaron con «GIRAR», «TIRAR» o «Revelar todo».
+- Raspa con el dedo (gestos): revela y llega al resultado.
+- Hoja «¿Dónde encuentro mi código?» y menú de texto nativo (pulsación larga) en el campo del código.
+- Registro del sistema sin excepciones de Flutter ni caídas en la repetición de Dados y en la prueba de gestos. En las otras partidas el registro no quedó revisado.
+
+No cubierto en Android: toques manuales en Concéntrese y Bomba 8, «Empezar» (Bingo) y «Abrir» (Póker), la muestra (`DemoJourney`), sonido y vibración, API 24 (mínimo) y un teléfono físico.
 
 ## CA-6: comparación visual
 
@@ -58,10 +69,12 @@ Esta actualización no trae migraciones. El estado anterior es `fee53a3`, que es
 
 ## No probado
 
-- Arranque en Android e iOS, y una app anfitriona real que embeba el SDK.
+- Arranque en iOS, y una app anfitriona real que embeba el SDK.
 - Safari y Firefox.
 - Textos de respaldo del SDK en un anfitrión sin `material_ui`: salen en inglés (límite conocido).
 
 ## Efectos en el entorno local
 
 Se sembraron dos veces códigos de demostración y los recorridos de la muestra la configuraron, encendieron, apagaron y reiniciaron en la base de desarrollo. Los contenedores quedaron detenidos.
+
+Para Android se borraron (con autorización de Luis) los NDK 26.3 y 27.0, la caché de Gradle, la distribución 8.12 y el emulador `Medium_Phone` (imagen incompleta); se instalaron `android-commandlinetools` (Homebrew), `cmdline-tools` en el SDK, la imagen `android-36;google_apis;arm64-v8a` y el emulador `spec008`. Se sembraron códigos de demostración una vez más.

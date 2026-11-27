@@ -1,6 +1,6 @@
 # SPEC-008 — Actualización a Flutter 3.50.1
 
-**Estado: APROBADA** por Luis (2026-11-25). T0 completa; T1 fusionada y desplegada (PR #4); T2 a T6 en la rama `feat/spec-008-flutter-350` (PR #5, borrador); T7 con la web probada y Android e iOS pendientes (`docs/qa-spec-008.md`).
+**Estado: APROBADA** por Luis (2026-11-25). T0 completa; T1 fusionada y desplegada (PR #4); T2 a T6 en la rama `feat/spec-008-flutter-350` (PR #5, borrador); T7 con la web y Android (emulador) probados e iOS pendiente (`docs/qa-spec-008.md`).
 
 ## 1. Resumen
 
@@ -149,8 +149,8 @@ Verificado después: el trabajo `web` del CI pasó (1 min 37 s) y, tras desplega
 - Android: Gradle 9.5.0, AGP 9.3.1, Kotlin 2.4.20, Java 17, sin `kotlin-android` y con **Kotlin integrado** (`android.builtInKotlin=true`, probado). Queda `android.newDsl=false`, puesto por el migrador.
 - APK de depuración (159 MB) y de publicación (50,5 MB) generados; `minSdk` 24, `targetSdk` 36.
 - iOS: compila para simulador con el SDK 27.2; mínimo 15.0 y UIScene presentes en la app compilada.
-- **Sin probar: arrancar y jugar (CA-7 y CA-8).** En la máquina local la imagen del sistema Android está incompleta (sin `system.img`), no hay ningún simulador iOS instalado y quedan ≈ 6 GB libres.
-- Hallazgo previo a esta tarea, **corregido** por decisión de Luis (2026-11-26): el manifiesto principal de Android no declaraba `android.permission.INTERNET` (solo depuración y perfil), así que el APK de publicación no podía conectarse a un backend. Verificado en el APK de publicación; la conexión real no se ha probado.
+- **Sin probar: arrancar y jugar (CA-7 y CA-8).** En la máquina local la imagen del sistema Android está incompleta (sin `system.img`), no hay ningún simulador iOS instalado y quedan ≈ 6 GB libres. Posterior (T7, 2026-11-26): CA-7 probada en un emulador nuevo; CA-8 sigue pendiente (`docs/qa-spec-008.md`).
+- Hallazgo previo a esta tarea, **corregido** por decisión de Luis (2026-11-26): el manifiesto principal de Android no declaraba `android.permission.INTERNET` (solo depuración y perfil), así que el APK de publicación no podía conectarse a un backend. Verificado en el APK de publicación; la conexión real se probó después en el emulador (CA-7).
 
 ### T5 (web: service worker y caché)
 
