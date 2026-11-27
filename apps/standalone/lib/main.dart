@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:game_bingo/game_bingo.dart';
 import 'package:game_bomb/game_bomb.dart';
 import 'package:game_dice/game_dice.dart';

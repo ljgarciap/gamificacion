@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 import 'poker_config.dart';
 import 'poker_table.dart';
+import 'suit_mark.dart';
 
 /// Pantalla del Póker del crupier (SPEC-005 §5 y §8). El resultado ya lo decidió el servidor: aquí solo se abren las cartas de la mesa
 /// (solas o a toque) y se muestra la mejor mano que se va teniendo. El crupier no tiene mano propia ni es un rival.
@@ -417,8 +418,6 @@ class _PlayingCard extends StatefulWidget {
 class _PlayingCardState extends State<_PlayingCard> with SingleTickerProviderStateMixin {
   late final AnimationController _flip;
 
-  static const _glyph = {'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣'};
-
   @override
   void initState() {
     super.initState();
@@ -518,10 +517,7 @@ class _PlayingCardState extends State<_PlayingCard> with SingleTickerProviderSta
               rank,
               style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: widget.width * 0.5, height: 1),
             ),
-            Text(
-              _glyph[widget.card[1]]!,
-              style: TextStyle(color: color, fontSize: widget.width * 0.5, height: 1),
-            ),
+            SuitMark(suit: widget.card[1], color: color, size: widget.width * 0.5),
           ],
         ),
       ),

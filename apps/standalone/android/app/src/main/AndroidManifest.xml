@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- También en publicación: sin este permiso la app no puede conectarse al backend. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="gamification_standalone"
         android:name="${applicationName}"

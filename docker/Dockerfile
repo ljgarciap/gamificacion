@@ -8,8 +8,8 @@
 
 # amd64 forzado: el SDK oficial de Linux es x64 (y el Dart arm64 de la imagen anterior abortaba con Bus error en Docker Desktop).
 FROM --platform=linux/amd64 debian:12-slim@sha256:e67eeead736ff7bbe258ef088bff683635c561b1fcfefad0806c1df4ab49ce0e AS sdk
-ARG FLUTTER_VERSION=3.32.8
-ARG FLUTTER_SHA256=c2c7d75f9be53f10f3fdba2f7e042b2ef0852cc088392b374bcec34c6204ed8c
+ARG FLUTTER_VERSION=3.50.1
+ARG FLUTTER_SHA256=4ad17fc8462fbcef2ba19ff4a78c0a16b7147fde1add8578e267ea62cdb92678
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl git unzip xz-utils \
  && rm -rf /var/lib/apt/lists/* \
@@ -33,12 +33,15 @@ FROM sdk AS build
 COPY --chown=flutter:flutter . .
 # URL del backend que usará la app web (la ve el NAVEGADOR, no el contenedor). Vacía = backend simulado.
 ARG GAMIF_API_URL=""
-# --pwa-strategy=none: sin service worker. Con el service worker por defecto el navegador sigue
-# sirviendo la versión anterior tras reconstruir (síntoma: "juego no disponible" con un juego nuevo)
-# y además borra el service worker viejo que ya hubiera guardado. Revisar para producción.
-RUN flutter pub get \
+# assetBase "r2/": los navegadores que cargaron una versión anterior tienen fuentes e íconos guardados como «inmutables» por un año en
+# /assets/. Se publican en /r2/assets/ para que los vuelvan a pedir (SPEC-008 RF-5). El `grep` detiene la construcción si el arranque cambia.
+RUN flutter pub get --enforce-lockfile \
  && cd apps/standalone \
- && flutter build web --release --pwa-strategy=none --dart-define=GAMIF_API_URL=${GAMIF_API_URL}
+ && flutter build web --release --dart-define=GAMIF_API_URL=${GAMIF_API_URL} \
+ && cd build/web \
+ && sed -i 's|_flutter.loader.load();|_flutter.loader.load({config: {assetBase: "r2/"}});|' flutter_bootstrap.js \
+ && grep -q 'assetBase: "r2/"' flutter_bootstrap.js \
+ && mkdir r2 && mv assets r2/assets
 
 FROM nginx:1.27-alpine AS web
 # Orígenes que pueden embeber la app en iframe (RNF-03). En local "*", en QA/prod restringir.

@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_poker/game_poker.dart';
+import 'package:game_poker/src/suit_mark.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 class _FakeFeedback implements GameFeedback {
@@ -73,6 +74,9 @@ void main() {
     await _pump(t, await _redeem('POKER-GANA'), h);
     expect(find.bySemanticsLabel('Rey de corazones'), findsOneWidget);
     expect(find.bySemanticsLabel('Rey de diamantes'), findsOneWidget);
+    final suits = t.widgetList<SuitMark>(find.byType(SuitMark));
+    expect(suits.map((m) => m.suit), ['H', 'D']);
+    expect(suits.map((m) => m.color), everyElement(const GamificationTheme().error));
     expect(find.bySemanticsLabel('La mesa'), findsOneWidget);
     expect(find.bySemanticsLabel('Carta 1 de 5, boca abajo'), findsOneWidget);
     expect(find.bySemanticsLabel('Carta 5 de 5, boca abajo'), findsOneWidget);

@@ -6,7 +6,7 @@ on:
   push:
     branches: [master]
   pull_request:
-  workflow_dispatch: # «Run workflow» sobre una rama/etiqueta/commit: sirve para volver a una versión anterior (rollback)
+  workflow_dispatch: # «Run workflow»: solo despliega desde master; para volver atrás se revierte el cambio en master (docs/ci-cd.md)
 
 permissions:
   contents: read
@@ -47,10 +47,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.32.8
+          flutter-version: 3.50.1
           channel: stable
           cache: true
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - name: Formato y análisis
         run: |
           dart format --set-exit-if-changed packages apps

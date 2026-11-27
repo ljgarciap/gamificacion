@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 import 'roulette_config.dart';
@@ -145,7 +145,7 @@ class _RouletteGameState extends State<RouletteGame> with TickerProviderStateMix
                   ExcludeSemantics(
                     child: AnimatedBuilder(
                       animation: _eased,
-                      builder: (_, __) => CustomPaint(
+                      builder: (_, _) => CustomPaint(
                         size: Size.square(side),
                         painter: RoulettePainter(
                           segments: config.segments,

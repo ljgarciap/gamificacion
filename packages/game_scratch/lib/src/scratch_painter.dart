@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Capa plateada que se borra con el dedo. Dibuja la cubierta y "perfora" los trazos con
 /// `BlendMode.clear` dentro de una capa aparte, de modo que lo raspado deja ver lo de abajo.

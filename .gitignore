@@ -2,7 +2,6 @@
 build/
 .flutter-plugins*
 .packages
-pubspec.lock
 *.iml
 .idea/
 .DS_Store
@@ -17,3 +16,6 @@ deploy/demo.env
 deploy/demo-credentials.txt
 deploy/seed.log
 deploy/.seeded
+
+# FVM Version Cache
+.fvm/

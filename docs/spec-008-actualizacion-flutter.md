@@ -1,6 +1,6 @@
 # SPEC-008 — Actualización a Flutter 3.50.1
 
-**Estado: APROBADA** por Luis (T0 completa; T1 implementada y probada en local, pendiente del PR y su CI) · 2026-11-25
+**Estado: APROBADA** por Luis (2026-11-25). T0 completa; T1 fusionada y desplegada (PR #4); T2 a T6 en la rama `feat/spec-008-flutter-350` (PR #5, borrador); T7 con la web y Android (emulador) probados e iOS pendiente (`docs/qa-spec-008.md`).
 
 ## 1. Resumen
 
@@ -99,7 +99,7 @@ Revisado y sin uso en el código: `Radio`, `DropdownButtonFormField`, `SnackBar`
 
 T1 va en su propio PR: se puede desplegar y verificar sin tocar Flutter, y separa los fallos de imagen de los fallos de versión.
 
-**Entrega y vuelta atrás:** un merge a `master` despliega solo a la demo, así que T2–T5 viven en una rama hasta que QA apruebe. Para volver atrás se ejecuta el flujo de CI (`workflow_dispatch`) sobre el commit anterior; antes del merge se confirma que ese commit todavía construye.
+**Entrega y vuelta atrás:** un merge a `master` despliega solo a la demo, así que T2–T5 viven en una rama hasta que QA apruebe. Para volver atrás se revierte en `master` el commit del merge (corregido en QA: `deploy` no corre desde otras ramas ni commits); ver `docs/qa-spec-008.md`.
 
 ## 9. Decisiones (tomadas por Luis, 2026-11-25)
 
@@ -133,7 +133,47 @@ Probado en local: la web y la etapa `sdk` construyen; con un SHA-256 alterado la
 
 Revisión (Senior Reviewer y Cybersecurity, en la misma sesión): aprobada para PR con dos ajustes ya hechos (descarga solo por HTTPS con TLS ≥ 1.2; `.env`, `deploy/*.env`, credenciales y `node_modules` fuera del contexto de construcción, que antes entraban a la etapa intermedia). Quedan como estaban: paquetes `apt` sin versión fija y `nginx:1.27-alpine` sin digest y como root.
 
-Sin probar: el trabajo `web` del CI y el espacio en disco del servidor.
+Verificado después: el trabajo `web` del CI pasó (1 min 37 s) y, tras desplegar, los servicios quedaron arriba con 39 GB libres en el servidor.
+
+### T2 y T3 (3.50.1 y `material_ui`)
+
+- Local: la versión queda fijada con FVM (`.fvmrc`), sin cambiar el Flutter global. CI y Dockerfile suben a 3.50.1 con su SHA-256.
+- Migración automática: 41 cambios de importación y 5 de `unnecessary_underscores`; `material_ui` 1.11.1 (editor `flutter.dev`) en 10 proyectos; `dart format` sin cambios, así que no hace falta el commit de formato aparte.
+- Póker: la web de 3.50.1 tomaba ♥ y ♦ de la fuente de emojis. Los palos pasan a dibujarse (`suit_mark.dart`), sin depender de fuentes.
+- `pubspec.lock` estaba fuera de git, así que la mitigación de la sección 10 no se cumplía. Decisión de Luis (2026-11-26): se versiona, y el CI y Docker usan `pub get --enforce-lockfile`.
+- Capturas de ingreso y estado inicial de los 7 juegos: única diferencia, ≈4 px más de margen en la etiqueta «Código promocional» en móvil. **Aprobada por Luis** (2026-11-26). No cubre CA-6 completo (faltan resultados y el recorrido de la muestra).
+- 471 pruebas en local (465 + 6 de los palos); los 11 proyectos pasan también dentro de Docker. CI sin probar.
+
+### T4 (Android e iOS)
+
+- Android: Gradle 9.5.0, AGP 9.3.1, Kotlin 2.4.20, Java 17, sin `kotlin-android` y con **Kotlin integrado** (`android.builtInKotlin=true`, probado). Queda `android.newDsl=false`, puesto por el migrador.
+- APK de depuración (159 MB) y de publicación (50,5 MB) generados; `minSdk` 24, `targetSdk` 36.
+- iOS: compila para simulador con el SDK 27.2; mínimo 15.0 y UIScene presentes en la app compilada.
+- **Sin probar: arrancar y jugar (CA-7 y CA-8).** En la máquina local la imagen del sistema Android está incompleta (sin `system.img`), no hay ningún simulador iOS instalado y quedan ≈ 6 GB libres. Posterior (T7, 2026-11-26): CA-7 probada en un emulador nuevo; CA-8 sigue pendiente (`docs/qa-spec-008.md`).
+- Hallazgo previo a esta tarea, **corregido** por decisión de Luis (2026-11-26): el manifiesto principal de Android no declaraba `android.permission.INTERNET` (solo depuración y perfil), así que el APK de publicación no podía conectarse a un backend. Verificado en el APK de publicación; la conexión real se probó después en el emulador (CA-7).
+
+### T5 (web: service worker y caché)
+
+- **Problema encontrado:** nginx entregaba como «inmutables» por un año archivos sin hash en el nombre (fuentes de íconos, `canvaskit/`). Un navegador que ya había cargado la 3.32.8 seguía usando las fuentes viejas.
+- `Cache-Control: no-cache` para todo (se revalida con ETag; sin cambios responde 304).
+- Los navegadores ya afectados no revalidan: en la imagen Docker los recursos se publican en `r2/assets/` (`assetBase`). Con `flutter run` siguen en `assets/`.
+- Se quita `--pwa-strategy`. `web/flutter_bootstrap.js` no registra ningún service worker; el que genera Flutter se publica para dar de baja el registro vacío que dejaba la versión anterior.
+- **CA-9 probado en local** (imagen final, Chromium con perfil persistente, partiendo de una compilación 3.32.8 con la configuración anterior): tras recargar llega la versión nueva, pide las fuentes en `r2/`, quedan 0 service workers y no hay errores. Esos navegadores ven **una recarga automática** la primera vez. Falta repetirlo en la demo desplegada y en Safari y Firefox.
+
+### T6 (revisión)
+
+Revisión de Senior Reviewer y Cybersecurity en la misma sesión que implementó (no es independiente).
+
+- **CI del PR #5:** los cinco trabajos en verde (CA-2).
+- **Hallazgo alto, corregido** (decisión de Luis, 2026-11-26): un anfitrión con Flutter 3.50 que siguiera con `package:flutter/material.dart`, o sin Material, no podía embeber el SDK (`No MaterialLocalizations found`). `MaterialHost` aporta los textos de Material y Cupertino solo si faltan; la hoja de ayuda y el menú de selección de texto se envuelven aparte. Dependencia nueva: `cupertino_ui` 1.1.7 (`flutter.dev`, ya estaba como indirecta).
+  - Límite: esos textos de respaldo (copiar, pegar…) salen **en inglés**.
+  - Probado en pruebas de widgets (6 plataformas simuladas, los 7 juegos al abrirse, mutación). No probado en una app anfitriona real ni el menú nativo de iOS.
+  - Total: 538 pruebas en local.
+- **Pendiente (bajo, anterior a esta tarea):** `gradle-wrapper.properties` no fija `distributionSha256Sum`; siguen los puntos de la imagen anotados en T1.
+
+### T7 y T8
+
+Informe en `docs/qa-spec-008.md`. Documentación actualizada: `CLAUDE.md` y `docs/ci-cd.md`.
 
 ## 12. Fuentes
 

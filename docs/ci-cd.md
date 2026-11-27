@@ -7,7 +7,7 @@ Archivo: `.github/workflows/ci-cd.yml`. Cada cambio se prueba y, si es un push a
 |---|---|---|
 | `backend` | PR y push | `docker compose` con PostgreSQL 16 y `php artisan test` (≈ 874 pruebas, con concurrencia real) |
 | `verifier` | PR y push | Pruebas del verificador independiente (Python) y que `vectors.json` es el que genera el verificador |
-| `flutter` | PR y push | `dart format`, `flutter analyze` y las pruebas de cada paquete y de la app (Flutter 3.32.8) |
+| `flutter` | PR y push | `dart format`, `flutter analyze` y las pruebas de cada paquete y de la app (Flutter 3.50.1) |
 | `web` | PR y push | Construye la imagen Docker de la web (`docker/Dockerfile`: SDK oficial de Flutter verificado por SHA-256) y la compila |
 | `panel` | PR y push | Pruebas unitarias, compilación de producción y `npm audit` (solo dependencias de producción, nivel alto) |
 | `deploy` | **solo push a `master`** (o ejecución manual desde `master`), después de que pasen los cinco | Sube el código al servidor con `rsync` y corre `deploy/demo-up.sh` |
@@ -49,7 +49,7 @@ rm deploy_key deploy_key.pub
 Opcional pero recomendable: en *Settings → Environments → demo* agregar **Required reviewers**: cada despliegue espera una aprobación manual en GitHub.
 
 ## Volver a una versión anterior (rollback)
-*Actions → CI/CD → Run workflow*, elegir la rama o crear una desde el commit bueno. El flujo vuelve a probar y a desplegar ese commit. (Las migraciones no se deshacen solas: un cambio de esquema destructivo requiere un plan aparte.)
+`deploy` solo corre desde `master`: ejecutar el flujo sobre otra rama o etiqueta prueba el código pero **no lo despliega**. Para volver atrás se revierte en `master` el cambio defectuoso (`git revert <commit>` y `git push`); el flujo prueba y despliega el resultado. (Las migraciones no se deshacen solas: un cambio de esquema destructivo requiere un plan aparte.)
 
 ## Seguridad
 - El repositorio es público: **nunca** se versionan secretos (`deploy/demo.env` está en `.gitignore`); los de CI viven en *Secrets*, que GitHub no entrega a los pull requests de forks.

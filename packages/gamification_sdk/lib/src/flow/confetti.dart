@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Confeti breve (~2 s) sin dependencias. Determinista por semilla; no intercepta toques.
 class ConfettiBurst extends StatefulWidget {
@@ -29,7 +29,7 @@ class _ConfettiBurstState extends State<ConfettiBurst> with SingleTickerProvider
       child: ExcludeSemantics(
         child: AnimatedBuilder(
           animation: _c,
-          builder: (_, __) =>
+          builder: (_, _) =>
               CustomPaint(size: Size.infinite, painter: _ConfettiPainter(_c.value, widget.colors, widget.particles)),
         ),
       ),

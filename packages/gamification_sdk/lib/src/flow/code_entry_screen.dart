@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamification_core/gamification_core.dart';
@@ -8,6 +8,7 @@ import 'package:gamification_core/gamification_core.dart';
 import 'flow_controller.dart';
 import 'demo_codes_panel.dart';
 import 'flow_state.dart';
+import 'material_host.dart';
 
 /// Pantalla 1 (ux-spec-001): ingreso y validación del código.
 class CodeEntryScreen extends ConsumerStatefulWidget {
@@ -137,6 +138,7 @@ class _CodeEntryScreenState extends ConsumerState<CodeEntryScreen> {
                 children: [
                   TextField(
                     controller: _controller,
+                    contextMenuBuilder: sdkTextMenu,
                     enabled: !validating,
                     autocorrect: false,
                     enableSuggestions: false,
@@ -183,9 +185,8 @@ class _CodeEntryScreenState extends ConsumerState<CodeEntryScreen> {
 
   void _showHelp(BuildContext context, String text) {
     final scope = GamificationScope.of(context);
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
+    showSdkBottomSheet(
+      context,
       builder: (ctx) => Padding(
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
         child: Column(

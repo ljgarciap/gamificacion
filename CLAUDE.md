@@ -1,6 +1,6 @@
 # Gamificación — minijuegos promocionales (Flutter multiplataforma)
 
-Stack: Flutter 3.32.8 / Dart 3.8.1, pub workspaces + Melos, Riverpod. Backend de premios: **Laravel 13 (PHP 8.3) + PostgreSQL 16** (SPEC-002) y/o adaptador del host.
+Stack: Flutter 3.50.1 / Dart 3.14.0 (fijado en `.fvmrc`: en local usar `fvm flutter` / `fvm dart`; Material viene del paquete `material_ui`), pub workspaces + Melos, Riverpod. Backend de premios: **Laravel 13 (PHP 8.3) + PostgreSQL 16** (SPEC-002) y/o adaptador del host.
 Juegos: Ruleta, Raspa y Gana, Concéntrese (memoria de parejas) y Dados (SPEC-004).
 
 ## Docs vigentes
@@ -19,11 +19,13 @@ Juegos: Ruleta, Raspa y Gana, Concéntrese (memoria de parejas) y Dados (SPEC-00
 - Moneda fija COP. Branding por defecto SuperGIROS (reemplazable por tema).
 - Dependencias: `game_*` → `gamification_core`; `sdk` → core + juegos; `apps` → sdk. Los juegos no se conocen entre sí.
 - Nuevo juego = módulo que implementa `GameModule`, sin tocar el núcleo.
+- El SDK debe funcionar en anfitriones sin `material_ui` (`MaterialHost`): en widgets del SDK, las hojas se abren con `showSdkBottomSheet` y todo `TextField` lleva `contextMenuBuilder: sdkTextMenu`; cualquier otra capa nueva (diálogo, menú) necesita su envoltura y un caso en `legacy_host_test.dart`.
 - Navegación interna con `Navigator` simple (no go_router) para no chocar con el host al embeber.
 - Los paquetes llevan `publish_to: none` mientras usen dependencias `path`; quitarlo al publicar.
 - Validación visual en navegador real con Playwright CLI (no Claude in Chrome).
 
 ## Comandos
+- `pubspec.lock` (raíz) está versionado y el CI y Docker usan `pub get --enforce-lockfile`: al tocar dependencias o cambiar de Flutter, correr `fvm flutter pub get` y commitear el lock.
 - `flutter pub get` (raíz) · `melos run analyze` · `melos run test` · `dart format .` (ancho 120 fijado en el `analysis_options.yaml` de cada paquete: `formatter: page_width: 120`)
 
 ## Despliegue de demostración
@@ -34,6 +36,7 @@ Juegos: Ruleta, Raspa y Gana, Concéntrese (memoria de parejas) y Dados (SPEC-00
 - `docker compose up -d --build web` → build de producción en http://localhost:8080
 - `docker compose up dev` → hot reload en http://localhost:8081 · `docker compose run --rm tools all` → analyze + tests
 - **Imagen Flutter propia** (`docker/Dockerfile`, etapas `sdk`/`build`/`web`): descarga el SDK oficial y verifica su SHA-256; versión y SHA se cambian juntos, y también en el CI. Siempre `linux/amd64` (el SDK de Linux es x64); más lento por emulación en Apple Silicon. `dev`/`tools` corren sin privilegios (uid 10001): en un host Linux ese usuario necesita permiso de escritura sobre el repo.
+- Caché web (SPEC-008 T5): los archivos de Flutter no llevan hash, así que todo va con `Cache-Control: no-cache`; **nunca** marcarlos `immutable`. La imagen publica los recursos en `r2/assets/` (`assetBase`) y `apps/standalone/web/flutter_bootstrap.js` no registra service worker.
 - Volúmenes nombrados para `.dart_tool` y pub-cache: evitan que el contenedor pise el `.dart_tool` del host.
 - nginx: un `add_header` en un `location` anula los del `server`; las cabeceras de seguridad (`frame-ancestors` vía `ALLOWED_FRAME_ANCESTORS`) se repiten en cada `location`.
 - Para flujo diario rápido usar `flutter run -d chrome` en el host; Docker es para reproducibilidad y despliegue.

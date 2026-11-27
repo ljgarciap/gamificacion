@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 import 'scratch_config.dart';
@@ -207,7 +207,7 @@ class _ScratchGameState extends State<ScratchGame> with SingleTickerProviderStat
                 const SizedBox(height: 12),
                 ValueListenableBuilder<double>(
                   valueListenable: _coverage,
-                  builder: (_, value, __) => ExcludeSemantics(
+                  builder: (_, value, _) => ExcludeSemantics(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(

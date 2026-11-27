@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 import 'roulette_math.dart';

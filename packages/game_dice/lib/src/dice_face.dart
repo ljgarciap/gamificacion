@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Posiciones de los puntos de cada cara en una rejilla de 3×3 (columna, fila), de 0 a 2.
 const _pips = <int, List<(int, int)>>{

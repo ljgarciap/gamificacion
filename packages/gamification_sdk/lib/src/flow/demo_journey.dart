@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 import 'gamification_flow.dart';
+import 'material_host.dart';
 
 /// Recorrido de la MUESTRA REAL (SPEC-006 y SPEC-006A): Acceso (correo + código de un solo uso) → Tienda → Pago simulado → Saldo cargado →
 /// Tus códigos → Juego. La cuenta persiste en el servidor: al volver a entrar con el mismo correo se recupera el saldo acumulado y los códigos
@@ -378,21 +379,23 @@ class _DemoJourneyState extends State<DemoJourney> {
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: _t.toThemeData(),
-      child: Material(
-        color: _t.background,
-        child: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                children: [
-                  _banner(),
-                  _steps(),
-                  Expanded(child: _body()),
-                ],
+    return MaterialHost(
+      child: Theme(
+        data: _t.toThemeData(),
+        child: Material(
+          color: _t.background,
+          child: SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  children: [
+                    _banner(),
+                    _steps(),
+                    Expanded(child: _body()),
+                  ],
+                ),
               ),
             ),
           ),
@@ -533,6 +536,7 @@ class _DemoJourneyState extends State<DemoJourney> {
     TextField(
       key: const ValueKey('demo-email'),
       controller: _emailCtl,
+      contextMenuBuilder: sdkTextMenu,
       enabled: !_busy,
       keyboardType: TextInputType.emailAddress,
       autofillHints: const [AutofillHints.email],
@@ -568,6 +572,7 @@ class _DemoJourneyState extends State<DemoJourney> {
     TextField(
       key: const ValueKey('demo-code'),
       controller: _codeCtl,
+      contextMenuBuilder: sdkTextMenu,
       focusNode: _codeFocus,
       enabled: !_busy,
       autofocus: true,
@@ -768,7 +773,7 @@ class _DemoJourneyState extends State<DemoJourney> {
                 tween: IntTween(begin: order.balance - order.credited, end: order.balance),
                 duration: reduce ? Duration.zero : const Duration(milliseconds: 900),
                 curve: Curves.easeOut,
-                builder: (_, v, __) => Text(
+                builder: (_, v, _) => Text(
                   formatCop(v),
                   key: const ValueKey('demo-loaded-balance'),
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: _t.navy),

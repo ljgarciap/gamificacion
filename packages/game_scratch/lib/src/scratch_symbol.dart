@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 /// Contenido de una casilla. Si el símbolo es el id del premio, muestra el icono y el valor del premio.

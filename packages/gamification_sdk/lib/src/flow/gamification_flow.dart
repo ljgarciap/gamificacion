@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gamification_core/gamification_core.dart';
 
 import 'code_entry_screen.dart';
 import 'flow_controller.dart';
 import 'flow_state.dart';
+import 'material_host.dart';
 import 'result_screen.dart';
 
 /// Flujo común: ingreso de código -> juego de la campaña -> resultado.
@@ -106,30 +107,32 @@ class _FlowRootState extends ConsumerState<_FlowRoot> {
     final theme = state.redemption?.campaign.theme ?? o.theme;
     final title = state.redemption?.campaign.title ?? o.title ?? strings.defaultTitle;
 
-    return Theme(
-      data: theme.toThemeData(),
-      child: GamificationScope(
-        theme: theme,
-        strings: strings,
-        preferences: o.preferences,
-        child: Builder(
-          builder: (context) => Material(
-            color: theme.background,
-            child: SafeArea(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Column(
-                    children: [
-                      _Header(
-                        balance: o.showBalance ? state.balance : null,
-                        // Cerrar se bloquea mientras corre la animación: el premio ya está asegurado.
-                        onClose: o.onClose == null || state.animating ? null : _close,
-                        note: state.animating ? strings.prizeSecured : null,
-                      ),
-                      Expanded(child: _stage(context, state, controller, title)),
-                    ],
+    return MaterialHost(
+      child: Theme(
+        data: theme.toThemeData(),
+        child: GamificationScope(
+          theme: theme,
+          strings: strings,
+          preferences: o.preferences,
+          child: Builder(
+            builder: (context) => Material(
+              color: theme.background,
+              child: SafeArea(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: Column(
+                      children: [
+                        _Header(
+                          balance: o.showBalance ? state.balance : null,
+                          // Cerrar se bloquea mientras corre la animación: el premio ya está asegurado.
+                          onClose: o.onClose == null || state.animating ? null : _close,
+                          note: state.animating ? strings.prizeSecured : null,
+                        ),
+                        Expanded(child: _stage(context, state, controller, title)),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -227,7 +230,7 @@ class _Header extends StatelessWidget {
                         tween: IntTween(end: balance!.amount),
                         duration: reduce ? Duration.zero : const Duration(milliseconds: 900),
                         curve: Curves.easeOut,
-                        builder: (_, value, __) => Text(
+                        builder: (_, value, _) => Text(
                           formatCop(value),
                           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: theme.navy),
                         ),
